@@ -691,6 +691,36 @@ export type Database = {
           },
         ]
       }
+      tamanhos_pizza: {
+        Row: {
+          created_at: string
+          fatias: number
+          id: string
+          max_sabores: number
+          nome: string
+          ordem: number
+          preco_base: number
+        }
+        Insert: {
+          created_at?: string
+          fatias: number
+          id?: string
+          max_sabores: number
+          nome: string
+          ordem?: number
+          preco_base: number
+        }
+        Update: {
+          created_at?: string
+          fatias?: number
+          id?: string
+          max_sabores?: number
+          nome?: string
+          ordem?: number
+          preco_base?: number
+        }
+        Relationships: []
+      }
       variacoes_produto: {
         Row: {
           ativo: boolean

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import {
   alternarAtivoProduto,
+  definirAdicionalCategoria,
   definirImagemProduto,
   excluirCategoria,
   excluirProduto,
@@ -12,6 +13,7 @@ import {
   salvarCategoria,
   salvarProduto,
 } from "@pizzaria/db";
+import { lerReais } from "@pizzaria/shared";
 import { exigirAdmin } from "../../../../lib/auth";
 
 export type Resultado<T = object> = ({ ok: true } & T) | { ok: false; erro: string };
@@ -65,6 +67,22 @@ export async function excluirCategoriaAction(formData: FormData) {
     await excluirCategoria(supabase, z.uuid().parse(formData.get("id")));
   } catch (err) {
     erro = mensagem(err);
+  }
+  atualizarTelas();
+  if (erro) redirect(`/admin/cardapio?erro=${encodeURIComponent(erro)}`);
+}
+
+export async function definirAdicionalCategoriaAction(formData: FormData) {
+  const { supabase } = await exigirAdmin();
+  const adicional = lerReais(String(formData.get("adicional") ?? ""));
+  let erro: string | null = null;
+  if (adicional === null || adicional < 0 || adicional > 100_000) erro = "Adicional por sabor inválido";
+  else {
+    try {
+      await definirAdicionalCategoria(supabase, z.uuid().parse(formData.get("id")), adicional);
+    } catch (err) {
+      erro = mensagem(err);
+    }
   }
   atualizarTelas();
   if (erro) redirect(`/admin/cardapio?erro=${encodeURIComponent(erro)}`);

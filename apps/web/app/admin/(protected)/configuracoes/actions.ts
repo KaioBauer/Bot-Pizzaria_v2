@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { definirAceitandoPedidos, salvarBairros, salvarConfiguracao, salvarHorarios } from "@pizzaria/db";
+import { definirAceitandoPedidos, salvarBairros, salvarConfiguracao, salvarHorarios, salvarTamanhos } from "@pizzaria/db";
 import { exigirAdmin } from "../../../../lib/auth";
 
 export type Resultado = { ok: true } | { ok: false; erro: string };
@@ -60,6 +60,15 @@ const bairrosSchema = z
     "Há bairros com o mesmo nome"
   );
 
+const tamanhosSchema = z.array(
+  z.object({
+    id: z.uuid(),
+    fatias: z.number().int().min(1, "Fatias: mínimo 1").max(32),
+    maxSabores: z.number().int().min(1, "Sabores: mínimo 1").max(6, "Sabores: máximo 6"),
+    precoBaseCentavos: z.number().int().min(100, "Preço do tamanho inválido").max(100_000),
+  })
+);
+
 async function executar<T>(schema: z.ZodType<T>, entrada: unknown, salvar: (dados: T) => Promise<void>): Promise<Resultado> {
   const dados = schema.safeParse(entrada);
   if (!dados.success) return { ok: false, erro: dados.error.issues[0]?.message ?? "Dados inválidos" };
@@ -86,6 +95,11 @@ export async function salvarHorariosAction(entrada: z.input<typeof horariosSchem
 export async function salvarBairrosAction(entrada: z.input<typeof bairrosSchema>) {
   const { supabase } = await exigirAdmin();
   return executar(bairrosSchema, entrada, (d) => salvarBairros(supabase, d));
+}
+
+export async function salvarTamanhosAction(entrada: z.input<typeof tamanhosSchema>) {
+  const { supabase } = await exigirAdmin();
+  return executar(tamanhosSchema, entrada, (d) => salvarTamanhos(supabase, d));
 }
 
 /** "Pausar pedidos" / "Voltar a receber": chave rápida do topo do painel. */

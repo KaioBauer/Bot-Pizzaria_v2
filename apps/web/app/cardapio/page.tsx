@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Bike, Clock, MapPin, MessageCircle, Phone, QrCode, Send, Store } from "lucide-react";
 import { momentoLocal, proximaAbertura, situacaoLoja } from "@pizzaria/core";
 import { criarRepositorios } from "@pizzaria/db";
-import { formatarReais, formatarTelefone, type ProdutoCardapio } from "@pizzaria/shared";
+import { formatarReais, formatarTelefone, type ProdutoCardapio, type TamanhoPizza } from "@pizzaria/shared";
 import { cn, Logo, MiniaturaProduto } from "../../components/ui";
 import { clientePublico } from "../../lib/supabase/publico";
 
@@ -19,36 +19,39 @@ export async function generateMetadata(): Promise<Metadata> {
 
 const DIAS = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
 
-function precoBase(produto: ProdutoCardapio) {
-  const base = produto.variacoes.filter((v) => v.tipo === "tamanho" || v.tipo === "padrao");
-  const menor = Math.min(...base.map((v) => v.precoCentavos));
-  return { base, menor, temTamanhos: base.some((v) => v.tipo === "tamanho") && base.length > 1 };
+/** Pizza: preço do sabor por tamanho; adicional = preço - base do tamanho. */
+function precosDoProduto(produto: ProdutoCardapio, tamanhos: TamanhoPizza[]) {
+  const vendaveis = produto.variacoes.filter((v) => v.tipo === "tamanho" || v.tipo === "padrao");
+  const menor = Math.min(...vendaveis.map((v) => v.precoCentavos));
+  const ehPizza = vendaveis.some((v) => v.tipo === "tamanho");
+  const base = new Map(tamanhos.map((t) => [t.nome.toLowerCase(), t.precoBaseCentavos]));
+  const adicionais = vendaveis
+    .filter((v) => v.tipo === "tamanho" && base.has(v.nome.toLowerCase()))
+    .map((v) => v.precoCentavos - base.get(v.nome.toLowerCase())!);
+  const adicional = adicionais.length ? Math.max(0, Math.min(...adicionais)) : 0;
+  return { vendaveis, menor, ehPizza, adicional, usaTabela: ehPizza && adicionais.length > 0 };
 }
 
-function Produto({ produto }: { produto: ProdutoCardapio }) {
-  const { base, menor, temTamanhos } = precoBase(produto);
-  const extras = produto.variacoes.filter((v) => v.tipo === "borda" || v.tipo === "adicional");
+function Produto({ produto, tamanhos }: { produto: ProdutoCardapio; tamanhos: TamanhoPizza[] }) {
+  const { vendaveis, menor, ehPizza, adicional, usaTabela } = precosDoProduto(produto, tamanhos);
   return (
-    <li className="flex gap-4 py-5 first:pt-0 last:pb-0">
+    <li className="flex gap-4 py-4 first:pt-0 last:pb-0">
       <div className="min-w-0 flex-1">
-        <h3 className="font-semibold text-stone-900">{produto.nome}</h3>
-        {produto.descricao && <p className="mt-1 line-clamp-2 text-sm leading-relaxed text-stone-500">{produto.descricao}</p>}
-        <p className="mt-2 font-semibold text-stone-900">
-          {temTamanhos && <span className="text-sm font-normal text-stone-500">a partir de </span>}
-          <span className="tabular">{formatarReais(menor)}</span>
-        </p>
-        {temTamanhos && (
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {base.map((v) => (
-              <span key={v.id} className="rounded-lg bg-creme-100 px-2 py-1 text-xs text-stone-600 ring-1 ring-creme-300">
-                {v.nome} <b className="tabular text-stone-800">{formatarReais(v.precoCentavos)}</b>
-              </span>
-            ))}
-          </div>
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <h3 className="font-semibold text-stone-900">{produto.nome}</h3>
+          {adicional > 0 && (
+            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900">+ {formatarReais(adicional)} por sabor</span>
+          )}
+        </div>
+        {produto.descricao && <p className="mt-1 text-sm leading-relaxed text-stone-500">{produto.descricao}</p>}
+        {!usaTabela && (
+          <p className="mt-1.5 text-sm font-semibold text-stone-900">
+            {ehPizza && vendaveis.length > 1 && <span className="font-normal text-stone-500">a partir de </span>}
+            <span className="tabular">{formatarReais(menor)}</span>
+          </p>
         )}
-        {extras.length > 0 && <p className="mt-2 text-xs text-stone-500">{extras.map((v) => `${v.nome} +${formatarReais(v.precoCentavos)}`).join(" · ")}</p>}
       </div>
-      <MiniaturaProduto nome={produto.nome} url={produto.imagemUrl} className="size-24 shrink-0 rounded-2xl text-3xl sm:size-28" />
+      {produto.imagemUrl && <MiniaturaProduto nome={produto.nome} url={produto.imagemUrl} className="size-20 shrink-0 rounded-2xl sm:size-24" />}
     </li>
   );
 }
@@ -60,7 +63,8 @@ export default async function CardapioPage() {
   const situacao = situacaoLoja(config, agora);
   const abre = situacao.aberta ? null : proximaAbertura(config.horarios, agora, config.fusoHorario);
   const hoje = momentoLocal(agora, config.fusoHorario).diaSemana;
-  const temMeioAMeio = categorias.some((c) => c.produtos.some((p) => p.variacoes.filter((v) => v.tipo === "tamanho").length > 1));
+  // Bordas: as mesmas para todas as pizzas; pega do primeiro sabor que tiver.
+  const bordas = [...new Map(categorias.flatMap((c) => c.produtos).flatMap((p) => p.variacoes).filter((v) => v.tipo === "borda").map((v) => [v.nome, v] as const)).values()];
 
   const linkWhatsapp = config.whatsappNumero ? `https://wa.me/${config.whatsappNumero}?text=${encodeURIComponent("Olá! Quero fazer um pedido 🍕")}` : null;
   const linkTelegram = config.telegramUsuario ? `https://t.me/${config.telegramUsuario}?start=cardapio` : null;
@@ -118,11 +122,37 @@ export default async function CardapioPage() {
       )}
 
       <main className="mx-auto max-w-2xl space-y-10 px-5 py-8">
-        {temMeioAMeio && (
-          <div className="flex items-start gap-3 rounded-2xl bg-amber-50 p-4 text-sm text-amber-950 ring-1 ring-amber-200">
-            <span className="text-xl leading-none">🍕</span>
-            <p><b>Pode pedir meio a meio!</b> Dois sabores no mesmo tamanho — vale o preço do sabor mais caro.</p>
-          </div>
+        {config.tamanhos.length > 0 && (
+          <section className="overflow-hidden rounded-3xl bg-stone-950 text-white shadow-elevada" aria-labelledby="titulo-tamanhos">
+            <div className="px-5 pt-5 pb-2">
+              <h2 id="titulo-tamanhos" className="font-display text-2xl font-semibold">Tamanhos</h2>
+              <p className="mt-1 text-sm text-stone-400">Monte com vários sabores. Sabores especiais somam o adicional de cada um.</p>
+            </div>
+            <ul className="divide-y divide-white/10 px-5">
+              {config.tamanhos.map((t) => (
+                <li key={t.nome} className="flex items-center gap-3 py-3">
+                  <div className="flex-1">
+                    <p className="font-semibold">{t.nome}</p>
+                    <p className="text-sm text-stone-400">
+                      {t.fatias} fatias · {t.maxSabores === 1 ? "1 sabor" : `até ${t.maxSabores} sabores`}
+                    </p>
+                  </div>
+                  <p className="text-right">
+                    <span className="block text-xs text-stone-400">a partir de</span>
+                    <span className="font-display text-xl font-semibold tabular">{formatarReais(t.precoBaseCentavos)}</span>
+                  </p>
+                </li>
+              ))}
+            </ul>
+            {bordas.length > 0 && (
+              <div className="mt-2 bg-white/5 px-5 py-4">
+                <p className="text-sm font-semibold text-marca-300">Borda recheada</p>
+                <p className="mt-1 text-sm text-stone-300">
+                  {bordas.map((b) => `${b.nome.replace(/^Borda\s+/i, "")} ${formatarReais(b.precoCentavos)}`).join(" · ")}
+                </p>
+              </div>
+            )}
+          </section>
         )}
 
         {categorias.length === 0 && <p className="py-16 text-center text-stone-500">Cardápio em atualização. Volte daqui a pouco!</p>}
@@ -131,7 +161,7 @@ export default async function CardapioPage() {
           <section key={categoria.id} id={`cat-${categoria.id}`} className="scroll-mt-20">
             <h2 className="mb-4 font-display text-2xl font-semibold tracking-tight">{categoria.nome}</h2>
             <ul className="divide-y divide-creme-200 rounded-3xl bg-white px-5 py-5 shadow-suave ring-1 ring-stone-900/5">
-              {categoria.produtos.map((produto) => <Produto key={produto.id} produto={produto} />)}
+              {categoria.produtos.map((produto) => <Produto key={produto.id} produto={produto} tamanhos={config.tamanhos} />)}
             </ul>
           </section>
         ))}

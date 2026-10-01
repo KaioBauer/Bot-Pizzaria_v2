@@ -42,8 +42,12 @@ por injeção — por isso é testado com implementações em memória (`core/sr
   inexistente/inativo devolvendo o erro ao modelo. Nenhum valor monetário do LLM é usado.
 - **Dinheiro em centavos inteiros** em todo o domínio (sufixo `Centavos`). Conversão
   `numeric` ↔ centavos só nos repositórios (`paraCentavos`/`paraReais`).
-- **Item do pedido = sabores (1 ou 2) + adicionais.** Meio a meio: 2 sabores diferentes,
-  mesmo tamanho, cobra o mais caro. Borda/adicional soma; no máximo 1 borda. Detalhe em
+- **Item do pedido = sabores (1 a 6) + adicionais.** Vários sabores: diferentes, mesmo
+  tamanho, até `tamanhos_pizza.max_sabores` (Média/Grande 2, Big 3, Gigante/Família 4).
+  Preço = `preco_base` do tamanho + Σ(preço do sabor − base), ou seja, cada sabor especial
+  soma o seu adicional; tamanho fora de `tamanhos_pizza` cai no "mais caro", até 2 sabores.
+  O preço de cada tamanho do sabor fica gravado na variação (base + adicional); mudar o
+  `preco_base` reajusta todos via trigger. Borda/adicional soma; no máximo 1 borda. Detalhe em
   `itens_pedido_componentes`; `itens_pedido.produto_id/variacao_id` = primeiro sabor.
 - **Snapshots no pedido:** nome do cliente, telefone, endereço formatado, descrição e preço
   de cada item ficam congelados — editar cardápio/cliente não altera pedido antigo.
@@ -106,7 +110,7 @@ por injeção — por isso é testado com implementações em memória (`core/sr
 - **Web sem service_role:** todo acesso do painel usa a sessão do admin (RLS); cardápio público
   usa anon (`lib/supabase/publico.ts`). Fotos no bucket `produtos` (escrita só admin).
 - **Relatórios:** views `relatorio_vendas_diarias` e `relatorio_produtos_vendidos` com
-  `security_invoker` (respeitam RLS); meio a meio conta meia pizza por sabor.
+  `security_invoker` (respeitam RLS); pizza de N sabores conta 1/N para cada sabor.
 - **Deploy:** Dockerfiles em `apps/bot` e `apps/web` (contexto = raiz), `docker-compose.yml`
   com perfil `whatsapp`, Nginx em `deploy/nginx`. Passo a passo: `docs/DEPLOY.md`.
 

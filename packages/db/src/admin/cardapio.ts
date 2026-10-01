@@ -196,3 +196,29 @@ export async function alternarAtivoProduto(db: Db, id: string, ativo: boolean): 
 export async function definirImagemProduto(db: Db, id: string, imagemUrl: string | null): Promise<void> {
   exigir(await db.from("produtos").update({ imagem_url: imagemUrl }).eq("id", id).select("id"), "Erro ao salvar foto");
 }
+
+/**
+ * Define o adicional por sabor de uma categoria inteira: o preço de cada tamanho
+ * dos sabores dela passa a ser "preço base do tamanho + adicional". Sobrescreve
+ * exceções individuais (ex.: um sabor com adicional diferente).
+ */
+export async function definirAdicionalCategoria(db: Db, categoriaId: string, adicionalCentavos: number): Promise<number> {
+  const [tamanhos, produtos] = await Promise.all([
+    db.from("tamanhos_pizza").select("nome, preco_base"),
+    db.from("produtos").select("id").eq("categoria_id", categoriaId),
+  ]);
+  const ids = exigir(produtos, "Erro ao carregar produtos").map((p) => p.id);
+  if (ids.length === 0) return 0;
+  let alteradas = 0;
+  for (const t of exigir(tamanhos, "Erro ao carregar tamanhos")) {
+    const r = await db
+      .from("variacoes_produto")
+      .update({ preco: paraReais(paraCentavos(t.preco_base) + adicionalCentavos) })
+      .eq("tipo", "tamanho")
+      .ilike("nome", t.nome)
+      .in("produto_id", ids)
+      .select("id");
+    alteradas += exigir(r, "Erro ao aplicar adicional").length;
+  }
+  return alteradas;
+}

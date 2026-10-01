@@ -77,7 +77,7 @@ describe("precificarItens", () => {
       [
         "meio a meio com bebida",
         item({ sabores: [calabresaGrande, sabor(ID.coca, ID.cocaUnica)] }),
-        /só é possível para pizzas/,
+        /só é possível em pizzas/,
       ],
       [
         "adicional de produto que não está no item",
@@ -195,5 +195,71 @@ describe("idsDeVariacao", () => {
         item({ sabores: [calabresaGrande, margheritaGrande] }),
       ]).sort()
     ).toEqual([ID.calabresaGrande, ID.calabresaBorda, ID.margheritaGrande].sort());
+  });
+});
+
+describe("precificarItens com tamanhos do cardápio real", () => {
+  // Grande: base R$ 60, até 2 sabores. Big: base R$ 80, até 3 sabores.
+  // Calabresa = sabor comum (preço = base); Margherita = especial (+R$ 15).
+  const tamanhos = [
+    { nome: "Grande", fatias: 8, maxSabores: 2, precoBaseCentavos: 6000 },
+    { nome: "Big", fatias: 12, maxSabores: 3, precoBaseCentavos: 8000 },
+  ];
+  const ids = {
+    calabresaBig: "00000000-0000-4000-8000-0000000000c1",
+    margheritaBig: "00000000-0000-4000-8000-0000000000c2",
+    cocaBig: "00000000-0000-4000-8000-0000000000c3",
+  };
+  const variacoes = new Map(variacoesDeTeste({
+    [ID.calabresaGrande]: { precoCentavos: 6000 },
+    [ID.margheritaGrande]: { precoCentavos: 7500 },
+  }));
+  const extra = (id: string, produtoId: string, produtoNome: string, preco: number) =>
+    variacoes.set(id, { id, produtoId, produtoNome, nome: "Big", tipo: "tamanho", precoCentavos: preco, ativa: true, produtoAtivo: true });
+  extra(ids.calabresaBig, ID.calabresa, "Calabresa", 8000);
+  extra(ids.margheritaBig, ID.margherita, "Margherita", 9500);
+  extra(ids.cocaBig, ID.coca, "Terceiro Sabor", 8000);
+
+  it("um sabor especial custa o próprio preço (base + adicional)", () => {
+    const r = precificarItens([item({ sabores: [margheritaGrande] })], variacoes, tamanhos);
+    expect(r).toMatchObject({ ok: true, subtotalCentavos: 7500 });
+  });
+
+  it("meio a meio soma o adicional de cada sabor especial ao preço base", () => {
+    const r = precificarItens([item({ sabores: [calabresaGrande, margheritaGrande] })], variacoes, tamanhos);
+    expect(r).toMatchObject({ ok: true, subtotalCentavos: 6000 + 1500 });
+  });
+
+  it("3 sabores na Big: base + adicionais, com descrição de 3 sabores", () => {
+    const r = precificarItens(
+      [item({ sabores: [sabor(ID.calabresa, ids.calabresaBig), sabor(ID.margherita, ids.margheritaBig), sabor(ID.coca, ids.cocaBig)] })],
+      variacoes,
+      tamanhos
+    );
+    expect(r).toMatchObject({ ok: true, subtotalCentavos: 8000 + 1500 });
+    if (r.ok) expect(r.itens[0]?.descricao).toBe("3 sabores Calabresa / Margherita / Terceiro Sabor (Big)");
+  });
+
+  it("respeita o limite de sabores do tamanho", () => {
+    const r = precificarItens(
+      [item({ sabores: [calabresaGrande, margheritaGrande, sabor(ID.coca, ID.cocaUnica)] })],
+      variacoes,
+      tamanhos
+    );
+    expect(r.ok).toBe(false);
+  });
+
+  it("borda continua somando ao total", () => {
+    const r = precificarItens([item({ sabores: [calabresaGrande, margheritaGrande], adicionais: [ID.calabresaBorda] })], variacoes, tamanhos);
+    expect(r).toMatchObject({ ok: true, subtotalCentavos: 6000 + 1500 + 800 });
+  });
+
+  it("informa o limite quando passa do máximo de sabores", () => {
+    const r = precificarItens(
+      [item({ sabores: [sabor(ID.calabresa, ids.calabresaBig), sabor(ID.margherita, ids.margheritaBig), sabor(ID.coca, ids.cocaBig)] })],
+      variacoes,
+      [{ nome: "Big", fatias: 12, maxSabores: 2, precoBaseCentavos: 8000 }]
+    );
+    expect(r).toMatchObject({ ok: false, erros: [expect.stringMatching(/a Big aceita até 2 sabores/)] });
   });
 });

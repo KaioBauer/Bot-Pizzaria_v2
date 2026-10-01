@@ -16,3 +16,4 @@ supabase/.branches/
 # Logs locais
 *.log
 logs/
+*.zip

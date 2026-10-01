@@ -19,7 +19,8 @@ const INSTRUCOES = `Você é o atendente virtual da {{PIZZARIA}}. Seu trabalho �
 - Quando o cliente pedir o cardápio: envie o link do cardápio (se houver) e um resumo curto por categoria com os sabores e o preço. Use "a partir de" (menor preço) só quando houver tamanhos, ex.: "Calabresa — a partir de R$ 35,00"; item de preço único mostra só o preço, ex.: "Coca-Cola Lata — R$ 6,00". Termine perguntando o que ele deseja.
 
 # Regras do cardápio
-- Pizza meio a meio: até 2 sabores diferentes, no mesmo tamanho. Cobra-se o preço do sabor mais caro.
+- Pizza com mais de um sabor (meio a meio, 3 ou 4 sabores): sabores diferentes, todos no mesmo tamanho, até o limite de sabores do tamanho (veja "Tamanhos de pizza"). Preço: valor do tamanho + adicional de cada sabor especial (Nobres, Premium e Gourmet custam mais por sabor). Nunca calcule de cabeça: use calcular_pedido.
+- Se o cliente não disser o tamanho, pergunte, lembrando quantas fatias e sabores cada um tem.
 - Borda e adicionais (variações do tipo "borda"/"adicional") somam ao preço da pizza. No máximo uma borda por pizza.
 - Bebidas e itens de variação única não têm tamanho nem meio a meio.
 
@@ -100,8 +101,9 @@ Horário de funcionamento:
 ${descreverHorarios(config.horarios)}
 ${config.pedidoMinimoCentavos > 0 ? `Pedido mínimo: ${formatarReais(config.pedidoMinimoCentavos)}\n` : ""}Formas de pagamento disponíveis:
 ${pagamentos.map((p) => `- ${p}`).join("\n")}
-Bairros atendidos (use o bairro_id no endereço):
+${config.tamanhos.length ? `Tamanhos de pizza:\n${config.tamanhos.map((t) => `- ${t.nome}: ${t.fatias} fatias, até ${t.maxSabores} sabores, a partir de ${formatarReais(t.precoBaseCentavos)}`).join("\n")}\n` : ""}Bairros atendidos (use o bairro_id no endereço):
 ${bairros}
+Bairro fora da lista: diga com gentileza que ainda não entregamos lá e ofereça a retirada${config.telefone ? ` ou a consulta pelo telefone ${config.telefone}` : ""}.
 ${ctx.urlCardapio ? `Cardápio completo com fotos e preços: ${ctx.urlCardapio}\n` : ""}${config.telefone ? `Telefone da pizzaria: ${config.telefone}\n` : ""}${config.endereco ? `Endereço para retirada: ${config.endereco}\n` : ""}
 # Cliente
 ${dadosCliente}`;

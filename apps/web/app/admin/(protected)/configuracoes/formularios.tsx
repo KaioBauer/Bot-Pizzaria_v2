@@ -2,10 +2,10 @@
 
 import { Copy, Plus, Trash2 } from "lucide-react";
 import { useState, useTransition } from "react";
-import type { BairroAdmin, ConfiguracaoAdmin } from "@pizzaria/db";
+import type { BairroAdmin, ConfiguracaoAdmin, TamanhoAdmin } from "@pizzaria/db";
 import { centavosParaCampo, lerReais, type TurnoFuncionamento } from "@pizzaria/shared";
 import { Botao, Campo, Cartao, cn, estiloEntrada, Interruptor } from "../../../../components/ui";
-import { salvarBairrosAction, salvarConfiguracaoAction, salvarHorariosAction, type Resultado } from "./actions";
+import { salvarBairrosAction, salvarConfiguracaoAction, salvarHorariosAction, salvarTamanhosAction, type Resultado } from "./actions";
 
 const DIAS = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
 
@@ -204,6 +204,48 @@ export function FormBairros({ inicial }: { inicial: BairroAdmin[] }) {
       <Botao variante="secundario" tamanho="sm" onClick={() => setBairros([...bairros, { nome: "", taxa: "", taxaCentavos: 0, ativo: true, chave: Math.max(0, ...bairros.map((b) => b.chave)) + 1 }])}>
         <Plus className="size-4" /> Adicionar bairro
       </Botao>
+    </Secao>
+  );
+}
+
+export function FormTamanhos({ inicial }: { inicial: TamanhoAdmin[] }) {
+  const [tamanhos, setTamanhos] = useState(inicial.map((t) => ({ ...t, preco: centavosParaCampo(t.precoBaseCentavos) })));
+  const { salvando, mensagem, setMensagem, salvar } = useSalvar();
+  const alterar = (id: string, m: Partial<(typeof tamanhos)[number]>) => setTamanhos((ts) => ts.map((t) => (t.id === id ? { ...t, ...m } : t)));
+  if (inicial.length === 0) return null;
+
+  return (
+    <Secao
+      titulo="Tamanhos de pizza"
+      descricao={<>Preço base de cada tamanho (o dos sabores tradicionais), fatias e quantos sabores cabem. Ao mudar o preço base, todos os sabores desse tamanho mudam junto — o adicional dos especiais se mantém.</>}
+      rodape={
+        <Rodape
+          salvando={salvando}
+          mensagem={mensagem}
+          rotulo="Salvar tamanhos"
+          aoSalvar={() => {
+            const invalido = tamanhos.find((t) => lerReais(t.preco) === null);
+            if (invalido) return setMensagem({ ok: false, texto: `Preço inválido na ${invalido.nome}` });
+            salvar(() =>
+              salvarTamanhosAction(tamanhos.map((t) => ({ id: t.id, fatias: t.fatias, maxSabores: t.maxSabores, precoBaseCentavos: lerReais(t.preco) ?? 0 })))
+            );
+          }}
+        />
+      }
+    >
+      <div className="space-y-2">
+        <div className="hidden grid-cols-[1fr_6rem_6rem_8rem] gap-2 px-1 text-xs font-semibold tracking-wide text-stone-400 uppercase sm:grid">
+          <span>Tamanho</span><span className="text-right">Fatias</span><span className="text-right">Sabores</span><span className="text-right">Preço base (R$)</span>
+        </div>
+        {tamanhos.map((t) => (
+          <div key={t.id} className="grid grid-cols-3 items-center gap-2 sm:grid-cols-[1fr_6rem_6rem_8rem]">
+            <span className="col-span-3 font-semibold sm:col-span-1">{t.nome}</span>
+            <input type="number" min={1} max={32} value={t.fatias} onChange={(e) => alterar(t.id, { fatias: Number(e.target.value) })} className={cn(estiloEntrada, "text-right tabular")} aria-label={`Fatias da ${t.nome}`} />
+            <input type="number" min={1} max={6} value={t.maxSabores} onChange={(e) => alterar(t.id, { maxSabores: Number(e.target.value) })} className={cn(estiloEntrada, "text-right tabular")} aria-label={`Sabores da ${t.nome}`} />
+            <input value={t.preco} onChange={(e) => alterar(t.id, { preco: e.target.value })} inputMode="decimal" className={cn(estiloEntrada, "text-right tabular")} aria-label={`Preço base da ${t.nome}`} />
+          </div>
+        ))}
+      </div>
     </Secao>
   );
 }

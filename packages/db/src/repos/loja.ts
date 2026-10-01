@@ -4,10 +4,11 @@ import { exigir, type Db } from "../client";
 export function criarLojaRepo(db: Db): LojaRepo {
   return {
     async configuracao() {
-      const [config, horarios, bairros] = await Promise.all([
+      const [config, horarios, bairros, tamanhos] = await Promise.all([
         db.from("configuracoes").select("*").single(),
         db.from("horarios_funcionamento").select("dia_semana, abre, fecha"),
         db.from("bairros_entrega").select("id, nome, taxa").eq("ativo", true).order("nome"),
+        db.from("tamanhos_pizza").select("nome, fatias, max_sabores, preco_base").order("ordem"),
       ]);
       const c = exigir(config, "Erro ao carregar configurações");
 
@@ -31,6 +32,12 @@ export function criarLojaRepo(db: Db): LojaRepo {
           id: b.id,
           nome: b.nome,
           taxaCentavos: paraCentavos(b.taxa),
+        })),
+        tamanhos: exigir(tamanhos, "Erro ao carregar tamanhos").map((t) => ({
+          nome: t.nome,
+          fatias: t.fatias,
+          maxSabores: t.max_sabores,
+          precoBaseCentavos: paraCentavos(t.preco_base),
         })),
       };
     },

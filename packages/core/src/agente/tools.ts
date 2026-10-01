@@ -122,6 +122,7 @@ async function cotar(
     bairroId,
     bairros: ctx.config.bairros,
     pedidoMinimoCentavos: ctx.config.pedidoMinimoCentavos,
+    tamanhos: ctx.config.tamanhos,
   });
 }
 

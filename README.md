@@ -53,6 +53,17 @@ pnpm usuario impressora            # usuário do print-agent; grava as credencia
 
 Recomendado: Supabase → Authentication → Sign In / Providers → desligar "Allow new users to sign up".
 
+### Cardápio real
+
+```bash
+pnpm cardapio:importar   # tamanhos, sabores, bordas, fotos, bairros e telefone (supabase/seed/cardapio-vianna.ts)
+```
+
+Idempotente: rodar de novo atualiza preços e descrições pelo nome, sem duplicar. Depois, os
+ajustes do dia a dia ficam no painel: preço base, fatias e sabores de cada tamanho em
+*Configurações → Tamanhos de pizza* e o adicional por sabor de cada categoria em
+*Cardápio → Editar*.
+
 ## Rodando em desenvolvimento
 
 ```bash
@@ -146,7 +157,7 @@ Ver [`deploy/.env.example`](deploy/.env.example): variáveis públicas do build 
 
 ## Testes
 
-`pnpm test` cobre: revalidação de preço (meio a meio, borda, itens inativos, bairro, pedido
+`pnpm test` cobre: revalidação de preço (vários sabores por tamanho, borda, itens inativos, bairro, pedido
 mínimo), validação do payload de `finalizar_pedido`, máquina de status, horário de
 funcionamento e próxima abertura, fluxo do agente com LLM roteirizado, Pix (confirmação
 idempotente, valor divergente, expiração, estorno, assinatura do webhook), adaptador

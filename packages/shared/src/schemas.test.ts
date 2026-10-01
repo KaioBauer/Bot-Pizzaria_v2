@@ -61,7 +61,7 @@ describe("finalizarPedidoArgsSchema", () => {
 
   it.each([
     ["sem itens", { ...valido, itens: [] }, /itens/],
-    ["mais de 2 sabores", { ...valido, itens: [{ sabores: Array(3).fill({ produto_id: UUID, variacao_id: UUID }), quantidade: 1 }] }, /2 sabores/],
+    ["mais de 6 sabores", { ...valido, itens: [{ sabores: Array(7).fill({ produto_id: UUID, variacao_id: UUID }), quantidade: 1 }] }, /6 sabores/],
     ["quantidade zero", { ...valido, itens: [{ ...valido.itens[0], quantidade: 0 }] }, /quantidade/],
     ["quantidade fracionada", { ...valido, itens: [{ ...valido.itens[0], quantidade: 1.5 }] }, /quantidade/],
     ["ID que não é UUID", { ...valido, itens: [{ sabores: [{ produto_id: "calabresa", variacao_id: UUID }], quantidade: 1 }] }, /ID inválido/],

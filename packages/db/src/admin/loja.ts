@@ -113,3 +113,39 @@ export async function salvarBairros(db: Db, bairros: BairroAdmin[]): Promise<voi
     );
   }
 }
+
+export interface TamanhoAdmin {
+  id: string;
+  nome: string;
+  fatias: number;
+  maxSabores: number;
+  precoBaseCentavos: number;
+}
+
+export async function listarTamanhos(db: Db): Promise<TamanhoAdmin[]> {
+  const r = await db.from("tamanhos_pizza").select("id, nome, fatias, max_sabores, preco_base").order("ordem");
+  return exigir(r, "Erro ao carregar tamanhos").map((t) => ({
+    id: t.id,
+    nome: t.nome,
+    fatias: t.fatias,
+    maxSabores: t.max_sabores,
+    precoBaseCentavos: paraCentavos(t.preco_base),
+  }));
+}
+
+/**
+ * Atualiza fatias, sabores e preço base. Mudar o preço base reajusta, no banco
+ * (trigger), o preço desse tamanho em todos os sabores — o adicional de cada um se mantém.
+ */
+export async function salvarTamanhos(db: Db, tamanhos: Omit<TamanhoAdmin, "nome">[]): Promise<void> {
+  for (const t of tamanhos) {
+    exigir(
+      await db
+        .from("tamanhos_pizza")
+        .update({ fatias: t.fatias, max_sabores: t.maxSabores, preco_base: paraReais(t.precoBaseCentavos) })
+        .eq("id", t.id)
+        .select("id"),
+      "Erro ao salvar tamanho"
+    );
+  }
+}

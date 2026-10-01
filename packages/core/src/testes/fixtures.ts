@@ -59,6 +59,7 @@ export function configDeTeste(extra: Partial<ConfiguracaoLoja> = {}): Configurac
     pixExpiracaoMinutos: 30,
     horarios: [0, 1, 2, 3, 4, 5, 6].map((diaSemana) => ({ diaSemana, abre: "18:00", fecha: "23:30" })),
     bairros: BAIRROS,
+    tamanhos: [],
     ...extra,
   };
 }

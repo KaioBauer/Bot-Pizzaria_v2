@@ -27,8 +27,8 @@ export const itemPedidoSchema = z.object({
       })
     )
     .min(1, "Cada item precisa de pelo menos um sabor")
-    .max(2, "No máximo 2 sabores por pizza (meio a meio)")
-    .describe("1 sabor; ou 2 sabores para pizza meio a meio, no mesmo tamanho"),
+    .max(6, "No máximo 6 sabores por pizza")
+    .describe("1 sabor, ou vários sabores na mesma pizza (meio a meio, 3 ou 4 sabores, conforme o limite do tamanho), todos no mesmo tamanho"),
   adicionais: z
     .array(id)
     .max(5)

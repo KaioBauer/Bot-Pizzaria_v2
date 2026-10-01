@@ -4,6 +4,7 @@ import {
   type ComponenteItem,
   type ItemPedidoArgs,
   type ItemPrecificado,
+  type TamanhoPizza,
   type TipoEntrega,
   type VariacaoParaPreco,
 } from "@pizzaria/shared";
@@ -13,8 +14,11 @@ import {
  * LLM e de variações lidas do banco — nenhum valor monetário vindo do modelo
  * é usado. Regras:
  * - sabor: variação ativa do tipo `tamanho` ou `padrao`, do próprio produto;
- * - meio a meio: 2 sabores diferentes, ambos com tamanho, no mesmo tamanho;
- *   o preço base é o do sabor mais caro;
+ * - vários sabores: diferentes, todos com tamanho e no mesmo tamanho, até o
+ *   limite do tamanho (Média 2, Big 3, Gigante 4...);
+ * - preço: base do tamanho + adicional de cada sabor (preço do sabor - base),
+ *   ex.: Grande R$ 60 com 1 Gourmet (+15) e 1 Salgada = R$ 75. Tamanho sem
+ *   cadastro em tamanhos_pizza: vale o sabor mais caro (até 2 sabores);
  * - adicionais: variações ativas `borda`/`adicional` de um dos sabores,
  *   no máximo uma borda; somam ao preço base.
  */
@@ -57,8 +61,10 @@ function componente(tipo: ComponenteItem["tipo"], v: VariacaoParaPreco): Compone
 
 export function precificarItens(
   itens: ItemPedidoArgs[],
-  variacoes: ReadonlyMap<string, VariacaoParaPreco>
+  variacoes: ReadonlyMap<string, VariacaoParaPreco>,
+  tamanhos: TamanhoPizza[] = []
 ): ResultadoPrecificacao {
+  const tamanhoPorNome = new Map(tamanhos.map((t) => [normalizar(t.nome), t]));
   const erros: string[] = [];
   const precificados: ItemPrecificado[] = [];
 
@@ -82,14 +88,18 @@ export function precificarItens(
       }
     }
 
-    const [primeiro, segundo] = sabores;
-    if (primeiro && segundo) {
-      if (primeiro.tipo !== "tamanho" || segundo.tipo !== "tamanho") {
-        erro("meio a meio só é possível para pizzas (produtos com tamanho)");
-      } else if (normalizar(primeiro.nome) !== normalizar(segundo.nome)) {
-        erro(`os dois sabores precisam ser do mesmo tamanho (${primeiro.nome} x ${segundo.nome})`);
-      } else if (primeiro.produtoId === segundo.produtoId) {
-        erro("meio a meio precisa de dois sabores diferentes");
+    const [primeiro] = sabores;
+    const tamanho = primeiro && primeiro.tipo === "tamanho" ? tamanhoPorNome.get(normalizar(primeiro.nome)) : undefined;
+    if (primeiro && sabores.length > 1) {
+      const maxSabores = tamanho?.maxSabores ?? 2;
+      if (sabores.some((s) => s.tipo !== "tamanho")) {
+        erro("mais de um sabor só é possível em pizzas (produtos com tamanho)");
+      } else if (sabores.some((s) => normalizar(s.nome) !== normalizar(primeiro.nome))) {
+        erro(`todos os sabores precisam ser do mesmo tamanho (${sabores.map((s) => s.nome).join(" x ")})`);
+      } else if (new Set(sabores.map((s) => s.produtoId)).size !== sabores.length) {
+        erro("os sabores da pizza precisam ser diferentes entre si");
+      } else if (sabores.length > maxSabores) {
+        erro(`a ${primeiro.nome} aceita até ${maxSabores} sabores`);
       }
     }
 
@@ -126,12 +136,18 @@ export function precificarItens(
       return;
     }
 
-    const precoBase = Math.max(...sabores.map((s) => s.precoCentavos));
+    // Tamanho cadastrado: base do tamanho + adicional de cada sabor (preço do
+    // sabor - base). Sem cadastro: vale o sabor mais caro.
+    const precoBase = tamanho
+      ? tamanho.precoBaseCentavos + sabores.reduce((soma, s) => soma + Math.max(0, s.precoCentavos - tamanho.precoBaseCentavos), 0)
+      : Math.max(...sabores.map((s) => s.precoCentavos));
     const precoUnitario = precoBase + adicionais.reduce((soma, a) => soma + a.precoCentavos, 0);
 
-    const descricaoSabores = segundo
-      ? `Meio a meio ${primeiro.produtoNome} / ${segundo.produtoNome} (${primeiro.nome})`
-      : nomeSabor(primeiro);
+    const nomesSabores = sabores.map((s) => s.produtoNome).join(" / ");
+    const descricaoSabores =
+      sabores.length === 1
+        ? nomeSabor(primeiro)
+        : `${sabores.length === 2 ? "Meio a meio" : `${sabores.length} sabores`} ${nomesSabores} (${primeiro.nome})`;
     const descricao = [descricaoSabores, ...adicionais.map((a) => a.nome)].join(" + ");
 
     precificados.push({
@@ -173,8 +189,9 @@ export function cotarPedido(params: {
   bairroId: string | null | undefined;
   bairros: BairroEntrega[];
   pedidoMinimoCentavos: number;
+  tamanhos?: TamanhoPizza[];
 }): ResultadoCotacao {
-  const precificacao = precificarItens(params.itens, params.variacoes);
+  const precificacao = precificarItens(params.itens, params.variacoes, params.tamanhos ?? []);
   const erros = precificacao.ok ? [] : [...precificacao.erros];
 
   let bairro: BairroEntrega | null = null;

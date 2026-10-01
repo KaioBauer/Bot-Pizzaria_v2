@@ -17,7 +17,8 @@
     "test:watch": "vitest",
     "check": "pnpm typecheck && pnpm test",
     "db:types": "supabase gen types typescript --linked --schema public > packages/db/src/database.types.ts",
-    "usuario": "tsx apps/bot/scripts/usuario.ts"
+    "usuario": "tsx apps/bot/scripts/usuario.ts",
+    "cardapio:importar": "tsx apps/bot/scripts/importar-cardapio.ts"
   },
   "devDependencies": {
     "@types/node": "^22.18.0",

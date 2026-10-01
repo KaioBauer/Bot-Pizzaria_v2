@@ -63,6 +63,14 @@ export interface TurnoFuncionamento {
   fecha: string;
 }
 
+/** Tamanho de pizza: preço base e quantos sabores aceita (meio a meio, 3, 4...). */
+export interface TamanhoPizza {
+  nome: string;
+  fatias: number;
+  maxSabores: number;
+  precoBaseCentavos: number;
+}
+
 export interface BairroEntrega {
   id: string;
   nome: string;
@@ -82,6 +90,7 @@ export interface ConfiguracaoLoja {
   pixExpiracaoMinutos: number;
   horarios: TurnoFuncionamento[];
   bairros: BairroEntrega[];
+  tamanhos: TamanhoPizza[];
 }
 
 // Clientes e pedidos -------------------------------------------------------------

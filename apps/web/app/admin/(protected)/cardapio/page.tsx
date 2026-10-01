@@ -1,21 +1,79 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ChevronRight, ExternalLink, EyeOff, Pizza, Plus } from "lucide-react";
-import { listarCardapioAdmin } from "@pizzaria/db";
-import { formatarReais } from "@pizzaria/shared";
-import { Aviso, Botao, BotaoLink, CabecalhoPagina, Cartao, cn, estiloEntrada, MiniaturaProduto, Selo, Vazio } from "../../../../components/ui";
+import {
+  listarCardapioAdmin,
+  listarTamanhos,
+  type CategoriaAdmin,
+  type TamanhoAdmin,
+} from "@pizzaria/db";
+import { centavosParaCampo, formatarReais } from "@pizzaria/shared";
+import {
+  Aviso,
+  Botao,
+  BotaoLink,
+  CabecalhoPagina,
+  Cartao,
+  cn,
+  estiloEntrada,
+  MiniaturaProduto,
+  Selo,
+  Vazio,
+} from "../../../../components/ui";
 import { exigirAdmin } from "../../../../lib/auth";
-import { alternarProdutoAction, excluirCategoriaAction, salvarCategoriaAction } from "./actions";
+import {
+  alternarProdutoAction,
+  definirAdicionalCategoriaAction,
+  excluirCategoriaAction,
+  salvarCategoriaAction,
+} from "./actions";
 
 export const metadata: Metadata = { title: "Cardápio" };
 export const dynamic = "force-dynamic";
 
-export default async function CardapioAdminPage({ searchParams }: PageProps<"/admin/cardapio">) {
+/** Adicional por sabor de uma variação de tamanho (preço − base do tamanho), ou null se o tamanho não é tabelado. */
+function adicionalDe(
+  nome: string,
+  precoCentavos: number,
+  tamanhos: TamanhoAdmin[],
+): number | null {
+  const t = tamanhos.find((x) => x.nome.toLowerCase() === nome.toLowerCase());
+  return t ? precoCentavos - t.precoBaseCentavos : null;
+}
+
+/** Adicional comum da categoria (o mais frequente entre os sabores), se ela usa a tabela de tamanhos. */
+function adicionalDaCategoria(
+  categoria: CategoriaAdmin,
+  tamanhos: TamanhoAdmin[],
+): number | null {
+  const contagem = new Map<number, number>();
+  for (const p of categoria.produtos) {
+    const v = p.variacoes.find(
+      (x) =>
+        x.tipo === "tamanho" &&
+        adicionalDe(x.nome, x.precoCentavos, tamanhos) !== null,
+    );
+    if (!v) continue;
+    const a = adicionalDe(v.nome, v.precoCentavos, tamanhos)!;
+    contagem.set(a, (contagem.get(a) ?? 0) + 1);
+  }
+  return [...contagem].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+}
+
+export default async function CardapioAdminPage({
+  searchParams,
+}: PageProps<"/admin/cardapio">) {
   const { supabase } = await exigirAdmin();
   const { erro } = await searchParams;
-  const categorias = await listarCardapioAdmin(supabase);
+  const [categorias, tamanhos] = await Promise.all([
+    listarCardapioAdmin(supabase),
+    listarTamanhos(supabase),
+  ]);
   const totalProdutos = categorias.reduce((s, c) => s + c.produtos.length, 0);
-  const esgotados = categorias.reduce((s, c) => s + c.produtos.filter((p) => !p.ativo).length, 0);
+  const esgotados = categorias.reduce(
+    (s, c) => s + c.produtos.filter((p) => !p.ativo).length,
+    0,
+  );
 
   return (
     <main className="mx-auto max-w-5xl space-y-6 p-4 sm:p-8">
@@ -36,105 +94,258 @@ export default async function CardapioAdminPage({ searchParams }: PageProps<"/ad
 
       {typeof erro === "string" && <Aviso>{erro}</Aviso>}
 
-      {categorias.map((categoria) => (
-        <Cartao key={categoria.id} className={cn(!categoria.ativo && "opacity-70")}>
-          <div className="flex flex-wrap items-center gap-3 border-b border-stone-100 px-5 py-4 sm:px-6">
-            <h2 className="font-display text-xl font-semibold">{categoria.nome}</h2>
-            <Selo>{categoria.produtos.length}</Selo>
-            {!categoria.ativo && (
-              <Selo tom="aviso">
-                <EyeOff className="size-3" /> Oculta
-              </Selo>
-            )}
-            <div className="ml-auto flex items-center gap-2">
-              <BotaoLink href={`/admin/cardapio/produto/novo?categoria=${categoria.id}`} variante="fantasma" tamanho="sm">
-                <Plus className="size-4" /> Produto
-              </BotaoLink>
-              <details className="group relative">
-                <summary className="flex h-8 cursor-pointer list-none items-center rounded-lg px-3 text-sm font-semibold text-stone-600 hover:bg-stone-100 [&::-webkit-details-marker]:hidden">
-                  Editar
-                </summary>
-                <form
-                  action={salvarCategoriaAction}
-                  className="absolute top-10 right-0 z-10 w-80 space-y-3 rounded-2xl bg-white p-4 shadow-elevada ring-1 ring-stone-900/10"
+      {categorias.map((categoria) => {
+        const adicionalCategoria = adicionalDaCategoria(categoria, tamanhos);
+        return (
+          <Cartao
+            key={categoria.id}
+            className={cn(!categoria.ativo && "opacity-70")}
+          >
+            <div className="flex flex-wrap items-center gap-3 border-b border-stone-100 px-5 py-4 sm:px-6">
+              <h2 className="font-display text-xl font-semibold">
+                {categoria.nome}
+              </h2>
+              <Selo>{categoria.produtos.length}</Selo>
+              {adicionalCategoria !== null && adicionalCategoria > 0 && (
+                <Selo tom="marca">
+                  + {formatarReais(adicionalCategoria)} por sabor
+                </Selo>
+              )}
+              {!categoria.ativo && (
+                <Selo tom="aviso">
+                  <EyeOff className="size-3" /> Oculta
+                </Selo>
+              )}
+              <div className="ml-auto flex items-center gap-2">
+                <BotaoLink
+                  href={`/admin/cardapio/produto/novo?categoria=${categoria.id}`}
+                  variante="fantasma"
+                  tamanho="sm"
                 >
-                  <input type="hidden" name="id" value={categoria.id} />
-                  <label className="block text-sm font-medium">
-                    Nome
-                    <input name="nome" defaultValue={categoria.nome} className={cn(estiloEntrada, "mt-1")} />
-                  </label>
-                  <div className="flex items-end gap-3">
-                    <label className="block w-24 text-sm font-medium">
-                      Ordem
-                      <input name="ordem" type="number" min={0} defaultValue={categoria.ordem} className={cn(estiloEntrada, "mt-1")} />
-                    </label>
-                    <label className="flex items-center gap-2 pb-2.5 text-sm">
-                      <input name="ativo" type="checkbox" defaultChecked={categoria.ativo} className="size-4 accent-marca-600" /> Visível no cardápio
-                    </label>
-                  </div>
-                  <div className="flex gap-2">
-                    <Botao tamanho="sm" className="flex-1">Salvar</Botao>
-                    {categoria.produtos.length === 0 && (
-                      <Botao tamanho="sm" variante="perigo" formAction={excluirCategoriaAction}>
-                        Excluir
-                      </Botao>
+                  <Plus className="size-4" /> Produto
+                </BotaoLink>
+                <details className="group relative">
+                  <summary className="flex h-8 cursor-pointer list-none items-center rounded-lg px-3 text-sm font-semibold text-stone-600 hover:bg-stone-100 [&::-webkit-details-marker]:hidden">
+                    Editar
+                  </summary>
+                  <div className="absolute top-10 right-0 z-10 w-80 divide-y divide-stone-100 rounded-2xl bg-white shadow-elevada ring-1 ring-stone-900/10">
+                    <form
+                      action={salvarCategoriaAction}
+                      className="space-y-3 p-4"
+                    >
+                      <input type="hidden" name="id" value={categoria.id} />
+                      <label className="block text-sm font-medium">
+                        Nome
+                        <input
+                          name="nome"
+                          defaultValue={categoria.nome}
+                          className={cn(estiloEntrada, "mt-1")}
+                        />
+                      </label>
+                      <div className="flex items-end gap-3">
+                        <label className="block w-24 text-sm font-medium">
+                          Ordem
+                          <input
+                            name="ordem"
+                            type="number"
+                            min={0}
+                            defaultValue={categoria.ordem}
+                            className={cn(estiloEntrada, "mt-1")}
+                          />
+                        </label>
+                        <label className="flex items-center gap-2 pb-2.5 text-sm">
+                          <input
+                            name="ativo"
+                            type="checkbox"
+                            defaultChecked={categoria.ativo}
+                            className="size-4 accent-marca-600"
+                          />{" "}
+                          Visível no cardápio
+                        </label>
+                      </div>
+                      <div className="flex gap-2">
+                        <Botao tamanho="sm" className="flex-1">
+                          Salvar
+                        </Botao>
+                        {categoria.produtos.length === 0 && (
+                          <Botao
+                            tamanho="sm"
+                            variante="perigo"
+                            formAction={excluirCategoriaAction}
+                          >
+                            Excluir
+                          </Botao>
+                        )}
+                      </div>
+                    </form>
+                    {adicionalCategoria !== null && (
+                      <form
+                        action={definirAdicionalCategoriaAction}
+                        className="space-y-2 p-4"
+                      >
+                        <input type="hidden" name="id" value={categoria.id} />
+                        <label className="block text-sm font-medium">
+                          Adicional por sabor (R$)
+                          <input
+                            name="adicional"
+                            inputMode="decimal"
+                            defaultValue={centavosParaCampo(adicionalCategoria)}
+                            className={cn(estiloEntrada, "mt-1")}
+                          />
+                        </label>
+                        <p className="text-xs text-stone-500">
+                          Aplica a todos os sabores da categoria: cada tamanho
+                          fica com o preço base + este valor.
+                        </p>
+                        <Botao
+                          tamanho="sm"
+                          variante="secundario"
+                          className="w-full"
+                        >
+                          Aplicar a todos
+                        </Botao>
+                      </form>
                     )}
                   </div>
-                </form>
-              </details>
+                </details>
+              </div>
             </div>
-          </div>
 
-          {categoria.produtos.length === 0 ? (
-            <Vazio icone={<Pizza className="size-6" />} titulo="Nenhum produto nesta categoria" />
-          ) : (
-            <ul className="divide-y divide-stone-100">
-              {categoria.produtos.map((produto) => {
-                const precos = produto.variacoes.filter((v) => v.ativo && (v.tipo === "tamanho" || v.tipo === "padrao"));
-                const menor = precos.length ? Math.min(...precos.map((v) => v.precoCentavos)) : null;
-                return (
-                  <li key={produto.id} className="flex items-center gap-4 px-5 py-3 sm:px-6">
-                    <MiniaturaProduto nome={produto.nome} url={produto.imagemUrl} className={cn("size-14 shrink-0 rounded-xl", !produto.ativo && "grayscale")} />
-                    <Link href={`/admin/cardapio/produto/${produto.id}`} className="group min-w-0 flex-1">
-                      <p className={cn("font-semibold group-hover:text-marca-700", !produto.ativo && "text-stone-400")}>{produto.nome}</p>
-                      <p className="truncate text-sm text-stone-500">
-                        {precos.length > 1
-                          ? precos.map((v) => `${v.nome} ${formatarReais(v.precoCentavos)}`).join(" · ")
-                          : menor !== null
-                            ? formatarReais(menor)
-                            : "Sem preço ativo"}
-                      </p>
-                    </Link>
-                    <form action={alternarProdutoAction}>
-                      <input type="hidden" name="id" value={produto.id} />
-                      <input type="hidden" name="ativo" value={String(!produto.ativo)} />
-                      <button
+            {categoria.produtos.length === 0 ? (
+              <Vazio
+                icone={<Pizza className="size-6" />}
+                titulo="Nenhum produto nesta categoria"
+              />
+            ) : (
+              <ul className="divide-y divide-stone-100">
+                {categoria.produtos.map((produto) => {
+                  const precos = produto.variacoes.filter(
+                    (v) =>
+                      v.ativo && (v.tipo === "tamanho" || v.tipo === "padrao"),
+                  );
+                  const menor = precos.length
+                    ? Math.min(...precos.map((v) => v.precoCentavos))
+                    : null;
+                  const adicional =
+                    precos.length > 1
+                      ? adicionalDe(
+                          precos[0]!.nome,
+                          precos[0]!.precoCentavos,
+                          tamanhos,
+                        )
+                      : null;
+                  const tabelado =
+                    adicional !== null &&
+                    precos.every(
+                      (v) =>
+                        adicionalDe(v.nome, v.precoCentavos, tamanhos) ===
+                        adicional,
+                    );
+                  return (
+                    <li
+                      key={produto.id}
+                      className="flex items-center gap-4 px-5 py-3 sm:px-6"
+                    >
+                      <MiniaturaProduto
+                        nome={produto.nome}
+                        url={produto.imagemUrl}
                         className={cn(
-                          "inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-xs font-semibold ring-1 ring-inset transition-colors",
-                          produto.ativo
-                            ? "bg-manjericao-50 text-manjericao-700 ring-manjericao-100 hover:bg-manjericao-100"
-                            : "bg-stone-100 text-stone-500 ring-stone-200 hover:bg-stone-200"
+                          "size-14 shrink-0 rounded-xl",
+                          !produto.ativo && "grayscale",
                         )}
-                        title={produto.ativo ? "Clique para marcar como esgotado" : "Clique para voltar a vender"}
+                      />
+                      <Link
+                        href={`/admin/cardapio/produto/${produto.id}`}
+                        className="group min-w-0 flex-1"
                       >
-                        <span className={cn("size-1.5 rounded-full", produto.ativo ? "bg-manjericao-500" : "bg-stone-400")} />
-                        {produto.ativo ? "Disponível" : "Esgotado"}
-                      </button>
-                    </form>
-                    <Link href={`/admin/cardapio/produto/${produto.id}`} className="rounded-lg p-2 text-stone-400 hover:bg-stone-100 hover:text-stone-700" aria-label={`Editar ${produto.nome}`}>
-                      <ChevronRight className="size-5" />
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </Cartao>
-      ))}
+                        <p
+                          className={cn(
+                            "font-semibold group-hover:text-marca-700",
+                            !produto.ativo && "text-stone-400",
+                          )}
+                        >
+                          {produto.nome}
+                        </p>
+                        <p className="truncate text-sm text-stone-500">
+                          {tabelado
+                            ? `A partir de ${formatarReais(menor!)}${adicional ? ` · + ${formatarReais(adicional)} por sabor` : " · preço da tabela"}`
+                            : precos.length > 1
+                              ? precos
+                                  .map(
+                                    (v) =>
+                                      `${v.nome} ${formatarReais(v.precoCentavos)}`,
+                                  )
+                                  .join(" · ")
+                              : menor !== null
+                                ? formatarReais(menor)
+                                : "Sem preço ativo"}
+                        </p>
+                      </Link>
+                      <form action={alternarProdutoAction}>
+                        <input type="hidden" name="id" value={produto.id} />
+                        <input
+                          type="hidden"
+                          name="ativo"
+                          value={String(!produto.ativo)}
+                        />
+                        <button
+                          className={cn(
+                            "inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-xs font-semibold ring-1 ring-inset transition-colors",
+                            produto.ativo
+                              ? "bg-manjericao-50 text-manjericao-700 ring-manjericao-100 hover:bg-manjericao-100"
+                              : "bg-stone-100 text-stone-500 ring-stone-200 hover:bg-stone-200",
+                          )}
+                          title={
+                            produto.ativo
+                              ? "Clique para marcar como esgotado"
+                              : "Clique para voltar a vender"
+                          }
+                        >
+                          <span
+                            className={cn(
+                              "size-1.5 rounded-full",
+                              produto.ativo
+                                ? "bg-manjericao-500"
+                                : "bg-stone-400",
+                            )}
+                          />
+                          {produto.ativo ? "Disponível" : "Esgotado"}
+                        </button>
+                      </form>
+                      <Link
+                        href={`/admin/cardapio/produto/${produto.id}`}
+                        className="rounded-lg p-2 text-stone-400 hover:bg-stone-100 hover:text-stone-700"
+                        aria-label={`Editar ${produto.nome}`}
+                      >
+                        <ChevronRight className="size-5" />
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </Cartao>
+        );
+      })}
 
-      <form action={salvarCategoriaAction} className="flex flex-wrap items-center gap-3 rounded-2xl border-2 border-dashed border-stone-300 p-4">
-        <input name="nome" placeholder="Nova categoria (ex.: Esfihas, Sobremesas)" required className={cn(estiloEntrada, "min-w-60 flex-1")} />
-        <input name="ordem" type="number" min={0} defaultValue={categorias.length + 1} aria-label="Ordem" className={cn(estiloEntrada, "w-24")} />
+      <form
+        action={salvarCategoriaAction}
+        className="flex flex-wrap items-center gap-3 rounded-2xl border-2 border-dashed border-stone-300 p-4"
+      >
+        <input
+          name="nome"
+          placeholder="Nova categoria (ex.: Esfihas, Sobremesas)"
+          required
+          className={cn(estiloEntrada, "min-w-60 flex-1")}
+        />
+        <input
+          name="ordem"
+          type="number"
+          min={0}
+          defaultValue={categorias.length + 1}
+          aria-label="Ordem"
+          className={cn(estiloEntrada, "w-24")}
+        />
         <input type="hidden" name="ativo" value="true" />
         <Botao variante="escuro">
           <Plus className="size-4" /> Adicionar categoria
