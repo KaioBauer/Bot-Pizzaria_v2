@@ -38,6 +38,30 @@ export type Database = {
         }
         Relationships: []
       }
+      carrinhos_web: {
+        Row: {
+          codigo: string
+          criado_em: string
+          expira_em: string
+          itens: Json
+          usado_em: string | null
+        }
+        Insert: {
+          codigo: string
+          criado_em?: string
+          expira_em?: string
+          itens: Json
+          usado_em?: string | null
+        }
+        Update: {
+          codigo?: string
+          criado_em?: string
+          expira_em?: string
+          itens?: Json
+          usado_em?: string | null
+        }
+        Relationships: []
+      }
       categorias: {
         Row: {
           ativo: boolean
@@ -823,6 +847,7 @@ export type Database = {
       }
     }
     Functions: {
+      criar_carrinho_web: { Args: { p_itens: Json }; Returns: string }
       criar_pedido: { Args: { p_pedido: Json }; Returns: Json }
       eh_admin: { Args: never; Returns: boolean }
       eh_impressora: { Args: never; Returns: boolean }

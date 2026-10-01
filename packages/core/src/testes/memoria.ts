@@ -23,6 +23,7 @@ export function repositoriosEmMemoria(params: {
     return { ...p, pedidoNumero: pedido.numero, pedidoStatus: pedido.status };
   };
   const conversas = new Map<string, { mensagens: MensagemConversa[]; encerrada: boolean; pedidoId: string | null }>();
+  const carrinhos = new Map<string, unknown>();
   let sequencia = 0;
 
   const repos: Repositorios = {
@@ -97,9 +98,16 @@ export function repositoriosEmMemoria(params: {
         conversa.pedidoId = pedidoId;
       },
     },
+    carrinhos: {
+      consumir: async (codigo) => {
+        const itens = carrinhos.get(codigo);
+        carrinhos.delete(codigo);
+        return itens ?? null;
+      },
+    },
   };
 
-  return { repos, pedidos, pagamentos, conversas };
+  return { repos, pedidos, pagamentos, conversas, carrinhos };
 }
 
 /** LLM roteirizado: devolve as respostas na ordem e registra as requisições. */

@@ -49,6 +49,13 @@ por injeção — por isso é testado com implementações em memória (`core/sr
   O preço de cada tamanho do sabor fica gravado na variação (base + adicional); mudar o
   `preco_base` reajusta todos via trigger. Borda/adicional soma; no máximo 1 borda. Detalhe em
   `itens_pedido_componentes`; `itens_pedido.produto_id/variacao_id` = primeiro sabor.
+- **Montar no cardápio e enviar pelo Telegram:** `/cardapio` tem carrinho no navegador
+  (`app/cardapio/carrinho.tsx`, prévia de preço com `@pizzaria/core/precificacao`). Enviar chama
+  a RPC `criar_carrinho_web` (anon; tabela `carrinhos_web` sem políticas, vale 24h, uso único) e
+  abre `t.me/<bot>?start=c_<codigo>`. O agente trata `/start c_<codigo>` sem LLM
+  (`agente/carrinho-web.ts`): consome, reprecifica, responde o resumo e grava no histórico a
+  mensagem do cliente com os itens em JSON (IDs) para o modelo seguir do passo 2. Loja fechada
+  não consome o carrinho. Requer `configuracoes.telegram_usuario`.
 - **Snapshots no pedido:** nome do cliente, telefone, endereço formatado, descrição e preço
   de cada item ficam congelados — editar cardápio/cliente não altera pedido antigo.
 - **Gravação atômica** via RPC `criar_pedido(p_pedido jsonb)` (cliente + endereço +

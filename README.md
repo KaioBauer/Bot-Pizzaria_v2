@@ -64,6 +64,10 @@ ajustes do dia a dia ficam no painel: preço base, fatias e sabores de cada tama
 *Configurações → Tamanhos de pizza* e o adicional por sabor de cada categoria em
 *Cardápio → Editar*.
 
+No cardápio público o cliente monta o pedido (tamanho, sabores, borda, bebidas) e toca em
+*Enviar pelo Telegram*: o bot recebe o carrinho, confere os preços e segue com entrega ou
+retirada e pagamento. Precisa do usuário do bot em *Configurações → Telegram*.
+
 ## Rodando em desenvolvimento
 
 ```bash

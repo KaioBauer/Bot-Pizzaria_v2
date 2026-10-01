@@ -83,6 +83,14 @@ export interface ConversasRepo {
   encerrar(conversaId: string, pedidoId: string | null): Promise<void>;
 }
 
+export interface CarrinhosRepo {
+  /**
+   * Carrinho montado no cardápio do site. Marca como usado e devolve os itens
+   * (JSON cru, ainda não validado); null se não existe, venceu ou já foi usado.
+   */
+  consumir(codigo: string): Promise<unknown | null>;
+}
+
 export interface Repositorios {
   cardapio: CardapioRepo;
   loja: LojaRepo;
@@ -90,4 +98,5 @@ export interface Repositorios {
   pedidos: PedidosRepo;
   conversas: ConversasRepo;
   pagamentos: PagamentosRepo;
+  carrinhos: CarrinhosRepo;
 }

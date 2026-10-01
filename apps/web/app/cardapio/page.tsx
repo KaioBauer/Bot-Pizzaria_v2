@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
-import { Bike, Clock, MapPin, MessageCircle, Phone, QrCode, Send, Store } from "lucide-react";
+import { Bike, Clock, MapPin, Phone, QrCode, Store } from "lucide-react";
 import { momentoLocal, proximaAbertura, situacaoLoja } from "@pizzaria/core";
 import { criarRepositorios } from "@pizzaria/db";
 import { formatarReais, formatarTelefone, type ProdutoCardapio, type TamanhoPizza } from "@pizzaria/shared";
 import { cn, Logo, MiniaturaProduto } from "../../components/ui";
 import { clientePublico } from "../../lib/supabase/publico";
+import { BotaoAdicionar, Carrinho } from "./carrinho";
 
 // Atualiza a cada minuto (status aberto/fechado e mudanças no cardápio).
 export const revalidate = 60;
@@ -50,6 +51,7 @@ function Produto({ produto, tamanhos }: { produto: ProdutoCardapio; tamanhos: Ta
             <span className="tabular">{formatarReais(menor)}</span>
           </p>
         )}
+        <BotaoAdicionar produto={produto} />
       </div>
       {produto.imagemUrl && <MiniaturaProduto nome={produto.nome} url={produto.imagemUrl} className="size-20 shrink-0 rounded-2xl sm:size-24" />}
     </li>
@@ -69,6 +71,7 @@ export default async function CardapioPage() {
   const linkWhatsapp = config.whatsappNumero ? `https://wa.me/${config.whatsappNumero}?text=${encodeURIComponent("Olá! Quero fazer um pedido 🍕")}` : null;
   const linkTelegram = config.telegramUsuario ? `https://t.me/${config.telegramUsuario}?start=cardapio` : null;
   const temBotoes = Boolean(linkWhatsapp || linkTelegram);
+  const montarPedido = Boolean(config.telegramUsuario);
 
   const status = situacao.aberta
     ? { texto: "Aberto agora", detalhe: "Peça pelo chat — respondemos na hora", cor: "bg-manjericao-500" }
@@ -77,7 +80,7 @@ export default async function CardapioPage() {
       : { texto: "Fechado agora", detalhe: abre ? `Abrimos ${abre}` : "Confira o horário abaixo", cor: "bg-stone-400" };
 
   return (
-    <div className={cn("min-h-dvh bg-creme-50", temBotoes && "pb-28")}>
+    <div className={cn("min-h-dvh bg-creme-50", (temBotoes || montarPedido) && "pb-28")}>
       <header className="relative overflow-hidden bg-stone-950 text-white">
         <div aria-hidden className="absolute -top-24 -right-20 size-80 rounded-full bg-marca-600/40 blur-3xl" />
         <div aria-hidden className="absolute -bottom-32 -left-16 size-72 rounded-full bg-amber-500/20 blur-3xl" />
@@ -121,12 +124,23 @@ export default async function CardapioPage() {
         </nav>
       )}
 
+      <Carrinho
+        categorias={categorias}
+        tamanhos={config.tamanhos}
+        aberta={situacao.aberta}
+        telegramHabilitado={montarPedido}
+        linkWhatsapp={linkWhatsapp}
+        linkTelegram={linkTelegram}
+      >
       <main className="mx-auto max-w-2xl space-y-10 px-5 py-8">
         {config.tamanhos.length > 0 && (
           <section className="overflow-hidden rounded-3xl bg-stone-950 text-white shadow-elevada" aria-labelledby="titulo-tamanhos">
             <div className="px-5 pt-5 pb-2">
               <h2 id="titulo-tamanhos" className="font-display text-2xl font-semibold">Tamanhos</h2>
-              <p className="mt-1 text-sm text-stone-400">Monte com vários sabores. Sabores especiais somam o adicional de cada um.</p>
+              <p className="mt-1 text-sm text-stone-400">
+                Monte com vários sabores. Sabores especiais somam o adicional de cada um.
+                {montarPedido && " Toque em Montar pizza e envie o pedido pelo Telegram."}
+              </p>
             </div>
             <ul className="divide-y divide-white/10 px-5">
               {config.tamanhos.map((t) => (
@@ -214,22 +228,7 @@ export default async function CardapioPage() {
         </footer>
       </main>
 
-      {temBotoes && (
-        <div className="fixed inset-x-0 bottom-0 z-20 border-t border-stone-200/80 bg-white/90 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur">
-          <div className="mx-auto flex max-w-2xl gap-2">
-            {linkWhatsapp && (
-              <a href={linkWhatsapp} className="flex h-13 flex-1 items-center justify-center gap-2 rounded-2xl bg-[#25D366] font-bold text-white shadow-sm transition hover:brightness-95">
-                <MessageCircle className="size-5" /> Pedir no WhatsApp
-              </a>
-            )}
-            {linkTelegram && (
-              <a href={linkTelegram} className="flex h-13 flex-1 items-center justify-center gap-2 rounded-2xl bg-[#229ED9] font-bold text-white shadow-sm transition hover:brightness-95">
-                <Send className="size-5" /> Pedir no Telegram
-              </a>
-            )}
-          </div>
-        </div>
-      )}
+      </Carrinho>
     </div>
   );
 }

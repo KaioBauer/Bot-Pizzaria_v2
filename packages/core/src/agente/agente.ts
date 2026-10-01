@@ -6,6 +6,8 @@ import type { LlmProvider } from "../llm/tipos";
 import { loggerSilencioso, type Logger } from "../logger";
 import type { ServicoPix } from "../pagamentos/pix";
 import { mensagemPedidoConfirmado, mensagemPedidoPix } from "../pedido";
+import { cotarPedido, idsDeVariacao } from "../precificacao";
+import { codigoCarrinhoWeb, conversaCarrinhoWeb, lerItensCarrinho, mensagemCarrinhoInvalido } from "./carrinho-web";
 import { mensagemBoasVindas, reconhecerComando } from "./comandos";
 import { montarPromptSistema } from "./prompt";
 import {
@@ -113,6 +115,52 @@ export function criarAgente(deps: DependenciasAgente) {
       deps.repos.conversas.obterAtiva(canal, chatId, new Date(instante.getTime() - expiracaoMs)),
       deps.repos.clientes.buscar(canal, chatId),
     ]);
+
+    // Pedido montado no cardápio do site (link "Enviar pelo Telegram").
+    const codigoCarrinho = codigoCarrinhoWeb(entrada.texto);
+    if (codigoCarrinho) {
+      const situacaoAgora = situacaoLoja(config, instante);
+      const urlCardapio = deps.opcoes?.urlCardapio ?? null;
+      if (!situacaoAgora.aberta) {
+        // Não consome: o carrinho continua salvo no site para enviar quando abrir.
+        return {
+          texto: `${mensagemBoasVindas({
+            comando: "start",
+            config,
+            situacao: situacaoAgora,
+            proximaAbertura: proximaAbertura(config.horarios, instante, config.fusoHorario),
+            urlCardapio: null,
+            nomeCliente: cliente?.nome ?? entrada.clienteNome ?? null,
+          })}
+
+Seu pedido continua salvo no cardápio: quando abrirmos, é só tocar de novo em *Enviar pelo Telegram*.`,
+        };
+      }
+      const itens = lerItensCarrinho(await deps.repos.carrinhos.consumir(codigoCarrinho));
+      if (!itens) return { texto: mensagemCarrinhoInvalido(urlCardapio) };
+
+      const variacoes = await deps.repos.cardapio.variacoesPorIds(idsDeVariacao(itens));
+      const cotacao = cotarPedido({
+        itens,
+        variacoes: new Map(variacoes.map((v) => [v.id, v])),
+        tipoEntrega: "retirada",
+        bairroId: null,
+        bairros: config.bairros,
+        pedidoMinimoCentavos: 0, // pedido mínimo e entrega entram no calcular_pedido, adiante
+        tamanhos: config.tamanhos,
+      });
+      const { mensagemCliente, resposta } = conversaCarrinhoWeb(itens, cotacao);
+
+      // Começa uma conversa nova com o carrinho como primeira mensagem do cliente.
+      await deps.repos.conversas.encerrar(conversaId, null);
+      const novaConversa = await deps.repos.conversas.obterAtiva(canal, chatId, new Date(instante.getTime() - expiracaoMs));
+      await persistir(novaConversa, [
+        { papel: "user", conteudo: mensagemCliente },
+        { papel: "assistant", conteudo: resposta },
+      ]);
+      logger.info({ canal, chatId, itens: itens.length, ok: cotacao.ok }, "Carrinho do cardápio recebido");
+      return { texto: resposta };
+    }
 
     // /start e /reiniciar: zera a conversa e responde na hora, sem o LLM.
     const comando = reconhecerComando(entrada.texto);
