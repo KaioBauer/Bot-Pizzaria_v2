@@ -1,0 +1,16 @@
+{
+  "name": "@pizzaria/db",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@pizzaria/shared": "workspace:*",
+    "@supabase/supabase-js": "^2.117.2"
+  }
+}

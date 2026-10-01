@@ -1,0 +1,51 @@
+@import "tailwindcss";
+
+@theme {
+  --color-marca-50: #fff4ed;
+  --color-marca-100: #ffe6d4;
+  --color-marca-500: #e8590c;
+  --color-marca-600: #d9480f;
+  --color-marca-700: #b33a0b;
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+body {
+  @apply bg-stone-100 text-stone-900 antialiased;
+}
+
+/* Classes das telas antigas de cardápio (substituídas na Fase 4). */
+@layer components {
+  .legado .container {
+    @apply mx-auto max-w-4xl p-6;
+  }
+  .legado .card {
+    @apply mb-4 rounded-lg border border-stone-200 bg-white p-4;
+  }
+  .legado table {
+    @apply w-full border-collapse;
+  }
+  .legado th,
+  .legado td {
+    @apply border-b border-stone-100 p-2 text-left;
+  }
+  .legado .badge {
+    @apply inline-block rounded-full bg-stone-200 px-2.5 py-0.5 text-sm;
+  }
+  .legado form.inline {
+    @apply inline;
+  }
+  .legado input,
+  .legado select,
+  .legado textarea {
+    @apply rounded-md border border-stone-300 bg-white p-2;
+  }
+  .legado button {
+    @apply cursor-pointer rounded-md bg-marca-600 px-3 py-2 text-white;
+  }
+  .legado button.secondary {
+    @apply bg-stone-200 text-stone-900;
+  }
+  .legado .field {
+    @apply mb-3 flex flex-col gap-1;
+  }
+}

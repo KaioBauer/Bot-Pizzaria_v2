@@ -1,0 +1,28 @@
+{
+  "name": "vianna-pizzaria",
+  "private": true,
+  "version": "0.2.0",
+  "type": "module",
+  "packageManager": "pnpm@11.18.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev:bot": "pnpm --filter @pizzaria/bot dev",
+    "dev:web": "pnpm --filter @pizzaria/web dev",
+    "build": "pnpm -r --if-present build",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "pnpm typecheck && pnpm test",
+    "db:types": "supabase gen types typescript --linked --schema public > packages/db/src/database.types.ts",
+    "usuario": "tsx apps/bot/scripts/usuario.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.18.0",
+    "supabase": "^2.99.0",
+    "typescript": "~5.9.3",
+    "vitest": "^5.0.3",
+    "tsx": "^4.23.15"
+  }
+}

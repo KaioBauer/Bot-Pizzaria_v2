@@ -1,0 +1,18 @@
+node_modules/
+dist/
+.next/
+*.tsbuildinfo
+coverage/
+
+# Segredos: cada app tem seu .env (ver .env.example de cada um)
+.env
+.env.*
+!.env.example
+
+# Supabase CLI
+supabase/.temp/
+supabase/.branches/
+
+# Logs locais
+*.log
+logs/

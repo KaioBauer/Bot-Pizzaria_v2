@@ -1,0 +1,17 @@
+{
+  "name": "@pizzaria/core",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@pizzaria/shared": "workspace:*",
+    "openai": "^7.25.0",
+    "zod": "^4.6.5"
+  }
+}

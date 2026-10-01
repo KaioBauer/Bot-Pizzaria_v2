@@ -1,0 +1,27 @@
+{
+  "name": "@pizzaria/bot",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --env-file-if-exists=.env src/index.ts",
+    "start": "node --env-file-if-exists=.env dist/index.js",
+    "build": "tsup",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@pizzaria/core": "workspace:*",
+    "@pizzaria/db": "workspace:*",
+    "@pizzaria/shared": "workspace:*",
+    "fastify": "^5.12.5",
+    "grammy": "^1.46.0",
+    "pino": "^10.3.1",
+    "zod": "^4.6.5",
+    "@supabase/supabase-js": "^2.117.2"
+  },
+  "devDependencies": {
+    "pino-pretty": "^13.1.3",
+    "tsup": "^8.5.1",
+    "tsx": "^4.23.15"
+  }
+}
