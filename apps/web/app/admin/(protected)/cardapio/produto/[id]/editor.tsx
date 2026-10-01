@@ -1,10 +1,12 @@
 "use client";
 
+import { ChevronLeft, ImagePlus, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
 import type { ProdutoAdmin } from "@pizzaria/db";
 import { centavosParaCampo, lerReais, type TipoVariacao } from "@pizzaria/shared";
+import { Aviso, Botao, CabecalhoCartao, Campo, Cartao, cn, estiloEntrada, Interruptor, MiniaturaProduto } from "../../../../../../components/ui";
 import { enviarFotoAction, excluirProdutoAction, removerFotoAction, salvarProdutoAction } from "../../actions";
 
 interface LinhaVariacao {
@@ -18,12 +20,11 @@ interface LinhaVariacao {
 
 const ROTULO_TIPO: Record<TipoVariacao, string> = {
   tamanho: "Tamanho",
-  padrao: "Única (bebida etc.)",
+  padrao: "Única",
   borda: "Borda",
   adicional: "Adicional",
 };
 
-const campo = "w-full rounded-lg border border-stone-300 bg-white px-3 py-2 outline-none focus:border-marca-500 focus:ring-2 focus:ring-marca-100";
 let contador = 0;
 const novaChave = () => `nova-${++contador}`;
 
@@ -40,14 +41,7 @@ export function EditorProduto(props: {
   const [ativo, setAtivo] = useState(produto?.ativo ?? true);
   const [ordem, setOrdem] = useState(produto?.ordem ?? 0);
   const [variacoes, setVariacoes] = useState<LinhaVariacao[]>(
-    produto?.variacoes.map((v) => ({
-      chave: v.id,
-      id: v.id,
-      nome: v.nome,
-      tipo: v.tipo,
-      preco: centavosParaCampo(v.precoCentavos),
-      ativo: v.ativo,
-    })) ?? []
+    produto?.variacoes.map((v) => ({ chave: v.id, id: v.id, nome: v.nome, tipo: v.tipo, preco: centavosParaCampo(v.precoCentavos), ativo: v.ativo })) ?? []
   );
   const [foto, setFoto] = useState(produto?.imagemUrl ?? null);
   const [mensagem, setMensagem] = useState<{ tipo: "erro" | "ok"; texto: string } | null>(null);
@@ -74,14 +68,7 @@ export function EditorProduto(props: {
         descricao,
         ativo,
         ordem,
-        variacoes: variacoes.map((v, i) => ({
-          id: v.id,
-          nome: v.nome,
-          tipo: v.tipo,
-          precoCentavos: lerReais(v.preco) ?? 0,
-          ativo: v.ativo,
-          ordem: i,
-        })),
+        variacoes: variacoes.map((v, i) => ({ id: v.id, nome: v.nome, tipo: v.tipo, precoCentavos: lerReais(v.preco) ?? 0, ativo: v.ativo, ordem: i })),
       });
       if (!r.ok) return setMensagem({ tipo: "erro", texto: r.erro });
       setMensagem({ tipo: "ok", texto: r.aviso ?? "Produto salvo!" });
@@ -115,140 +102,128 @@ export function EditorProduto(props: {
   }
 
   return (
-    <main className="mx-auto max-w-3xl space-y-5 p-4 sm:p-6">
-      <div className="flex items-center gap-3">
-        <Link href="/admin/cardapio" className="rounded-lg px-2 py-1 text-stone-600 hover:bg-stone-200">← Cardápio</Link>
-        <h1 className="text-2xl font-black">{produto ? "Editar produto" : "Novo produto"}</h1>
+    <main className="mx-auto max-w-4xl space-y-6 p-4 pb-32 sm:p-8 sm:pb-32">
+      <div>
+        <Link href="/admin/cardapio" className="inline-flex items-center gap-1 text-sm font-medium text-stone-500 hover:text-stone-900">
+          <ChevronLeft className="size-4" /> Cardápio
+        </Link>
+        <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight">{produto ? nome || "Produto" : "Novo produto"}</h1>
       </div>
 
-      <section className="grid gap-4 rounded-2xl bg-white p-5 ring-1 ring-stone-200 sm:grid-cols-[1fr_auto]">
-        <div className="space-y-3">
-          <label className="block">
-            <span className="text-sm font-medium">Nome</span>
-            <input value={nome} onChange={(e) => setNome(e.target.value)} className={campo} placeholder="Ex.: Portuguesa" />
-          </label>
-          <label className="block">
-            <span className="text-sm font-medium">Descrição (ingredientes)</span>
-            <textarea value={descricao} onChange={(e) => setDescricao(e.target.value)} rows={2} maxLength={300} className={campo} />
-          </label>
-          <div className="flex flex-wrap gap-3">
-            <label className="block flex-1">
-              <span className="text-sm font-medium">Categoria</span>
-              <select value={categoriaId} onChange={(e) => setCategoriaId(e.target.value)} className={campo}>
-                {props.categorias.map((c) => (
-                  <option key={c.id} value={c.id}>{c.nome}</option>
-                ))}
-              </select>
-            </label>
-            <label className="block w-24">
-              <span className="text-sm font-medium">Ordem</span>
-              <input type="number" min={0} value={ordem} onChange={(e) => setOrdem(Number(e.target.value) || 0)} className={campo} />
-            </label>
+      <div className="grid gap-6 lg:grid-cols-[1fr_18rem]">
+        <Cartao>
+          <CabecalhoCartao titulo="Informações" descricao="Como o produto aparece no cardápio e para o bot." />
+          <div className="space-y-4 p-5 sm:p-6">
+            <Campo rotulo="Nome">
+              <input value={nome} onChange={(e) => setNome(e.target.value)} className={estiloEntrada} placeholder="Ex.: Portuguesa" />
+            </Campo>
+            <Campo rotulo="Descrição" dica="Ingredientes, em uma frase. Aparece no cardápio e ajuda o bot a responder.">
+              <textarea value={descricao} onChange={(e) => setDescricao(e.target.value)} rows={3} maxLength={300} className={estiloEntrada} />
+            </Campo>
+            <div className="grid gap-4 sm:grid-cols-[1fr_8rem]">
+              <Campo rotulo="Categoria">
+                <select value={categoriaId} onChange={(e) => setCategoriaId(e.target.value)} className={estiloEntrada}>
+                  {props.categorias.map((c) => (
+                    <option key={c.id} value={c.id}>{c.nome}</option>
+                  ))}
+                </select>
+              </Campo>
+              <Campo rotulo="Ordem">
+                <input type="number" min={0} value={ordem} onChange={(e) => setOrdem(Number(e.target.value) || 0)} className={estiloEntrada} />
+              </Campo>
+            </div>
+            <Interruptor checked={ativo} onChange={(e) => setAtivo(e.target.checked)} rotulo="Disponível" descricao="Desligado, some do cardápio e o bot não oferece." />
           </div>
-          <label className="flex items-center gap-2">
-            <input type="checkbox" checked={ativo} onChange={(e) => setAtivo(e.target.checked)} className="size-5 accent-marca-600" />
-            <span className="font-medium">Disponível no cardápio e no bot</span>
-          </label>
-        </div>
+        </Cartao>
 
-        <div className="flex flex-col items-center gap-2">
-          <div className="size-40 overflow-hidden rounded-xl bg-stone-100 ring-1 ring-stone-200">
-            {foto ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={foto} alt={nome} className="size-full object-cover" />
-            ) : (
-              <div className="flex size-full items-center justify-center text-5xl">🍕</div>
+        <Cartao className="h-fit">
+          <CabecalhoCartao titulo="Foto" />
+          <div className="space-y-3 p-5">
+            <MiniaturaProduto nome={nome || "?"} url={foto} className="aspect-square w-full rounded-xl text-6xl" />
+            <input ref={entradaFoto} type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={(e) => e.target.files?.[0] && enviarFoto(e.target.files[0])} />
+            <Botao
+              variante="secundario"
+              className="w-full"
+              disabled={!produto || salvando}
+              onClick={() => entradaFoto.current?.click()}
+              title={produto ? undefined : "Salve o produto antes de enviar a foto"}
+            >
+              <ImagePlus className="size-4" /> {foto ? "Trocar foto" : "Enviar foto"}
+            </Botao>
+            {!produto && <p className="text-center text-xs text-stone-500">Salve o produto para adicionar a foto.</p>}
+            {foto && produto && (
+              <button
+                className="w-full text-sm font-medium text-red-700 hover:underline"
+                onClick={() => iniciar(async () => {
+                  const r = await removerFotoAction(produto.id);
+                  if (r.ok) setFoto(null);
+                })}
+              >
+                Remover foto
+              </button>
             )}
           </div>
-          <input
-            ref={entradaFoto}
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            hidden
-            onChange={(e) => e.target.files?.[0] && enviarFoto(e.target.files[0])}
-          />
-          <button
-            disabled={!produto || salvando}
-            onClick={() => entradaFoto.current?.click()}
-            className="w-40 rounded-lg py-2 text-sm font-medium ring-1 ring-stone-300 disabled:opacity-50"
-            title={produto ? undefined : "Salve o produto antes de enviar a foto"}
-          >
-            {foto ? "Trocar foto" : "Enviar foto"}
-          </button>
-          {foto && produto && (
-            <button
-              onClick={() => iniciar(async () => {
-                const r = await removerFotoAction(produto.id);
-                if (r.ok) setFoto(null);
-              })}
-              className="text-sm text-red-700"
-            >
-              Remover foto
-            </button>
+        </Cartao>
+      </div>
+
+      <Cartao>
+        <CabecalhoCartao
+          titulo="Tamanhos, bordas e preços"
+          descricao="Pizzas: um tamanho por linha, com o mesmo nome em todos os sabores (é assim que o meio a meio casa os tamanhos). Bebidas: uma variação única. Bordas e adicionais somam ao preço."
+        />
+        <div className="space-y-2 p-5 sm:p-6">
+          {variacoes.length === 0 && <p className="rounded-xl bg-stone-50 px-4 py-6 text-center text-sm text-stone-500">Nenhuma variação ainda — adicione abaixo.</p>}
+          {variacoes.length > 0 && (
+            <div className="hidden grid-cols-[8.5rem_1fr_8rem_6rem_2.5rem] gap-2 px-1 text-xs font-semibold tracking-wide text-stone-400 uppercase sm:grid">
+              <span>Tipo</span><span>Nome</span><span className="text-right">Preço (R$)</span><span>Ativa</span><span />
+            </div>
           )}
-        </div>
-      </section>
+          {variacoes.map((v) => (
+            <div key={v.chave} className={cn("grid grid-cols-2 items-center gap-2 rounded-xl p-1 sm:grid-cols-[8.5rem_1fr_8rem_6rem_2.5rem]", !v.ativo && "opacity-60")}>
+              <select value={v.tipo} onChange={(e) => alterar(v.chave, { tipo: e.target.value as TipoVariacao })} className={estiloEntrada} aria-label="Tipo">
+                {Object.entries(ROTULO_TIPO).map(([tipo, rotulo]) => (
+                  <option key={tipo} value={tipo}>{rotulo}</option>
+                ))}
+              </select>
+              <input value={v.nome} onChange={(e) => alterar(v.chave, { nome: e.target.value })} placeholder="Ex.: Grande" className={estiloEntrada} aria-label="Nome" />
+              <input value={v.preco} onChange={(e) => alterar(v.chave, { preco: e.target.value })} inputMode="decimal" placeholder="0,00" className={cn(estiloEntrada, "text-right tabular")} aria-label="Preço" />
+              <Interruptor checked={v.ativo} onChange={(e) => alterar(v.chave, { ativo: e.target.checked })} aria-label="Ativa" />
+              <button onClick={() => setVariacoes((vs) => vs.filter((x) => x.chave !== v.chave))} className="flex size-10 items-center justify-center rounded-lg text-stone-400 hover:bg-red-50 hover:text-red-600" aria-label="Remover variação">
+                <Trash2 className="size-4" />
+              </button>
+            </div>
+          ))}
 
-      <section className="space-y-3 rounded-2xl bg-white p-5 ring-1 ring-stone-200">
-        <div>
-          <h2 className="text-lg font-bold">Tamanhos, bordas e preços</h2>
-          <p className="text-sm text-stone-500">
-            Pizzas: um tamanho por linha (o meio a meio usa o mesmo nome de tamanho nos dois sabores). Bebidas: uma variação “Única”.
-            Bordas e adicionais somam ao preço.
-          </p>
-        </div>
-
-        {variacoes.length === 0 && <p className="text-sm text-stone-500">Nenhuma variação ainda.</p>}
-        {variacoes.map((v) => (
-          <div key={v.chave} className={`grid grid-cols-[1fr_1fr] gap-2 rounded-xl p-2 ring-1 ring-stone-200 sm:grid-cols-[10rem_1fr_7rem_auto_auto] ${v.ativo ? "" : "bg-stone-50 opacity-70"}`}>
-            <select value={v.tipo} onChange={(e) => alterar(v.chave, { tipo: e.target.value as TipoVariacao })} className={campo} aria-label="Tipo">
-              {Object.entries(ROTULO_TIPO).map(([tipo, rotulo]) => (
-                <option key={tipo} value={tipo}>{rotulo}</option>
-              ))}
-            </select>
-            <input value={v.nome} onChange={(e) => alterar(v.chave, { nome: e.target.value })} placeholder="Nome (ex.: Grande)" className={campo} aria-label="Nome" />
-            <input value={v.preco} onChange={(e) => alterar(v.chave, { preco: e.target.value })} inputMode="decimal" placeholder="0,00" className={`${campo} text-right`} aria-label="Preço" />
-            <label className="flex items-center gap-1.5 px-1 text-sm">
-              <input type="checkbox" checked={v.ativo} onChange={(e) => alterar(v.chave, { ativo: e.target.checked })} className="size-4 accent-marca-600" />
-              Ativa
-            </label>
-            <button onClick={() => setVariacoes((vs) => vs.filter((x) => x.chave !== v.chave))} className="rounded-lg px-3 text-red-700 hover:bg-red-50" aria-label="Remover variação">
-              Remover
-            </button>
+          <div className="flex flex-wrap gap-2 pt-2">
+            {variacoes.length === 0 && (
+              <Botao variante="secundario" tamanho="sm" className="bg-marca-50 text-marca-700 ring-marca-200" onClick={() => adicionar(...["Pequena", "Média", "Grande"].map((n) => ({ nome: n, tipo: "tamanho" as const, preco: "" })))}>
+                Usar P / M / G
+              </Botao>
+            )}
+            <Botao variante="secundario" tamanho="sm" onClick={() => adicionar({ nome: "", tipo: "tamanho", preco: "" })}><Plus className="size-4" /> Tamanho</Botao>
+            <Botao variante="secundario" tamanho="sm" onClick={() => adicionar({ nome: "Borda ", tipo: "borda", preco: "" })}><Plus className="size-4" /> Borda</Botao>
+            <Botao variante="secundario" tamanho="sm" onClick={() => adicionar({ nome: "", tipo: "adicional", preco: "" })}><Plus className="size-4" /> Adicional</Botao>
+            <Botao variante="secundario" tamanho="sm" onClick={() => adicionar({ nome: "Única", tipo: "padrao", preco: "" })}><Plus className="size-4" /> Variação única</Botao>
           </div>
-        ))}
-
-        <div className="flex flex-wrap gap-2">
-          <button onClick={() => adicionar({ nome: "", tipo: "tamanho", preco: "" })} className="rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-stone-300">+ Tamanho</button>
-          <button onClick={() => adicionar({ nome: "Borda ", tipo: "borda", preco: "" })} className="rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-stone-300">+ Borda</button>
-          <button onClick={() => adicionar({ nome: "", tipo: "adicional", preco: "" })} className="rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-stone-300">+ Adicional</button>
-          <button onClick={() => adicionar({ nome: "Única", tipo: "padrao", preco: "" })} className="rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-stone-300">+ Variação única</button>
-          {variacoes.length === 0 && (
-            <button
-              onClick={() => adicionar(...["Pequena", "Média", "Grande"].map((n) => ({ nome: n, tipo: "tamanho" as const, preco: "" })))}
-              className="rounded-lg bg-marca-50 px-3 py-2 text-sm font-medium text-marca-700 ring-1 ring-marca-100"
-            >
-              Usar P / M / G
-            </button>
-          )}
         </div>
-      </section>
+      </Cartao>
 
-      {mensagem && (
-        <p role="status" className={`rounded-lg px-4 py-3 ${mensagem.tipo === "erro" ? "bg-red-50 text-red-800" : "bg-emerald-50 text-emerald-800"}`}>
-          {mensagem.texto}
-        </p>
-      )}
-
-      <div className="flex flex-wrap gap-3">
-        <button onClick={salvar} disabled={salvando} className="flex-1 rounded-xl bg-marca-600 py-3.5 text-lg font-semibold text-white disabled:opacity-60">
-          {salvando ? "Salvando..." : "Salvar produto"}
-        </button>
-        {produto && (
-          <button onClick={excluir} disabled={salvando} className="rounded-xl px-5 py-3.5 font-medium text-red-700 ring-1 ring-red-200 disabled:opacity-60">
-            Excluir
-          </button>
-        )}
+      <div className="fixed inset-x-0 bottom-16 z-20 border-t border-stone-200 bg-white/90 backdrop-blur md:bottom-0 md:left-20 lg:left-64">
+        <div className="mx-auto flex max-w-4xl flex-wrap items-center gap-3 px-4 py-3 sm:px-8">
+          {mensagem ? (
+            <Aviso tom={mensagem.tipo === "erro" ? "perigo" : "sucesso"} className="flex-1 py-2">{mensagem.texto}</Aviso>
+          ) : (
+            <span className="flex-1 text-sm text-stone-500">{produto ? "Alterações só valem depois de salvar." : "Preencha e salve para criar o produto."}</span>
+          )}
+          {produto && (
+            <Botao variante="perigo" disabled={salvando} onClick={excluir}>
+              <Trash2 className="size-4" /> Excluir
+            </Botao>
+          )}
+          <Botao tamanho="lg" disabled={salvando} onClick={salvar}>
+            {salvando ? "Salvando..." : "Salvar produto"}
+          </Botao>
+        </div>
       </div>
     </main>
   );

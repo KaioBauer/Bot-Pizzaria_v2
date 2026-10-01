@@ -1,16 +1,31 @@
 "use client";
 
+import { ArrowRight, Banknote, Bike, Clock, CreditCard, Printer, QrCode, Store } from "lucide-react";
 import type { PedidoPainel } from "@pizzaria/db";
 import { formatarReais, ROTULO_STATUS, type StatusPedido } from "@pizzaria/shared";
+import { cn, Selo } from "../../../../components/ui";
 import { acaoPrincipal, impressaoPendente, minutosDesde, nivelAtraso } from "../../../../lib/quadro";
 
-const COR_ATRASO = {
-  ok: "text-stone-500",
-  atencao: "text-amber-700 font-semibold",
-  atrasado: "text-red-700 font-bold",
+const ESTILO_ATRASO = {
+  ok: "bg-stone-100 text-stone-600",
+  atencao: "bg-amber-100 text-amber-800",
+  atrasado: "bg-red-100 text-red-700",
 };
 
-const PAGAMENTO_CURTO = { pix: "Pix", dinheiro: "Dinheiro", cartao: "Cartão" } as const;
+const PAGAMENTO = {
+  pix: { Icone: QrCode, rotulo: "Pix" },
+  dinheiro: { Icone: Banknote, rotulo: "Dinheiro" },
+  cartao: { Icone: CreditCard, rotulo: "Cartão" },
+} as const;
+
+/** Cor do botão de acordo com a próxima etapa. */
+const ESTILO_ACAO: Partial<Record<StatusPedido, string>> = {
+  novo: "bg-violet-600 hover:bg-violet-700",
+  em_preparo: "bg-marca-600 hover:bg-marca-700",
+  saiu_para_entrega: "bg-amber-500 hover:bg-amber-600",
+  pronto_para_retirada: "bg-amber-500 hover:bg-amber-600",
+  concluido: "bg-manjericao-600 hover:bg-manjericao-700",
+};
 
 export function CartaoPedido(props: {
   pedido: PedidoPainel;
@@ -26,61 +41,88 @@ export function CartaoPedido(props: {
   const atraso = nivelAtraso(pedido.status, minutos);
   const acao = acaoPrincipal(pedido.status, pedido.tipoEntrega);
   const semImpressao = impressaoPendente(pedido, agora);
+  const pagamento = PAGAMENTO[pedido.formaPagamento];
 
   if (props.compacto) {
     return (
-      <button onClick={props.aoAbrir} className="flex w-full items-center justify-between rounded-xl bg-white px-3 py-2 text-left text-sm ring-1 ring-stone-200">
-        <span>
-          <b>#{pedido.numero}</b> {pedido.clienteNome}
-        </span>
-        <span className={pedido.status === "cancelado" ? "text-red-700" : "text-emerald-700"}>
-          {ROTULO_STATUS[pedido.status]}
-        </span>
+      <button
+        onClick={props.aoAbrir}
+        className="flex w-full items-center gap-3 rounded-2xl bg-white px-3.5 py-3 text-left shadow-suave ring-1 ring-stone-900/5 transition hover:ring-stone-300"
+      >
+        <span className="font-display text-lg font-semibold tabular">#{pedido.numero}</span>
+        <span className="min-w-0 flex-1 truncate text-sm text-stone-600">{pedido.clienteNome}</span>
+        <Selo tom={pedido.status === "cancelado" ? "perigo" : "sucesso"}>{ROTULO_STATUS[pedido.status]}</Selo>
       </button>
     );
   }
 
   return (
     <article
-      className={`rounded-xl bg-white shadow-sm ring-1 transition ${
-        props.destacado ? "animate-pulse ring-2 ring-marca-500" : "ring-stone-200"
-      } ${props.ocupado ? "opacity-60" : ""}`}
+      className={cn(
+        "animate-entrada overflow-hidden rounded-2xl bg-white shadow-suave ring-1 transition",
+        props.destacado ? "animate-alerta ring-2 ring-marca-500" : "ring-stone-900/5 hover:shadow-elevada",
+        props.ocupado && "opacity-60"
+      )}
     >
-      <button onClick={props.aoAbrir} className="block w-full p-3 text-left">
-        <div className="flex items-baseline justify-between gap-2">
-          <span className="text-2xl font-black">#{pedido.numero}</span>
-          <span className={`text-sm ${COR_ATRASO[atraso]}`}>{minutos} min</span>
-        </div>
-        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs font-semibold">
-          <span className={`rounded-full px-2 py-0.5 ${pedido.tipoEntrega === "entrega" ? "bg-sky-100 text-sky-800" : "bg-violet-100 text-violet-800"}`}>
-            {pedido.tipoEntrega === "entrega" ? "🛵 Entrega" : "🏪 Retirada"}
+      <button onClick={props.aoAbrir} className="block w-full p-4 text-left">
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <p className="font-display text-3xl leading-none font-semibold tabular">#{pedido.numero}</p>
+            <p className="mt-1.5 truncate font-medium text-stone-800">{pedido.clienteNome}</p>
+          </div>
+          <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-bold tabular", ESTILO_ATRASO[atraso])}>
+            <Clock className="size-3.5" /> {minutos} min
           </span>
-          <span className="rounded-full bg-stone-100 px-2 py-0.5 text-stone-700">{PAGAMENTO_CURTO[pedido.formaPagamento]}</span>
-          {pedido.status === "pronto_para_retirada" && <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-800">Pronto</span>}
-          {pedido.status === "saiu_para_entrega" && <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-800">Saiu</span>}
-          {semImpressao && <span className="rounded-full bg-red-100 px-2 py-0.5 text-red-800">⚠ Não impresso</span>}
         </div>
-        <p className="mt-2 truncate font-medium">{pedido.clienteNome}</p>
-        <ul className="mt-1 space-y-0.5 text-sm text-stone-700">
+
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          <Selo tom={pedido.tipoEntrega === "entrega" ? "info" : "violeta"}>
+            {pedido.tipoEntrega === "entrega" ? <Bike className="size-3.5" /> : <Store className="size-3.5" />}
+            {pedido.tipoEntrega === "entrega" ? "Entrega" : "Retirada"}
+          </Selo>
+          <Selo>
+            <pagamento.Icone className="size-3.5" /> {pagamento.rotulo}
+          </Selo>
+          {pedido.status === "saiu_para_entrega" && <Selo tom="sucesso">A caminho</Selo>}
+          {pedido.status === "pronto_para_retirada" && <Selo tom="sucesso">Pronto</Selo>}
+          {semImpressao && (
+            <Selo tom="perigo">
+              <Printer className="size-3.5" /> Não impresso
+            </Selo>
+          )}
+        </div>
+
+        <ul className="mt-3 space-y-1 border-t border-dashed border-stone-200 pt-3 text-sm text-stone-700">
           {pedido.itens.slice(0, 4).map((item) => (
-            <li key={item.id} className="line-clamp-2">
-              <b>{item.quantidade}x</b> {item.descricao}
-              {item.observacao && <span className="text-red-700"> ({item.observacao})</span>}
+            <li key={item.id} className="flex gap-2">
+              <span className="font-semibold text-stone-900 tabular">{item.quantidade}×</span>
+              <span className="line-clamp-2">
+                {item.descricao}
+                {item.observacao && <span className="font-medium text-marca-700"> · {item.observacao}</span>}
+              </span>
             </li>
           ))}
-          {pedido.itens.length > 4 && <li className="text-stone-500">+ {pedido.itens.length - 4} itens...</li>}
+          {pedido.itens.length > 4 && <li className="text-stone-400">+ {pedido.itens.length - 4} itens</li>}
         </ul>
-        {pedido.observacoes && <p className="mt-1 line-clamp-2 text-sm text-red-700">Obs.: {pedido.observacoes}</p>}
-        <p className="mt-2 text-right font-bold">{formatarReais(pedido.totalCentavos)}</p>
+        {pedido.observacoes && (
+          <p className="mt-2 line-clamp-2 rounded-lg bg-marca-50 px-2.5 py-1.5 text-xs font-medium text-marca-800">{pedido.observacoes}</p>
+        )}
+
+        <p className="mt-3 text-right font-display text-xl font-semibold tabular">{formatarReais(pedido.totalCentavos)}</p>
       </button>
+
       {acao && props.aoAvancar && (
-        <div className="border-t border-stone-100 p-2">
+        <div className="px-3 pb-3">
           <button
             disabled={props.ocupado}
             onClick={() => props.aoAvancar?.(acao.para)}
-            className="w-full rounded-lg bg-marca-600 py-3 font-semibold text-white active:scale-[0.99] disabled:opacity-60"
+            className={cn(
+              "flex h-11 w-full items-center justify-center gap-2 rounded-xl text-sm font-semibold text-white shadow-sm transition active:scale-[0.99] disabled:opacity-60",
+              ESTILO_ACAO[acao.para] ?? "bg-stone-900"
+            )}
           >
             {props.ocupado ? "Salvando..." : acao.rotulo}
+            {!props.ocupado && <ArrowRight className="size-4" />}
           </button>
         </div>
       )}

@@ -1,15 +1,84 @@
 @import "tailwindcss";
 
+/*
+ * Identidade Vianna: vermelho-tomate (marca), creme (fundo), grafite (texto)
+ * e manjericão (estado positivo). Títulos em Fraunces, interface em Inter.
+ */
 @theme {
-  --color-marca-50: #fff4ed;
-  --color-marca-100: #ffe6d4;
-  --color-marca-500: #e8590c;
-  --color-marca-600: #d9480f;
-  --color-marca-700: #b33a0b;
-  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-sans: var(--fonte-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--fonte-fraunces), ui-serif, Georgia, serif;
+
+  --color-marca-50: #fff5f1;
+  --color-marca-100: #ffe6dc;
+  --color-marca-200: #ffc9b3;
+  --color-marca-300: #ffa184;
+  --color-marca-400: #f96f4c;
+  --color-marca-500: #e94b27;
+  --color-marca-600: #c9351a;
+  --color-marca-700: #a62915;
+  --color-marca-800: #842417;
+  --color-marca-900: #6c2117;
+  --color-marca-950: #3b0d08;
+
+  --color-creme-50: #fffcf7;
+  --color-creme-100: #fdf6ec;
+  --color-creme-200: #f8ead5;
+  --color-creme-300: #f0d8b6;
+
+  --color-manjericao-50: #effaf2;
+  --color-manjericao-100: #d8f2de;
+  --color-manjericao-500: #2f9e55;
+  --color-manjericao-600: #237f43;
+  --color-manjericao-700: #1e6538;
+
+  --shadow-suave: 0 1px 2px rgb(28 25 23 / 0.04), 0 2px 8px rgb(28 25 23 / 0.04);
+  --shadow-elevada: 0 2px 4px rgb(28 25 23 / 0.04), 0 12px 32px -8px rgb(28 25 23 / 0.16);
+
+  --animate-entrada: entrada 0.25s ease-out;
+  --animate-alerta: alerta 1.6s ease-in-out infinite;
 }
 
-body {
-  @apply bg-stone-100 text-stone-900 antialiased;
+@keyframes entrada {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
+@keyframes alerta {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(233 75 39 / 0.45);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgb(233 75 39 / 0);
+  }
+}
+
+@layer base {
+  body {
+    @apply bg-creme-100 font-sans text-stone-900 antialiased;
+    font-feature-settings: "cv11", "ss01";
+  }
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-marca-500;
+  }
+  ::selection {
+    @apply bg-marca-200 text-marca-950;
+  }
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@utility sem-barra {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}

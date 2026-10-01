@@ -33,6 +33,8 @@ export interface CategoriaAdmin {
 
 const VIOLACAO_FK = "23503";
 
+const ORDEM_TIPO: Record<TipoVariacao, number> = { padrao: 0, tamanho: 0, borda: 1, adicional: 2 };
+
 const porOrdem = <T extends { ordem: number; nome: string }>(a: T, b: T) =>
   a.ordem - b.ordem || a.nome.localeCompare(b.nome, "pt-BR");
 
@@ -69,7 +71,7 @@ export async function listarCardapioAdmin(db: Db): Promise<CategoriaAdmin[]> {
             ativo: v.ativo,
             ordem: v.ordem,
           }))
-          .sort((a, b) => a.ordem - b.ordem || a.precoCentavos - b.precoCentavos),
+          .sort((a, b) => ORDEM_TIPO[a.tipo] - ORDEM_TIPO[b.tipo] || a.ordem - b.ordem || a.precoCentavos - b.precoCentavos),
       }))
       .sort(porOrdem),
   }));

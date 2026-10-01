@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { obterConfiguracaoAdmin } from "@pizzaria/db";
+import { CabecalhoPagina } from "../../../../components/ui";
 import { exigirAdmin } from "../../../../lib/auth";
 import { FormBairros, FormHorarios, FormLoja } from "./formularios";
 
@@ -11,8 +12,8 @@ export default async function ConfiguracoesPage() {
   const { config, horarios, bairros } = await obterConfiguracaoAdmin(supabase);
 
   return (
-    <main className="mx-auto max-w-3xl space-y-6 p-4 sm:p-6">
-      <h1 className="text-2xl font-black">Configurações</h1>
+    <main className="mx-auto max-w-6xl space-y-10 p-4 sm:p-8">
+      <CabecalhoPagina titulo="Configurações" descricao="Como a pizzaria funciona: dados, horários e entrega." />
       <FormLoja inicial={config} />
       <FormHorarios inicial={horarios} />
       <FormBairros inicial={bairros} />

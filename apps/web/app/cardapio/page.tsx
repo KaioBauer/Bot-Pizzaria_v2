@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
-import { proximaAbertura, situacaoLoja } from "@pizzaria/core";
+import { Bike, Clock, MapPin, MessageCircle, Phone, QrCode, Send, Store } from "lucide-react";
+import { momentoLocal, proximaAbertura, situacaoLoja } from "@pizzaria/core";
 import { criarRepositorios } from "@pizzaria/db";
 import { formatarReais, formatarTelefone, type ProdutoCardapio } from "@pizzaria/shared";
+import { cn, Logo, MiniaturaProduto } from "../../components/ui";
 import { clientePublico } from "../../lib/supabase/publico";
 
 // Atualiza a cada minuto (status aberto/fechado e mudanças no cardápio).
@@ -17,25 +19,37 @@ export async function generateMetadata(): Promise<Metadata> {
 
 const DIAS = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
 
-function Precos({ produto }: { produto: ProdutoCardapio }) {
+function precoBase(produto: ProdutoCardapio) {
   const base = produto.variacoes.filter((v) => v.tipo === "tamanho" || v.tipo === "padrao");
+  const menor = Math.min(...base.map((v) => v.precoCentavos));
+  return { base, menor, temTamanhos: base.some((v) => v.tipo === "tamanho") && base.length > 1 };
+}
+
+function Produto({ produto }: { produto: ProdutoCardapio }) {
+  const { base, menor, temTamanhos } = precoBase(produto);
   const extras = produto.variacoes.filter((v) => v.tipo === "borda" || v.tipo === "adicional");
   return (
-    <div className="mt-2 space-y-1.5">
-      <div className="flex flex-wrap gap-1.5">
-        {base.map((v) => (
-          <span key={v.id} className="rounded-full bg-marca-50 px-2.5 py-1 text-sm ring-1 ring-marca-100">
-            {v.tipo === "tamanho" && <span className="text-stone-600">{v.nome} </span>}
-            <b className="text-marca-700">{formatarReais(v.precoCentavos)}</b>
-          </span>
-        ))}
-      </div>
-      {extras.length > 0 && (
-        <p className="text-xs text-stone-500">
-          {extras.map((v) => `${v.nome} +${formatarReais(v.precoCentavos)}`).join(" · ")}
+    <li className="flex gap-4 py-5 first:pt-0 last:pb-0">
+      <div className="min-w-0 flex-1">
+        <h3 className="font-semibold text-stone-900">{produto.nome}</h3>
+        {produto.descricao && <p className="mt-1 line-clamp-2 text-sm leading-relaxed text-stone-500">{produto.descricao}</p>}
+        <p className="mt-2 font-semibold text-stone-900">
+          {temTamanhos && <span className="text-sm font-normal text-stone-500">a partir de </span>}
+          <span className="tabular">{formatarReais(menor)}</span>
         </p>
-      )}
-    </div>
+        {temTamanhos && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {base.map((v) => (
+              <span key={v.id} className="rounded-lg bg-creme-100 px-2 py-1 text-xs text-stone-600 ring-1 ring-creme-300">
+                {v.nome} <b className="tabular text-stone-800">{formatarReais(v.precoCentavos)}</b>
+              </span>
+            ))}
+          </div>
+        )}
+        {extras.length > 0 && <p className="mt-2 text-xs text-stone-500">{extras.map((v) => `${v.nome} +${formatarReais(v.precoCentavos)}`).join(" · ")}</p>}
+      </div>
+      <MiniaturaProduto nome={produto.nome} url={produto.imagemUrl} className="size-24 shrink-0 rounded-2xl text-3xl sm:size-28" />
+    </li>
   );
 }
 
@@ -45,36 +59,57 @@ export default async function CardapioPage() {
   const agora = new Date();
   const situacao = situacaoLoja(config, agora);
   const abre = situacao.aberta ? null : proximaAbertura(config.horarios, agora, config.fusoHorario);
-  const temMeioAMeio = categorias.some((c) => c.produtos.some((p) => p.variacoes.some((v) => v.tipo === "tamanho")));
+  const hoje = momentoLocal(agora, config.fusoHorario).diaSemana;
+  const temMeioAMeio = categorias.some((c) => c.produtos.some((p) => p.variacoes.filter((v) => v.tipo === "tamanho").length > 1));
 
-  const linkWhatsapp = config.whatsappNumero
-    ? `https://wa.me/${config.whatsappNumero}?text=${encodeURIComponent("Olá! Quero fazer um pedido 🍕")}`
-    : null;
+  const linkWhatsapp = config.whatsappNumero ? `https://wa.me/${config.whatsappNumero}?text=${encodeURIComponent("Olá! Quero fazer um pedido 🍕")}` : null;
   const linkTelegram = config.telegramUsuario ? `https://t.me/${config.telegramUsuario}?start=cardapio` : null;
+  const temBotoes = Boolean(linkWhatsapp || linkTelegram);
+
+  const status = situacao.aberta
+    ? { texto: "Aberto agora", detalhe: "Peça pelo chat — respondemos na hora", cor: "bg-manjericao-500" }
+    : situacao.motivo === "pausada"
+      ? { texto: "Pausa rápida", detalhe: "Voltamos a receber pedidos em instantes", cor: "bg-amber-400" }
+      : { texto: "Fechado agora", detalhe: abre ? `Abrimos ${abre}` : "Confira o horário abaixo", cor: "bg-stone-400" };
 
   return (
-    <div className="min-h-dvh bg-stone-50 pb-28">
-      <header className="bg-gradient-to-b from-marca-700 to-marca-600 px-5 pb-8 pt-10 text-white">
-        <div className="mx-auto max-w-2xl">
-          <p className="text-4xl">🍕</p>
-          <h1 className="mt-1 text-3xl font-black tracking-tight">{config.nomePizzaria}</h1>
-          <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1.5 text-sm font-medium backdrop-blur">
-            <span className={`size-2.5 rounded-full ${situacao.aberta ? "bg-emerald-300" : "bg-red-300"}`} />
-            {situacao.aberta
-              ? "Aberto agora — peça pelo chat!"
-              : situacao.motivo === "pausada"
-                ? "Pausamos os pedidos por alguns minutos"
-                : `Fechado agora${abre ? ` · abre ${abre}` : ""}`}
+    <div className={cn("min-h-dvh bg-creme-50", temBotoes && "pb-28")}>
+      <header className="relative overflow-hidden bg-stone-950 text-white">
+        <div aria-hidden className="absolute -top-24 -right-20 size-80 rounded-full bg-marca-600/40 blur-3xl" />
+        <div aria-hidden className="absolute -bottom-32 -left-16 size-72 rounded-full bg-amber-500/20 blur-3xl" />
+        <div className="relative mx-auto max-w-2xl px-5 pt-10 pb-9">
+          <div className="flex items-center gap-3">
+            <Logo className="size-12" />
+            <div>
+              <p className="text-xs font-semibold tracking-[0.2em] text-marca-300 uppercase">Pizzaria</p>
+              <h1 className="font-display text-3xl leading-tight font-semibold">{config.nomePizzaria}</h1>
+            </div>
           </div>
-          {config.endereco && <p className="mt-3 text-sm text-white/80">📍 {config.endereco}</p>}
+
+          <div className="mt-7 flex items-center gap-3 rounded-2xl bg-white/10 p-4 ring-1 ring-white/15 backdrop-blur">
+            <span className="relative flex size-3 shrink-0">
+              {situacao.aberta && <span className={cn("absolute inline-flex size-full animate-ping rounded-full opacity-60", status.cor)} />}
+              <span className={cn("relative inline-flex size-3 rounded-full", status.cor)} />
+            </span>
+            <div>
+              <p className="font-semibold">{status.texto}</p>
+              <p className="text-sm text-stone-300">{status.detalhe}</p>
+            </div>
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm text-stone-300">
+            <span className="flex items-center gap-1.5"><Bike className="size-4 text-marca-300" />{config.bairros.length ? "Entrega e retirada" : "Retirada no balcão"}</span>
+            <span className="flex items-center gap-1.5"><QrCode className="size-4 text-marca-300" />Pix, dinheiro ou cartão</span>
+            {config.endereco && <span className="flex items-center gap-1.5"><MapPin className="size-4 text-marca-300" />{config.endereco}</span>}
+          </div>
         </div>
       </header>
 
       {categorias.length > 1 && (
-        <nav className="sticky top-0 z-10 border-b border-stone-200 bg-white/95 backdrop-blur">
-          <div className="mx-auto flex max-w-2xl gap-2 overflow-x-auto px-4 py-3">
+        <nav className="sticky top-0 z-10 border-b border-creme-300/70 bg-creme-50/90 backdrop-blur" aria-label="Categorias">
+          <div className="sem-barra mx-auto flex max-w-2xl gap-2 overflow-x-auto px-5 py-3">
             {categorias.map((c) => (
-              <a key={c.id} href={`#cat-${c.id}`} className="shrink-0 rounded-full bg-stone-100 px-4 py-1.5 text-sm font-medium hover:bg-stone-200">
+              <a key={c.id} href={`#cat-${c.id}`} className="shrink-0 rounded-full bg-white px-4 py-2 text-sm font-semibold text-stone-700 shadow-suave ring-1 ring-stone-900/5 hover:text-marca-700">
                 {c.nome}
               </a>
             ))}
@@ -82,97 +117,84 @@ export default async function CardapioPage() {
         </nav>
       )}
 
-      <main className="mx-auto max-w-2xl space-y-8 px-4 py-6">
+      <main className="mx-auto max-w-2xl space-y-10 px-5 py-8">
         {temMeioAMeio && (
-          <p className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900 ring-1 ring-amber-200">
-            🍕 Pizza <b>meio a meio</b>: escolha 2 sabores do mesmo tamanho — vale o preço do mais caro.
-          </p>
+          <div className="flex items-start gap-3 rounded-2xl bg-amber-50 p-4 text-sm text-amber-950 ring-1 ring-amber-200">
+            <span className="text-xl leading-none">🍕</span>
+            <p><b>Pode pedir meio a meio!</b> Dois sabores no mesmo tamanho — vale o preço do sabor mais caro.</p>
+          </div>
         )}
 
-        {categorias.length === 0 && <p className="py-12 text-center text-stone-500">Cardápio em atualização. Volte daqui a pouco!</p>}
+        {categorias.length === 0 && <p className="py-16 text-center text-stone-500">Cardápio em atualização. Volte daqui a pouco!</p>}
 
         {categorias.map((categoria) => (
-          <section key={categoria.id} id={`cat-${categoria.id}`} className="scroll-mt-16">
-            <h2 className="mb-3 text-xl font-black">{categoria.nome}</h2>
-            <ul className="space-y-3">
-              {categoria.produtos.map((produto) => (
-                <li key={produto.id} className="flex gap-3 rounded-2xl bg-white p-3 shadow-sm ring-1 ring-stone-200">
-                  {produto.imagemUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={produto.imagemUrl} alt={produto.nome} loading="lazy" className="size-24 shrink-0 rounded-xl object-cover" />
-                  ) : (
-                    <div className="flex size-24 shrink-0 items-center justify-center rounded-xl bg-marca-50 text-4xl">🍕</div>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <h3 className="font-bold">{produto.nome}</h3>
-                    {produto.descricao && <p className="text-sm text-stone-600">{produto.descricao}</p>}
-                    <Precos produto={produto} />
-                  </div>
-                </li>
-              ))}
+          <section key={categoria.id} id={`cat-${categoria.id}`} className="scroll-mt-20">
+            <h2 className="mb-4 font-display text-2xl font-semibold tracking-tight">{categoria.nome}</h2>
+            <ul className="divide-y divide-creme-200 rounded-3xl bg-white px-5 py-5 shadow-suave ring-1 ring-stone-900/5">
+              {categoria.produtos.map((produto) => <Produto key={produto.id} produto={produto} />)}
             </ul>
           </section>
         ))}
 
-        <section className="space-y-4 rounded-2xl bg-white p-5 ring-1 ring-stone-200">
-          <h2 className="text-lg font-black">Informações</h2>
+        <section className="grid gap-4 sm:grid-cols-2">
           {config.horarios.length > 0 && (
-            <div>
-              <h3 className="text-sm font-bold uppercase tracking-wide text-stone-500">Horário</h3>
-              <ul className="mt-1 text-sm">
+            <div className="rounded-3xl bg-white p-5 shadow-suave ring-1 ring-stone-900/5">
+              <h2 className="flex items-center gap-2 font-semibold"><Clock className="size-4 text-marca-600" /> Horário</h2>
+              <ul className="mt-3 space-y-1 text-sm">
                 {DIAS.map((dia, d) => {
                   const turnos = config.horarios.filter((t) => t.diaSemana === d).sort((a, b) => a.abre.localeCompare(b.abre));
                   return (
-                    <li key={d} className="flex justify-between border-b border-stone-100 py-1 last:border-0">
-                      <span>{dia}</span>
-                      <span className="tabular-nums text-stone-600">{turnos.length ? turnos.map((t) => `${t.abre}–${t.fecha}`).join(", ") : "Fechado"}</span>
+                    <li key={d} className={cn("flex justify-between rounded-lg px-2 py-1", d === hoje && "bg-marca-50 font-semibold text-marca-800")}>
+                      <span>{dia}{d === hoje && " · hoje"}</span>
+                      <span className="tabular">{turnos.length ? turnos.map((t) => (t.abre === "00:00" && t.fecha === "23:59" ? "24h" : `${t.abre}–${t.fecha}`)).join(", ") : "Fechado"}</span>
                     </li>
                   );
                 })}
               </ul>
             </div>
           )}
-          <div>
-            <h3 className="text-sm font-bold uppercase tracking-wide text-stone-500">Entrega</h3>
+          <div className="rounded-3xl bg-white p-5 shadow-suave ring-1 ring-stone-900/5">
+            <h2 className="flex items-center gap-2 font-semibold">
+              {config.bairros.length ? <Bike className="size-4 text-marca-600" /> : <Store className="size-4 text-marca-600" />}
+              {config.bairros.length ? "Taxa de entrega" : "Retirada"}
+            </h2>
             {config.bairros.length ? (
-              <ul className="mt-1 grid grid-cols-2 gap-x-4 text-sm">
+              <ul className="mt-3 space-y-1 text-sm">
                 {config.bairros.map((b) => (
-                  <li key={b.id} className="flex justify-between py-0.5">
+                  <li key={b.id} className="flex justify-between px-2 py-1">
                     <span>{b.nome}</span>
-                    <span className="text-stone-600">{b.taxaCentavos ? formatarReais(b.taxaCentavos) : "Grátis"}</span>
+                    <span className="tabular text-stone-600">{b.taxaCentavos ? formatarReais(b.taxaCentavos) : "Grátis"}</span>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="mt-1 text-sm text-stone-600">No momento, apenas retirada no balcão.</p>
+              <p className="mt-3 text-sm text-stone-600">No momento atendemos só com retirada no balcão.</p>
             )}
-            {config.pedidoMinimoCentavos > 0 && <p className="mt-1 text-sm text-stone-600">Pedido mínimo: {formatarReais(config.pedidoMinimoCentavos)}</p>}
+            {config.pedidoMinimoCentavos > 0 && <p className="mt-3 border-t border-stone-100 pt-3 text-sm text-stone-500">Pedido mínimo: {formatarReais(config.pedidoMinimoCentavos)}</p>}
           </div>
-          <p className="text-sm text-stone-600">Pagamento: Pix, dinheiro ou cartão na entrega/retirada.</p>
-          {(config.telefone || config.instagram) && (
-            <p className="text-sm text-stone-600">
-              {config.telefone && <>📞 {formatarTelefone(config.telefone)} </>}
-              {config.instagram && (
-                <a href={`https://instagram.com/${config.instagram}`} className="underline" target="_blank" rel="noreferrer">
-                  @{config.instagram}
-                </a>
-              )}
-            </p>
-          )}
         </section>
+
+        <footer className="flex flex-col items-center gap-2 pt-4 pb-2 text-center text-sm text-stone-500">
+          <Logo className="size-8" />
+          <p className="font-display text-base font-semibold text-stone-700">{config.nomePizzaria}</p>
+          <div className="flex flex-wrap justify-center gap-x-4 gap-y-1">
+            {config.telefone && <a href={`tel:${config.telefone.replace(/\D/g, "")}`} className="flex items-center gap-1 hover:text-stone-900"><Phone className="size-3.5" /> {formatarTelefone(config.telefone)}</a>}
+            {config.instagram && <a href={`https://instagram.com/${config.instagram}`} target="_blank" rel="noreferrer" className="hover:text-stone-900">@{config.instagram}</a>}
+          </div>
+        </footer>
       </main>
 
-      {(linkWhatsapp || linkTelegram) && (
-        <div className="fixed inset-x-0 bottom-0 z-20 border-t border-stone-200 bg-white/95 p-3 backdrop-blur">
+      {temBotoes && (
+        <div className="fixed inset-x-0 bottom-0 z-20 border-t border-stone-200/80 bg-white/90 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur">
           <div className="mx-auto flex max-w-2xl gap-2">
             {linkWhatsapp && (
-              <a href={linkWhatsapp} className="flex-1 rounded-xl bg-[#25D366] py-3.5 text-center font-bold text-white shadow-sm">
-                Pedir pelo WhatsApp
+              <a href={linkWhatsapp} className="flex h-13 flex-1 items-center justify-center gap-2 rounded-2xl bg-[#25D366] font-bold text-white shadow-sm transition hover:brightness-95">
+                <MessageCircle className="size-5" /> Pedir no WhatsApp
               </a>
             )}
             {linkTelegram && (
-              <a href={linkTelegram} className="flex-1 rounded-xl bg-[#229ED9] py-3.5 text-center font-bold text-white shadow-sm">
-                Pedir pelo Telegram
+              <a href={linkTelegram} className="flex h-13 flex-1 items-center justify-center gap-2 rounded-2xl bg-[#229ED9] font-bold text-white shadow-sm transition hover:brightness-95">
+                <Send className="size-5" /> Pedir no Telegram
               </a>
             )}
           </div>

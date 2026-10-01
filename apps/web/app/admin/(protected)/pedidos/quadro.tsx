@@ -1,8 +1,10 @@
 "use client";
 
+import { Bell, BellRing, CircleAlert, History, Wifi, WifiOff, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { listarPedidosPainel, obterPedidoPainel, type PedidoPainel } from "@pizzaria/db";
 import type { StatusPedido } from "@pizzaria/shared";
+import { Botao, cn, Selo } from "../../../../components/ui";
 import { ativarSom, somAtivo, tocarAlerta } from "../../../../lib/alerta-sonoro";
 import { COLUNAS, colunaDoStatus, type ColunaQuadro } from "../../../../lib/quadro";
 import { clienteNavegador } from "../../../../lib/supabase/navegador";
@@ -197,42 +199,56 @@ export function QuadroPedidos({ inicial }: { inicial: PedidoPainel[] }) {
   const finalizados = porColuna.get("finalizados") ?? [];
   const pedidoSelecionado = selecionado ? pedidos.get(selecionado) : undefined;
 
+  const emAndamento = lista.filter((p) => colunaDoStatus(p.status) !== "finalizados").length;
+
   return (
-    <div className="flex h-[calc(100dvh-57px)] flex-col">
-      <div className="flex flex-wrap items-center gap-2 px-4 pt-3">
+    <div className="flex h-[calc(100dvh-7.5rem)] flex-col md:h-dvh">
+      <div className="flex flex-wrap items-center gap-3 px-4 pt-4 sm:px-6 sm:pt-6">
+        <div className="mr-auto">
+          <h1 className="font-display text-3xl font-semibold tracking-tight">Pedidos</h1>
+          <p className="text-sm text-stone-500">
+            {emAndamento === 0 ? "Nenhum pedido em andamento" : `${emAndamento} em andamento`}
+            {naoVistos.length > 0 && <span className="font-semibold text-marca-700"> · {naoVistos.length} novo(s) aguardando</span>}
+          </p>
+        </div>
         <StatusConexao conexao={conexao} />
-        {!somLiberado && (
-          <button
-            onClick={async () => setSomLiberado((await ativarSom()) || somAtivo())}
-            className="animate-pulse rounded-full bg-amber-100 px-4 py-2 text-sm font-semibold text-amber-900 ring-1 ring-amber-300"
-          >
-            🔔 Toque aqui para ativar o alerta sonoro
-          </button>
+        {!somLiberado ? (
+          <Botao variante="secundario" tamanho="sm" onClick={async () => setSomLiberado((await ativarSom()) || somAtivo())} className="ring-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100">
+            <BellRing className="size-4" /> Ativar som
+          </Botao>
+        ) : (
+          <Selo tom="sucesso" className="h-8 px-3">
+            <Bell className="size-3.5" /> Som ativo
+          </Selo>
         )}
-        {aviso && (
-          <button onClick={() => setAviso(null)} className="rounded-full bg-red-100 px-4 py-2 text-sm text-red-800 ring-1 ring-red-200">
-            {aviso} ✕
-          </button>
-        )}
-        <button
-          onClick={() => setMostrarFinalizados((v) => !v)}
-          className="ml-auto rounded-full px-4 py-2 text-sm font-medium text-stone-600 ring-1 ring-stone-300 hover:bg-white"
-        >
-          {mostrarFinalizados ? "Ocultar" : "Ver"} finalizados ({finalizados.length})
-        </button>
+        <Botao variante={mostrarFinalizados ? "escuro" : "secundario"} tamanho="sm" onClick={() => setMostrarFinalizados((v) => !v)}>
+          <History className="size-4" /> Finalizados <span className="tabular opacity-70">{finalizados.length}</span>
+        </Botao>
       </div>
 
-      <div className="flex flex-1 snap-x gap-3 overflow-x-auto p-4">
+      {aviso && (
+        <div className="px-4 pt-3 sm:px-6">
+          <button onClick={() => setAviso(null)} className="flex w-full items-center gap-2 rounded-xl bg-red-50 px-4 py-2.5 text-left text-sm text-red-800 ring-1 ring-red-200">
+            <CircleAlert className="size-4 shrink-0" /> <span className="flex-1">{aviso}</span> <X className="size-4" />
+          </button>
+        </div>
+      )}
+
+      <div className="sem-barra flex flex-1 snap-x gap-4 overflow-x-auto p-4 sm:px-6">
         {colunasVisiveis.map((coluna) => {
           const itens = porColuna.get(coluna.id) ?? [];
+          const estilo = ESTILO_COLUNA[coluna.id];
           return (
-            <section key={coluna.id} className="flex w-[85vw] max-w-sm shrink-0 snap-start flex-col rounded-2xl bg-stone-200/60 sm:w-80 lg:w-auto lg:max-w-none lg:flex-1">
-              <h2 className="flex items-center justify-between px-3 pb-1 pt-3 font-bold">
+            <section key={coluna.id} className="flex w-[86vw] max-w-sm shrink-0 snap-start flex-col rounded-3xl bg-stone-900/[0.035] sm:w-80 lg:w-auto lg:max-w-none lg:flex-1">
+              <h2 className="flex items-center gap-2 px-4 pt-4 pb-2 text-sm font-semibold text-stone-700">
+                <span className={cn("size-2 rounded-full", estilo.ponto)} />
                 {coluna.titulo}
-                <span className="rounded-full bg-white px-2.5 py-0.5 text-sm">{itens.length}</span>
+                <span className="ml-auto rounded-full bg-white px-2 py-0.5 text-xs font-bold tabular text-stone-600 shadow-suave">{itens.length}</span>
               </h2>
-              <div className="flex-1 space-y-3 overflow-y-auto p-2">
-                {itens.length === 0 && <p className="py-8 text-center text-sm text-stone-500">{coluna.vaziaTexto}</p>}
+              <div className="sem-barra flex-1 space-y-3 overflow-y-auto px-3 pb-3">
+                {itens.length === 0 && (
+                  <div className="mt-2 rounded-2xl border-2 border-dashed border-stone-200 px-4 py-10 text-center text-sm text-stone-400">{coluna.vaziaTexto}</div>
+                )}
                 {itens.map((p) => (
                   <CartaoPedido
                     key={p.id}
@@ -253,9 +269,12 @@ export function QuadroPedidos({ inicial }: { inicial: PedidoPainel[] }) {
         })}
 
         {mostrarFinalizados && (
-          <section className="flex w-[85vw] max-w-sm shrink-0 snap-start flex-col rounded-2xl bg-stone-200/40 sm:w-80">
-            <h2 className="px-3 pb-1 pt-3 font-bold text-stone-600">Finalizados (12h)</h2>
-            <div className="flex-1 space-y-2 overflow-y-auto p-2">
+          <section className="flex w-[86vw] max-w-sm shrink-0 snap-start flex-col rounded-3xl bg-stone-900/[0.035] sm:w-80">
+            <h2 className="flex items-center gap-2 px-4 pt-4 pb-2 text-sm font-semibold text-stone-500">
+              <History className="size-4" /> Finalizados nas últimas 12h
+            </h2>
+            <div className="sem-barra flex-1 space-y-2 overflow-y-auto px-3 pb-3">
+              {finalizados.length === 0 && <p className="py-10 text-center text-sm text-stone-400">Nada por aqui ainda</p>}
               {finalizados.map((p) => (
                 <CartaoPedido key={p.id} pedido={p} agora={agora} compacto aoAbrir={() => setSelecionado(p.id)} />
               ))}
@@ -278,16 +297,31 @@ export function QuadroPedidos({ inicial }: { inicial: PedidoPainel[] }) {
   );
 }
 
+const ESTILO_COLUNA: Record<ColunaQuadro, { ponto: string }> = {
+  pagamento: { ponto: "bg-violet-500" },
+  novos: { ponto: "bg-marca-500" },
+  preparo: { ponto: "bg-amber-500" },
+  saida: { ponto: "bg-manjericao-500" },
+  finalizados: { ponto: "bg-stone-400" },
+};
+
 function StatusConexao({ conexao }: { conexao: Conexao }) {
   const estilo = {
-    conectado: { cor: "bg-emerald-500", texto: "Ao vivo" },
-    conectando: { cor: "bg-stone-400", texto: "Conectando..." },
-    instavel: { cor: "bg-red-500 animate-pulse", texto: "Conexão instável — atualizando a cada minuto" },
+    conectado: { Icone: Wifi, tom: "sucesso" as const, texto: "Ao vivo" },
+    conectando: { Icone: Wifi, tom: "neutro" as const, texto: "Conectando..." },
+    instavel: { Icone: WifiOff, tom: "perigo" as const, texto: "Conexão instável" },
   }[conexao];
   return (
-    <span className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-sm ring-1 ring-stone-200">
-      <span className={`size-2.5 rounded-full ${estilo.cor}`} />
+    <Selo tom={estilo.tom} className="h-8 px-3" title={conexao === "instavel" ? "Atualizando a cada minuto até a conexão voltar" : undefined}>
+      {conexao === "conectado" ? (
+        <span className="relative flex size-2">
+          <span className="absolute inline-flex size-full animate-ping rounded-full bg-manjericao-500 opacity-60" />
+          <span className="relative inline-flex size-2 rounded-full bg-manjericao-500" />
+        </span>
+      ) : (
+        <estilo.Icone className="size-3.5" />
+      )}
       {estilo.texto}
-    </span>
+    </Selo>
   );
 }
