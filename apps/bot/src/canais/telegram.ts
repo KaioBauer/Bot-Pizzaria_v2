@@ -76,6 +76,10 @@ export function criarAdaptadorTelegram(opcoes: OpcoesTelegram): ChannelAdapter {
 
     async iniciar(servidor) {
       await bot.init();
+      // Menu de comandos do Telegram (botão "Menu" ao lado do campo de texto).
+      await bot.api
+        .setMyCommands([{ command: "reiniciar", description: "Começar o atendimento do zero" }])
+        .catch((err: unknown) => logger.warn({ err }, "Não consegui registrar os comandos do bot"));
       if (opcoes.modo === "webhook") {
         servidor.post(
           ROTA_WEBHOOK,

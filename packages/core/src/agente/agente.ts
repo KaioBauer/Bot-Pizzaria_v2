@@ -6,6 +6,7 @@ import type { LlmProvider } from "../llm/tipos";
 import { loggerSilencioso, type Logger } from "../logger";
 import type { ServicoPix } from "../pagamentos/pix";
 import { mensagemPedidoConfirmado, mensagemPedidoPix } from "../pedido";
+import { mensagemBoasVindas, reconhecerComando } from "./comandos";
 import { montarPromptSistema } from "./prompt";
 import {
   DEFINICOES_TOOLS,
@@ -112,6 +113,25 @@ export function criarAgente(deps: DependenciasAgente) {
       deps.repos.conversas.obterAtiva(canal, chatId, new Date(instante.getTime() - expiracaoMs)),
       deps.repos.clientes.buscar(canal, chatId),
     ]);
+
+    // /start e /reiniciar: zera a conversa e responde na hora, sem o LLM.
+    const comando = reconhecerComando(entrada.texto);
+    if (comando) {
+      await deps.repos.conversas.encerrar(conversaId, null);
+      const situacaoAgora = situacaoLoja(config, instante);
+      logger.info({ canal, chatId, comando }, "Conversa reiniciada pelo cliente");
+      return {
+        texto: mensagemBoasVindas({
+          comando,
+          config,
+          situacao: situacaoAgora,
+          proximaAbertura: situacaoAgora.aberta ? null : proximaAbertura(config.horarios, instante, config.fusoHorario),
+          urlCardapio: deps.opcoes?.urlCardapio ?? null,
+          nomeCliente: cliente?.nome ?? entrada.clienteNome ?? null,
+        }),
+      };
+    }
+
     const historico = recortarHistorico(
       await deps.repos.conversas.mensagens(conversaId, limiteHistorico)
     );
