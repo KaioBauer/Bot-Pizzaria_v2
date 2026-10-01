@@ -61,6 +61,13 @@ export async function buscarFilaDeImpressao(db: Db): Promise<PedidoParaImprimir[
   }));
 }
 
+/** Reivindica o pedido para este agente. false = outro agente já está imprimindo. */
+export async function reivindicarImpressao(db: Db, pedidoId: string, agente: string): Promise<boolean> {
+  const { data, error } = await db.rpc("reivindicar_impressao", { p_pedido_id: pedidoId, p_agente: agente });
+  if (error) throw new Error(`Erro ao reivindicar impressão: ${error.message}`);
+  return data === true;
+}
+
 export async function marcarImpresso(db: Db, pedidoId: string, reimpressaoAtendida: string | null) {
   const { error } = await db.rpc("marcar_pedido_impresso", {
     p_pedido_id: pedidoId,

@@ -9,5 +9,6 @@ export default defineConfig({
   platform: "node",
   noExternal: [/^@pizzaria\//],
   sourcemap: true,
-  clean: true,
+  // Não apaga dist/daemon/: o node-windows guarda ali os arquivos do serviço.
+  clean: false,
 });

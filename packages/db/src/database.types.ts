@@ -561,6 +561,8 @@ export type Database = {
           endereco_texto: string | null
           forma_pagamento: string
           id: string
+          impressao_reivindicada_em: string | null
+          impressao_reivindicada_por: string | null
           impresso_em: string | null
           motivo_cancelamento: string | null
           numero: number
@@ -586,6 +588,8 @@ export type Database = {
           endereco_texto?: string | null
           forma_pagamento: string
           id?: string
+          impressao_reivindicada_em?: string | null
+          impressao_reivindicada_por?: string | null
           impresso_em?: string | null
           motivo_cancelamento?: string | null
           numero: number
@@ -611,6 +615,8 @@ export type Database = {
           endereco_texto?: string | null
           forma_pagamento?: string
           id?: string
+          impressao_reivindicada_em?: string | null
+          impressao_reivindicada_por?: string | null
           impresso_em?: string | null
           motivo_cancelamento?: string | null
           numero?: number
@@ -795,6 +801,10 @@ export type Database = {
         Returns: undefined
       }
       papel_atual: { Args: never; Returns: string }
+      reivindicar_impressao: {
+        Args: { p_agente: string; p_pedido_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never

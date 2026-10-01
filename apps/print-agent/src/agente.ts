@@ -3,7 +3,8 @@ import { execucaoUnica } from "@pizzaria/shared";
 import type { Logger } from "pino";
 import { montarCupom } from "./cupom";
 import type { Impressora } from "./impressora";
-import { buscarDadosLoja, buscarFilaDeImpressao, marcarImpresso } from "./repositorio";
+import { hostname } from "node:os";
+import { buscarDadosLoja, buscarFilaDeImpressao, marcarImpresso, reivindicarImpressao } from "./repositorio";
 
 export interface OpcoesAgenteImpressao {
   db: Db;
@@ -13,6 +14,8 @@ export interface OpcoesAgenteImpressao {
   colunas: number;
   vias: number;
   varreduraMs: number;
+  /** Identificação deste agente na trava de impressão (padrão: máquina + processo). */
+  idAgente?: string;
 }
 
 const ESPERA_MAXIMA_MS = 5 * 60_000;
@@ -33,6 +36,7 @@ export function criarAgenteImpressao(opcoes: OpcoesAgenteImpressao) {
   /** Impressos cuja marcação no banco falhou: tenta marcar de novo sem reimprimir. */
   const semMarcacao = new Map<string, string | null>();
   let loja: { nomePizzaria: string; fusoHorario: string } | null = null;
+  const idAgente = opcoes.idAgente ?? `${hostname()}:${process.pid}`;
 
   async function garantirSessao() {
     const { data } = await db.auth.getSession();
@@ -68,6 +72,11 @@ export function criarAgenteImpressao(opcoes: OpcoesAgenteImpressao) {
 
       const reimpressao = pedido.jaImpresso && pedido.reimpressaoSolicitadaEm !== null;
       const log = logger.child({ pedido: pedido.cupom.numero, pedidoId: pedido.id, reimpressao });
+      // Com mais de um agente ligado, só quem reivindicar imprime.
+      if (!(await reivindicarImpressao(db, pedido.id, idAgente))) {
+        log.debug("Outro agente está imprimindo este pedido");
+        continue;
+      }
       try {
         const cupom = montarCupom(pedido.cupom, { colunas: opcoes.colunas, ...loja, reimpressao });
         await impressora.imprimir(cupom, opcoes.vias, `Pedido ${pedido.cupom.numero}`);
