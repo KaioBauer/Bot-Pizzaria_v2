@@ -17,6 +17,8 @@ import { momentoLocal, type SituacaoLoja } from "../horario";
 import type { DefinicaoTool } from "../llm/tipos";
 import type { Logger } from "../logger";
 import { descreverValores, montarNovoPedido } from "../pedido";
+import type { CobrancaCriada } from "../pagamentos/gateway";
+import type { ServicoPix } from "../pagamentos/pix";
 import { cotarPedido, idsDeVariacao, type Cotacao, type ResultadoCotacao } from "../precificacao";
 
 export const TOOL = {
@@ -76,7 +78,8 @@ export interface ContextoTools {
   config: ConfiguracaoLoja;
   situacao: SituacaoLoja;
   agora: Date;
-  pixDisponivel: boolean;
+  /** Pix online; ausente = não oferecido. */
+  pix: ServicoPix | null;
   cardapio: () => Promise<CategoriaCardapio[]>;
   logger: Logger;
 }
@@ -85,6 +88,8 @@ export interface PedidoCriado {
   id: string;
   numero: number;
   pedido: NovoPedido;
+  /** Cobrança gerada quando o pagamento é Pix. */
+  pix?: CobrancaCriada;
 }
 
 export interface ResultadoTool {
@@ -191,7 +196,7 @@ export async function executarTool(
       if (fechada) return fechada;
       const args = finalizarPedidoArgsSchema.safeParse(argumentos);
       if (!args.success) return erro(`Dados inválidos: ${descreverErrosZod(args.error)}`);
-      if (args.data.forma_pagamento === "pix" && !ctx.pixDisponivel) {
+      if (args.data.forma_pagamento === "pix" && !ctx.pix) {
         return erro("Pix online não está disponível no momento; ofereça dinheiro ou cartão na entrega.");
       }
 
@@ -216,9 +221,30 @@ export async function executarTool(
         { pedidoId: criado.id, numero: criado.numero, total: montagem.pedido.totalCentavos },
         "Pedido criado"
       );
+
+      let pix: CobrancaCriada | undefined;
+      if (montagem.pedido.formaPagamento === "pix" && ctx.pix) {
+        try {
+          pix = await ctx.pix.gerarCobranca({
+            pedidoId: criado.id,
+            numero: criado.numero,
+            totalCentavos: montagem.pedido.totalCentavos,
+            nomePizzaria: ctx.config.nomePizzaria,
+            expiracaoMinutos: ctx.config.pixExpiracaoMinutos,
+          });
+        } catch (err) {
+          // Sem cobrança o pedido não vale: descarta (sem notificar) e deixa o modelo oferecer outra forma.
+          ctx.logger.error({ err, pedidoId: criado.id }, "Falha ao gerar Pix; pedido descartado");
+          await ctx.repos.pedidos.descartarAguardandoPagamento(criado.id);
+          return erro(
+            "Não foi possível gerar o Pix agora (instabilidade no banco). O pedido NÃO foi registrado. Peça desculpas e ofereça pagar em dinheiro ou cartão na entrega, ou tentar o Pix de novo em instantes."
+          );
+        }
+      }
+
       return {
         conteudo: JSON.stringify({ sucesso: true, numero: criado.numero }),
-        pedidoCriado: { ...criado, pedido: montagem.pedido },
+        pedidoCriado: { ...criado, pedido: montagem.pedido, ...(pix ? { pix } : {}) },
       };
     }
 

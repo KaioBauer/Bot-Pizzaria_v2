@@ -146,3 +146,18 @@ export interface ResumoPedido {
   totalCentavos: number;
   criadoEm: string;
 }
+
+// Pagamentos ---------------------------------------------------------------------
+
+export type StatusPagamento = "pendente" | "aprovado" | "expirado" | "cancelado" | "recusado" | "estornado";
+
+export interface PagamentoRegistro {
+  id: string;
+  pedidoId: string;
+  pedidoNumero: number;
+  pedidoStatus: StatusPedido;
+  provedorId: string;
+  status: StatusPagamento;
+  valorCentavos: number;
+  expiraEm: string;
+}

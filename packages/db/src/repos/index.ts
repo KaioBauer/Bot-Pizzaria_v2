@@ -4,6 +4,7 @@ import { criarCardapioRepo } from "./cardapio";
 import { criarClientesRepo } from "./clientes";
 import { criarConversasRepo } from "./conversas";
 import { criarLojaRepo } from "./loja";
+import { criarPagamentosRepo } from "./pagamentos";
 import { criarPedidosRepo } from "./pedidos";
 
 export function criarRepositorios(db: Db): Repositorios {
@@ -13,5 +14,6 @@ export function criarRepositorios(db: Db): Repositorios {
     clientes: criarClientesRepo(db),
     pedidos: criarPedidosRepo(db),
     conversas: criarConversasRepo(db),
+    pagamentos: criarPagamentosRepo(db),
   };
 }

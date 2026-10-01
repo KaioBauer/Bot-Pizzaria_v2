@@ -6,5 +6,8 @@ export * from "./llm/openai";
 export * from "./llm/tipos";
 export * from "./logger";
 export * from "./notificacoes";
+export * from "./pagamentos/gateway";
+export * from "./pagamentos/mercadopago";
+export * from "./pagamentos/pix";
 export * from "./pedido";
 export * from "./precificacao";

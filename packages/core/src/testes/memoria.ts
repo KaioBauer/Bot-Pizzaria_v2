@@ -7,6 +7,8 @@ import type {
   VariacaoParaPreco,
 } from "@pizzaria/shared";
 import type { LlmProvider, RequisicaoLlm, RespostaLlm } from "../llm/tipos";
+import type { CobrancaCriada, GatewayPix, SituacaoCobranca } from "../pagamentos/gateway";
+import type { PagamentoRegistro, StatusPedido } from "@pizzaria/shared";
 
 /** Repositórios em memória para testar o agente sem banco. */
 export function repositoriosEmMemoria(params: {
@@ -14,7 +16,12 @@ export function repositoriosEmMemoria(params: {
   config: ConfiguracaoLoja;
   cardapio?: CategoriaCardapio[];
 }) {
-  const pedidos: Array<NovoPedido & { id: string; numero: number }> = [];
+  const pedidos: Array<Omit<NovoPedido, "status"> & { id: string; numero: number; status: StatusPedido; motivo?: string }> = [];
+  const pagamentos: Array<Omit<PagamentoRegistro, "pedidoNumero" | "pedidoStatus">> = [];
+  const registro = (p: (typeof pagamentos)[number]): PagamentoRegistro => {
+    const pedido = pedidos.find((x) => x.id === p.pedidoId)!;
+    return { ...p, pedidoNumero: pedido.numero, pedidoStatus: pedido.status };
+  };
   const conversas = new Map<string, { mensagens: MensagemConversa[]; encerrada: boolean; pedidoId: string | null }>();
   let sequencia = 0;
 
@@ -40,6 +47,37 @@ export function repositoriosEmMemoria(params: {
           totalCentavos: p.totalCentavos,
           criadoEm: "2026-10-02T21:00:00Z",
         })),
+      confirmarPagamento: async (id) => {
+        const p = pedidos.find((x) => x.id === id && x.status === "aguardando_pagamento");
+        if (p) p.status = "novo";
+        return Boolean(p);
+      },
+      cancelarAguardandoPagamento: async (id, motivo) => {
+        const p = pedidos.find((x) => x.id === id && x.status === "aguardando_pagamento");
+        if (p) Object.assign(p, { status: "cancelado", motivo });
+        return Boolean(p);
+      },
+      descartarAguardandoPagamento: async (id) => {
+        const i = pedidos.findIndex((x) => x.id === id && x.status === "aguardando_pagamento");
+        if (i >= 0) pedidos.splice(i, 1);
+      },
+    },
+    pagamentos: {
+      criar: async (p) => {
+        const id = `pag-${pagamentos.length + 1}`;
+        pagamentos.push({ id, pedidoId: p.pedidoId, provedorId: p.provedorId, status: "pendente", valorCentavos: p.valorCentavos, expiraEm: p.expiraEm.toISOString() });
+        return id;
+      },
+      porProvedorId: async (provedorId) => {
+        const p = pagamentos.find((x) => x.provedorId === provedorId);
+        return p ? registro(p) : null;
+      },
+      pendentes: async () => pagamentos.filter((p) => p.status === "pendente").map(registro),
+      atualizarStatus: async (id, de, para) => {
+        const p = pagamentos.find((x) => x.id === id && x.status === de);
+        if (p) p.status = para;
+        return Boolean(p);
+      },
     },
     conversas: {
       obterAtiva: async (canal, chatId) => {
@@ -61,7 +99,7 @@ export function repositoriosEmMemoria(params: {
     },
   };
 
-  return { repos, pedidos, conversas };
+  return { repos, pedidos, pagamentos, conversas };
 }
 
 /** LLM roteirizado: devolve as respostas na ordem e registra as requisições. */
@@ -89,3 +127,41 @@ export const chamar = (...chamadas: Array<[nome: string, argumentos: object, id?
     argumentos: JSON.stringify(argumentos),
   })),
 });
+
+/** Gateway Pix falso: o teste controla o status de cada cobrança. */
+export function gatewayPixFalso() {
+  const cobrancas = new Map<string, SituacaoCobranca>();
+  const chamadas: string[] = [];
+  let falharAoCriar = false;
+  let seq = 0;
+  const gateway: GatewayPix = {
+    async criarCobranca(c): Promise<CobrancaCriada> {
+      chamadas.push("criar");
+      if (falharAoCriar) throw new Error("gateway fora do ar");
+      const provedorId = `mp-${++seq}`;
+      cobrancas.set(provedorId, { provedorId, status: "pendente", valorCentavos: c.valorCentavos, referenciaExterna: c.pedidoId });
+      return { provedorId, qrCode: "00020126-PIX-COPIA-E-COLA", qrCodeBase64: "iVBORw0KGgo=", expiraEm: c.expiraEm };
+    },
+    async consultar(id) {
+      chamadas.push(`consultar:${id}`);
+      return cobrancas.get(id)!;
+    },
+    async cancelar(id) {
+      chamadas.push(`cancelar:${id}`);
+      const c = cobrancas.get(id)!;
+      if (c.status === "pendente") c.status = "cancelado";
+    },
+    async estornar(id) {
+      chamadas.push(`estornar:${id}`);
+      cobrancas.get(id)!.status = "estornado";
+    },
+  };
+  return {
+    gateway,
+    cobrancas,
+    chamadas,
+    falharAoCriar: (v: boolean) => {
+      falharAoCriar = v;
+    },
+  };
+}

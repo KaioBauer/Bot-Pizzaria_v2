@@ -57,8 +57,11 @@ export function criarAdaptadorTelegram(opcoes: OpcoesTelegram): ChannelAdapter {
       manipulador = novo;
     },
 
-    async sendMessage(chatId, texto) {
-      for (const parte of dividirTexto(texto, LIMITE_TELEGRAM)) await enviarParte(chatId, parte);
+    async sendMessage(chatId, texto, opcoes) {
+      for (const parte of dividirTexto(texto, LIMITE_TELEGRAM)) {
+        if (opcoes?.literal) await bot.api.sendMessage(chatId, parte);
+        else await enviarParte(chatId, parte);
+      }
     },
 
     async sendImage(chatId, imagem) {

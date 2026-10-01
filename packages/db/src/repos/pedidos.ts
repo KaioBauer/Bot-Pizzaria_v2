@@ -84,5 +84,38 @@ export function criarPedidosRepo(db: Db): PedidosRepo {
         criadoEm: p.created_at,
       }));
     },
+
+    async confirmarPagamento(pedidoId) {
+      const linhas = exigir(
+        await db
+          .from("pedidos")
+          .update({ status: "novo" })
+          .eq("id", pedidoId)
+          .eq("status", "aguardando_pagamento")
+          .select("id"),
+        "Erro ao confirmar pagamento"
+      );
+      return linhas.length > 0;
+    },
+
+    async cancelarAguardandoPagamento(pedidoId, motivo) {
+      const linhas = exigir(
+        await db
+          .from("pedidos")
+          .update({ status: "cancelado", motivo_cancelamento: motivo })
+          .eq("id", pedidoId)
+          .eq("status", "aguardando_pagamento")
+          .select("id"),
+        "Erro ao cancelar pedido"
+      );
+      return linhas.length > 0;
+    },
+
+    async descartarAguardandoPagamento(pedidoId) {
+      exigir(
+        await db.from("pedidos").delete().eq("id", pedidoId).eq("status", "aguardando_pagamento").select("id"),
+        "Erro ao descartar pedido"
+      );
+    },
   };
 }

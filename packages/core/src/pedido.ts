@@ -115,3 +115,24 @@ export function mensagemPedidoConfirmado(pedido: NovoPedido, numero: number): st
     "Já vamos começar a preparar. Para acompanhar, é só me perguntar por aqui. 🍕",
   ].join("\n");
 }
+
+/** Pedido Pix registrado: aguarda pagamento antes de ir para a cozinha. */
+export function mensagemPedidoPix(pedido: NovoPedido, numero: number, validoAte: string): string {
+  const entrega =
+    pedido.tipoEntrega === "entrega" ? `Entrega em: ${pedido.enderecoTexto}` : "Retirada no balcão";
+  return [
+    `📝 Pedido *#${numero}* registrado!`,
+    "",
+    descreverValores({
+      itens: pedido.itens,
+      subtotalCentavos: pedido.subtotalCentavos,
+      taxaEntregaCentavos: pedido.taxaEntregaCentavos,
+      totalCentavos: pedido.totalCentavos,
+    }),
+    "",
+    entrega,
+    "",
+    `💠 Para confirmar, pague *${formatarReais(pedido.totalCentavos)}* no Pix até as *${validoAte}*.`,
+    "Assim que o pagamento cair, eu aviso aqui e a cozinha começa. 🍕",
+  ].join("\n");
+}

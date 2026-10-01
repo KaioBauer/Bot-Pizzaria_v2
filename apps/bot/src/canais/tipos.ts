@@ -21,7 +21,8 @@ export interface ChannelAdapter {
    * aguardado: o adaptador responde ao canal (webhook) imediatamente.
    */
   onMessage(manipulador: ManipuladorMensagem): void;
-  sendMessage(chatId: string, texto: string): Promise<void>;
+  /** `literal`: envia sem interpretar formatação (ex.: código Pix copia e cola, que contém "*"). */
+  sendMessage(chatId: string, texto: string, opcoes?: { literal?: boolean }): Promise<void>;
   sendImage?(chatId: string, imagem: Imagem): Promise<void>;
   /** Indicador de "digitando..." enquanto o agente pensa. */
   indicarDigitando?(chatId: string): Promise<void>;

@@ -4,7 +4,8 @@ import { normalizarFormatacao } from "../formatacao";
 import { momentoLocal, proximaAbertura, situacaoLoja } from "../horario";
 import type { LlmProvider } from "../llm/tipos";
 import { loggerSilencioso, type Logger } from "../logger";
-import { mensagemPedidoConfirmado } from "../pedido";
+import type { ServicoPix } from "../pagamentos/pix";
+import { mensagemPedidoConfirmado, mensagemPedidoPix } from "../pedido";
 import { montarPromptSistema } from "./prompt";
 import {
   DEFINICOES_TOOLS,
@@ -24,8 +25,14 @@ export interface MensagemEntrada {
   texto: string;
 }
 
+/** Conteúdo enviado depois do texto principal (ex.: QR Code e copia-e-cola do Pix). */
+export type Anexo =
+  | { tipo: "imagem"; base64: string; mime: "image/png" | "image/jpeg"; legenda?: string }
+  | { tipo: "texto"; texto: string };
+
 export interface RespostaAgente {
   texto: string;
+  anexos?: Anexo[];
   pedido?: PedidoCriado;
 }
 
@@ -45,8 +52,8 @@ export interface DependenciasAgente {
   llm: LlmProvider;
   logger?: Logger;
   agora?: () => Date;
-  /** Pix online habilitado (gateway configurado). */
-  pixDisponivel?: boolean;
+  /** Pix online (gateway configurado). Ausente = Pix não é oferecido. */
+  pix?: ServicoPix;
   opcoes?: OpcoesAgente;
 }
 
@@ -107,7 +114,7 @@ export function criarAgente(deps: DependenciasAgente) {
       await deps.repos.conversas.mensagens(conversaId, limiteHistorico)
     );
     const situacao = situacaoLoja(config, instante);
-    const pixDisponivel = deps.pixDisponivel ?? false;
+    const pixDisponivel = Boolean(deps.pix);
 
     const sistema = montarPromptSistema({
       config,
@@ -128,7 +135,7 @@ export function criarAgente(deps: DependenciasAgente) {
       config,
       situacao,
       agora: instante,
-      pixDisponivel,
+      pix: deps.pix ?? null,
       cardapio,
       logger,
     };
@@ -164,14 +171,23 @@ export function criarAgente(deps: DependenciasAgente) {
       }
 
       if (pedidoCriado) {
-        const texto = mensagemPedidoConfirmado(pedidoCriado.pedido, pedidoCriado.numero);
+        const { pix } = pedidoCriado;
+        const texto = pix
+          ? mensagemPedidoPix(pedidoCriado.pedido, pedidoCriado.numero, momentoLocal(pix.expiraEm, config.fusoHorario).texto.slice(-5))
+          : mensagemPedidoConfirmado(pedidoCriado.pedido, pedidoCriado.numero);
+        const anexos: Anexo[] = pix
+          ? [
+              { tipo: "imagem", base64: pix.qrCodeBase64, mime: "image/png", legenda: `QR Code do Pix — pedido #${pedidoCriado.numero}. Copia e cola na próxima mensagem 👇` },
+              { tipo: "texto", texto: pix.qrCode },
+            ]
+          : [];
         novas.push({ papel: "assistant", conteudo: texto });
         // O pedido já existe: uma falha aqui não pode virar mensagem de erro
         // (o cliente poderia pedir de novo e duplicar).
         await persistir(conversaId, novas, pedidoCriado.id).catch((err: unknown) =>
           logger.error({ err, pedidoId: pedidoCriado.id }, "Falha ao encerrar conversa após pedido")
         );
-        return { texto, pedido: pedidoCriado };
+        return { texto, pedido: pedidoCriado, ...(anexos.length ? { anexos } : {}) };
       }
     }
 

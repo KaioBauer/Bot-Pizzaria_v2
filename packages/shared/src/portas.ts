@@ -4,7 +4,9 @@ import type {
   ClienteConhecido,
   ConfiguracaoLoja,
   NovoPedido,
+  PagamentoRegistro,
   ResumoPedido,
+  StatusPagamento,
   VariacaoParaPreco,
 } from "./tipos";
 
@@ -43,6 +45,30 @@ export interface ClientesRepo {
 export interface PedidosRepo {
   criar(pedido: NovoPedido): Promise<{ id: string; numero: number }>;
   recentesDoChat(canal: Canal, chatId: string, desde: Date): Promise<ResumoPedido[]>;
+  /** aguardando_pagamento -> novo. false se o pedido não estava aguardando. */
+  confirmarPagamento(pedidoId: string): Promise<boolean>;
+  /** aguardando_pagamento -> cancelado. false se o pedido não estava aguardando. */
+  cancelarAguardandoPagamento(pedidoId: string, motivo: string): Promise<boolean>;
+  /**
+   * Apaga um pedido que nunca chegou a valer (ex.: falha ao gerar o Pix logo
+   * após criar). Só age em aguardando_pagamento; não gera notificação.
+   */
+  descartarAguardandoPagamento(pedidoId: string): Promise<void>;
+}
+
+export interface PagamentosRepo {
+  criar(pagamento: {
+    pedidoId: string;
+    provedorId: string;
+    valorCentavos: number;
+    qrCode: string;
+    qrCodeBase64: string;
+    expiraEm: Date;
+  }): Promise<string>;
+  porProvedorId(provedorId: string): Promise<PagamentoRegistro | null>;
+  pendentes(): Promise<PagamentoRegistro[]>;
+  /** Muda o status só se ainda estiver em `de`. false se outro processo já mudou. */
+  atualizarStatus(id: string, de: StatusPagamento, para: StatusPagamento): Promise<boolean>;
 }
 
 export interface ConversasRepo {
@@ -63,4 +89,5 @@ export interface Repositorios {
   clientes: ClientesRepo;
   pedidos: PedidosRepo;
   conversas: ConversasRepo;
+  pagamentos: PagamentosRepo;
 }

@@ -1,6 +1,7 @@
 export * from "./client";
 export type { Database, Json, Tables, TablesInsert, TablesUpdate } from "./database.types";
 export { criarRepositorios } from "./repos";
+export { concluirEventoWebhook, registrarEventoWebhook } from "./repos/pagamentos";
 export * from "./admin/cardapio";
 export * from "./admin/loja";
 export * from "./admin/pedidos";
