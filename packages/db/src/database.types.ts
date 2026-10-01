@@ -40,18 +40,21 @@ export type Database = {
       }
       categorias: {
         Row: {
+          ativo: boolean
           created_at: string
           id: string
           nome: string
           ordem: number
         }
         Insert: {
+          ativo?: boolean
           created_at?: string
           id?: string
           nome: string
           ordem?: number
         }
         Update: {
+          ativo?: boolean
           created_at?: string
           id?: string
           nome?: string
@@ -95,33 +98,42 @@ export type Database = {
           endereco: string | null
           fuso_horario: string
           id: boolean
+          instagram: string | null
           nome_pizzaria: string
           pedido_minimo: number
           pix_expiracao_minutos: number
           telefone: string | null
+          telegram_usuario: string | null
           updated_at: string
+          whatsapp_numero: string | null
         }
         Insert: {
           aceitando_pedidos?: boolean
           endereco?: string | null
           fuso_horario?: string
           id?: boolean
+          instagram?: string | null
           nome_pizzaria?: string
           pedido_minimo?: number
           pix_expiracao_minutos?: number
           telefone?: string | null
+          telegram_usuario?: string | null
           updated_at?: string
+          whatsapp_numero?: string | null
         }
         Update: {
           aceitando_pedidos?: boolean
           endereco?: string | null
           fuso_horario?: string
           id?: boolean
+          instagram?: string | null
           nome_pizzaria?: string
           pedido_minimo?: number
           pix_expiracao_minutos?: number
           telefone?: string | null
+          telegram_usuario?: string | null
           updated_at?: string
+          whatsapp_numero?: string | null
         }
         Relationships: []
       }
@@ -433,6 +445,59 @@ export type Database = {
           },
         ]
       }
+      pagamentos: {
+        Row: {
+          aprovado_em: string | null
+          created_at: string
+          expira_em: string
+          id: string
+          pedido_id: string
+          provedor: string
+          provedor_id: string
+          qr_code: string | null
+          qr_code_base64: string | null
+          status: string
+          updated_at: string
+          valor: number
+        }
+        Insert: {
+          aprovado_em?: string | null
+          created_at?: string
+          expira_em: string
+          id?: string
+          pedido_id: string
+          provedor?: string
+          provedor_id: string
+          qr_code?: string | null
+          qr_code_base64?: string | null
+          status?: string
+          updated_at?: string
+          valor: number
+        }
+        Update: {
+          aprovado_em?: string | null
+          created_at?: string
+          expira_em?: string
+          id?: string
+          pedido_id?: string
+          provedor?: string
+          provedor_id?: string
+          qr_code?: string | null
+          qr_code_base64?: string | null
+          status?: string
+          updated_at?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pagamentos_pedido_id_fkey"
+            columns: ["pedido_id"]
+            isOneToOne: false
+            referencedRelation: "pedidos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pedido_contadores: {
         Row: {
           data_ref: string
@@ -585,6 +650,7 @@ export type Database = {
           id: string
           imagem_url: string | null
           nome: string
+          ordem: number
           updated_at: string
         }
         Insert: {
@@ -595,6 +661,7 @@ export type Database = {
           id?: string
           imagem_url?: string | null
           nome: string
+          ordem?: number
           updated_at?: string
         }
         Update: {
@@ -605,6 +672,7 @@ export type Database = {
           id?: string
           imagem_url?: string | null
           nome?: string
+          ordem?: number
           updated_at?: string
         }
         Relationships: [
@@ -623,6 +691,7 @@ export type Database = {
           created_at: string
           id: string
           nome: string
+          ordem: number
           preco: number
           produto_id: string
           tipo: string
@@ -632,6 +701,7 @@ export type Database = {
           created_at?: string
           id?: string
           nome: string
+          ordem?: number
           preco: number
           produto_id: string
           tipo: string
@@ -641,6 +711,7 @@ export type Database = {
           created_at?: string
           id?: string
           nome?: string
+          ordem?: number
           preco?: number
           produto_id?: string
           tipo?: string
@@ -655,9 +726,65 @@ export type Database = {
           },
         ]
       }
+      webhook_eventos: {
+        Row: {
+          chave: string
+          created_at: string
+          id: number
+          payload: Json
+          provedor: string
+          resultado: string | null
+        }
+        Insert: {
+          chave: string
+          created_at?: string
+          id?: never
+          payload: Json
+          provedor: string
+          resultado?: string | null
+        }
+        Update: {
+          chave?: string
+          created_at?: string
+          id?: never
+          payload?: Json
+          provedor?: string
+          resultado?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
-      [_ in never]: never
+      relatorio_produtos_vendidos: {
+        Row: {
+          dia: string | null
+          faturamento: number | null
+          produto_id: string | null
+          produto_nome: string | null
+          quantidade: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "itens_pedido_componentes_produto_id_fkey"
+            columns: ["produto_id"]
+            isOneToOne: false
+            referencedRelation: "produtos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      relatorio_vendas_diarias: {
+        Row: {
+          cancelados: number | null
+          dia: string | null
+          entregas: number | null
+          faturamento: number | null
+          pedidos: number | null
+          retiradas: number | null
+          taxas_entrega: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       criar_pedido: { Args: { p_pedido: Json }; Returns: Json }

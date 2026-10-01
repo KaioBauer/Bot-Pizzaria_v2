@@ -84,3 +84,25 @@ export function descreverHorarios(horarios: TurnoFuncionamento[]): string {
   });
   return linhas.join("\n");
 }
+
+const DIAS_EXTENSO = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"] as const;
+
+/**
+ * Próxima abertura a partir de agora: "hoje às 18:00", "amanhã às 18:00",
+ * "sexta às 18:00". null se não houver nenhum turno cadastrado.
+ */
+export function proximaAbertura(horarios: TurnoFuncionamento[], agora: Date, fusoHorario: string): string | null {
+  if (horarios.length === 0) return null;
+  const momento = momentoLocal(agora, fusoHorario);
+  for (let deslocamento = 0; deslocamento <= 7; deslocamento++) {
+    const dia = (momento.diaSemana + deslocamento) % 7;
+    const candidatos = horarios
+      .filter((t) => t.diaSemana === dia && (deslocamento > 0 || paraMinutos(t.abre) > momento.minutos))
+      .sort((a, b) => a.abre.localeCompare(b.abre));
+    const turno = candidatos[0];
+    if (!turno) continue;
+    const quando = deslocamento === 0 ? "hoje" : deslocamento === 1 ? "amanhã" : DIAS_EXTENSO[dia];
+    return `${quando} às ${turno.abre}`;
+  }
+  return null;
+}

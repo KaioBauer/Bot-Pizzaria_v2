@@ -1,149 +1,196 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
-import type { TipoVariacao } from "@pizzaria/shared";
-import type { Tables } from "../database.types";
+import { paraCentavos, paraReais, type TipoVariacao } from "@pizzaria/shared";
+import { exigir, ErroBanco, type Db } from "../client";
 
-// Módulo provisório do painel atual; reescrito na Fase 4 (CRUD de cardápio).
+/** Visão de administração do cardápio: inclui itens inativos. Valores em centavos. */
 
-type Id = string;
-export type Categoria = Pick<Tables<"categorias">, "id" | "nome" | "ordem">;
-export type Produto = Tables<"produtos">;
-export type VariacaoProduto = Pick<
-  Tables<"variacoes_produto">,
-  "id" | "produto_id" | "nome" | "tipo" | "preco" | "ativo"
->;
-export type ProdutoComVariacoes = Produto & { variacoes: VariacaoProduto[] };
+export interface VariacaoAdmin {
+  id: string;
+  nome: string;
+  tipo: TipoVariacao;
+  precoCentavos: number;
+  ativo: boolean;
+  ordem: number;
+}
 
-/** Visão de administração: inclui produtos e variações inativos também. */
-export async function listarCategoriasComProdutos(
-  client: SupabaseClient
-): Promise<Array<Categoria & { produtos: ProdutoComVariacoes[] }>> {
-  const { data: categorias, error: categoriasError } = await client
-    .from("categorias")
-    .select("id, nome, ordem")
-    .order("ordem", { ascending: true });
-  if (categoriasError) throw categoriasError;
+export interface ProdutoAdmin {
+  id: string;
+  categoriaId: string;
+  nome: string;
+  descricao: string | null;
+  imagemUrl: string | null;
+  ativo: boolean;
+  ordem: number;
+  variacoes: VariacaoAdmin[];
+}
 
-  const { data: produtos, error: produtosError } = await client
-    .from("produtos")
-    .select(
-      "id, categoria_id, nome, descricao, imagem_url, ativo, created_at, updated_at"
-    );
-  if (produtosError) throw produtosError;
+export interface CategoriaAdmin {
+  id: string;
+  nome: string;
+  ordem: number;
+  ativo: boolean;
+  produtos: ProdutoAdmin[];
+}
 
-  const { data: variacoes, error: variacoesError } = await client
-    .from("variacoes_produto")
-    .select("id, produto_id, nome, tipo, preco, ativo");
-  if (variacoesError) throw variacoesError;
+const VIOLACAO_FK = "23503";
 
-  return (categorias ?? []).map((categoria) => ({
-    ...categoria,
-    produtos: (produtos ?? [])
-      .filter((produto) => produto.categoria_id === categoria.id)
-      .map((produto) => ({
-        ...produto,
-        variacoes: (variacoes ?? []).filter(
-          (variacao) => variacao.produto_id === produto.id
-        ),
-      })),
+const porOrdem = <T extends { ordem: number; nome: string }>(a: T, b: T) =>
+  a.ordem - b.ordem || a.nome.localeCompare(b.nome, "pt-BR");
+
+export async function listarCardapioAdmin(db: Db): Promise<CategoriaAdmin[]> {
+  const categorias = exigir(
+    await db
+      .from("categorias")
+      .select(
+        "id, nome, ordem, ativo, produtos(id, categoria_id, nome, descricao, imagem_url, ativo, ordem, variacoes_produto(id, nome, tipo, preco, ativo, ordem))"
+      )
+      .order("ordem"),
+    "Erro ao carregar cardápio"
+  );
+  return categorias.map((c) => ({
+    id: c.id,
+    nome: c.nome,
+    ordem: c.ordem,
+    ativo: c.ativo,
+    produtos: c.produtos
+      .map((p) => ({
+        id: p.id,
+        categoriaId: p.categoria_id,
+        nome: p.nome,
+        descricao: p.descricao,
+        imagemUrl: p.imagem_url,
+        ativo: p.ativo,
+        ordem: p.ordem,
+        variacoes: p.variacoes_produto
+          .map((v) => ({
+            id: v.id,
+            nome: v.nome,
+            tipo: v.tipo as TipoVariacao,
+            precoCentavos: paraCentavos(v.preco),
+            ativo: v.ativo,
+            ordem: v.ordem,
+          }))
+          .sort((a, b) => a.ordem - b.ordem || a.precoCentavos - b.precoCentavos),
+      }))
+      .sort(porOrdem),
   }));
 }
 
-export async function criarCategoria(
-  client: SupabaseClient,
-  input: { nome: string; ordem: number }
-): Promise<Categoria> {
-  const { data, error } = await client
-    .from("categorias")
-    .insert(input)
-    .select("id, nome, ordem")
-    .single();
-  if (error) throw error;
-  return data as Categoria;
-}
-
-export async function atualizarCategoria(
-  client: SupabaseClient,
-  id: Id,
-  patch: Partial<Pick<Categoria, "nome" | "ordem">>
-): Promise<Categoria> {
-  const { data, error } = await client
-    .from("categorias")
-    .update(patch)
-    .eq("id", id)
-    .select("id, nome, ordem")
-    .single();
-  if (error) throw error;
-  return data as Categoria;
-}
-
-export async function criarProduto(
-  client: SupabaseClient,
-  input: {
-    categoria_id: Id;
-    nome: string;
-    descricao?: string | null;
-    imagem_url?: string | null;
+export async function obterProdutoAdmin(db: Db, id: string): Promise<ProdutoAdmin | null> {
+  for (const categoria of await listarCardapioAdmin(db)) {
+    const produto = categoria.produtos.find((p) => p.id === id);
+    if (produto) return produto;
   }
-): Promise<Produto> {
-  const { data, error } = await client
-    .from("produtos")
-    .insert({ ...input, ativo: true })
-    .select(
-      "id, categoria_id, nome, descricao, imagem_url, ativo, created_at, updated_at"
-    )
-    .single();
-  if (error) throw error;
-  return data as Produto;
+  return null;
 }
 
-export async function atualizarProduto(
-  client: SupabaseClient,
-  id: Id,
-  patch: Partial<
-    Pick<Produto, "categoria_id" | "nome" | "descricao" | "imagem_url" | "ativo">
-  >
-): Promise<Produto> {
-  const { data, error } = await client
-    .from("produtos")
-    .update({ ...patch, updated_at: new Date().toISOString() })
-    .eq("id", id)
-    .select(
-      "id, categoria_id, nome, descricao, imagem_url, ativo, created_at, updated_at"
-    )
-    .single();
-  if (error) throw error;
-  return data as Produto;
+export async function salvarCategoria(
+  db: Db,
+  dados: { id?: string; nome: string; ordem: number; ativo: boolean }
+): Promise<string> {
+  const linha = { nome: dados.nome, ordem: dados.ordem, ativo: dados.ativo };
+  const resultado = dados.id
+    ? await db.from("categorias").update(linha).eq("id", dados.id).select("id").single()
+    : await db.from("categorias").insert(linha).select("id").single();
+  return exigir(resultado, "Erro ao salvar categoria").id;
 }
 
-export async function criarVariacao(
-  client: SupabaseClient,
-  input: {
-    produto_id: Id;
+export async function excluirCategoria(db: Db, id: string): Promise<void> {
+  const { error } = await db.from("categorias").delete().eq("id", id);
+  if (error?.code === VIOLACAO_FK) {
+    throw new ErroBanco("A categoria ainda tem produtos. Mova ou exclua os produtos antes.", error.code);
+  }
+  if (error) throw new ErroBanco(`Erro ao excluir categoria: ${error.message}`, error.code);
+}
+
+export interface DadosProduto {
+  id?: string;
+  categoriaId: string;
+  nome: string;
+  descricao: string | null;
+  ativo: boolean;
+  ordem: number;
+  variacoes: Array<{
+    id?: string;
     nome: string;
     tipo: TipoVariacao;
-    preco: number;
-  }
-): Promise<VariacaoProduto> {
-  const { data, error } = await client
-    .from("variacoes_produto")
-    .insert({ ...input, ativo: true })
-    .select("id, produto_id, nome, tipo, preco, ativo")
-    .single();
-  if (error) throw error;
-  return data as VariacaoProduto;
+    precoCentavos: number;
+    ativo: boolean;
+    ordem: number;
+  }>;
 }
 
-export async function atualizarVariacao(
-  client: SupabaseClient,
-  id: Id,
-  patch: Partial<Pick<VariacaoProduto, "nome" | "tipo" | "preco" | "ativo">>
-): Promise<VariacaoProduto> {
-  const { data, error } = await client
-    .from("variacoes_produto")
-    .update(patch)
-    .eq("id", id)
-    .select("id, produto_id, nome, tipo, preco, ativo")
-    .single();
-  if (error) throw error;
-  return data as VariacaoProduto;
+/**
+ * Salva produto e variações. Variações removidas do formulário são
+ * excluídas; as que já aparecem em pedidos não podem ser excluídas (histórico)
+ * e são apenas desativadas.
+ */
+export async function salvarProduto(db: Db, dados: DadosProduto): Promise<{ id: string; desativadas: number }> {
+  const linha = {
+    categoria_id: dados.categoriaId,
+    nome: dados.nome,
+    descricao: dados.descricao,
+    ativo: dados.ativo,
+    ordem: dados.ordem,
+  };
+  const resultado = dados.id
+    ? await db.from("produtos").update(linha).eq("id", dados.id).select("id").single()
+    : await db.from("produtos").insert(linha).select("id").single();
+  const id = exigir(resultado, "Erro ao salvar produto").id;
+
+  const existentes = exigir(
+    await db.from("variacoes_produto").select("id").eq("produto_id", id),
+    "Erro ao carregar variações"
+  ).map((v) => v.id);
+  const mantidas = new Set(dados.variacoes.flatMap((v) => (v.id ? [v.id] : [])));
+
+  for (const v of dados.variacoes) {
+    const linhaVariacao = {
+      produto_id: id,
+      nome: v.nome,
+      tipo: v.tipo,
+      preco: paraReais(v.precoCentavos),
+      ativo: v.ativo,
+      ordem: v.ordem,
+    };
+    exigir(
+      v.id && existentes.includes(v.id)
+        ? await db.from("variacoes_produto").update(linhaVariacao).eq("id", v.id).select("id")
+        : await db.from("variacoes_produto").insert(linhaVariacao).select("id"),
+      "Erro ao salvar variação"
+    );
+  }
+
+  let desativadas = 0;
+  for (const removida of existentes.filter((vid) => !mantidas.has(vid))) {
+    const { error } = await db.from("variacoes_produto").delete().eq("id", removida);
+    if (error?.code === VIOLACAO_FK) {
+      exigir(
+        await db.from("variacoes_produto").update({ ativo: false }).eq("id", removida).select("id"),
+        "Erro ao desativar variação"
+      );
+      desativadas++;
+    } else if (error) {
+      throw new ErroBanco(`Erro ao remover variação: ${error.message}`, error.code);
+    }
+  }
+  return { id, desativadas };
+}
+
+/** Exclui o produto; se já foi vendido, só desativa (preserva o histórico). */
+export async function excluirProduto(db: Db, id: string): Promise<"excluido" | "desativado"> {
+  const { error } = await db.from("produtos").delete().eq("id", id);
+  if (!error) return "excluido";
+  if (error.code === VIOLACAO_FK) {
+    exigir(await db.from("produtos").update({ ativo: false }).eq("id", id).select("id"), "Erro ao desativar produto");
+    return "desativado";
+  }
+  throw new ErroBanco(`Erro ao excluir produto: ${error.message}`, error.code);
+}
+
+export async function alternarAtivoProduto(db: Db, id: string, ativo: boolean): Promise<void> {
+  exigir(await db.from("produtos").update({ ativo }).eq("id", id).select("id"), "Erro ao atualizar produto");
+}
+
+export async function definirImagemProduto(db: Db, id: string, imagemUrl: string | null): Promise<void> {
+  exigir(await db.from("produtos").update({ imagem_url: imagemUrl }).eq("id", id).select("id"), "Erro ao salvar foto");
 }

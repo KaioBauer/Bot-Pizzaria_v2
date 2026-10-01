@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { descreverHorarios, momentoLocal, situacaoLoja } from "./horario";
+import { descreverHorarios, momentoLocal, proximaAbertura, situacaoLoja } from "./horario";
 import { configDeTeste } from "./testes/fixtures";
 
 // 2026-10-02 é sexta-feira. São Paulo = UTC-3 (sem horário de verão).
@@ -59,5 +59,24 @@ describe("descreverHorarios", () => {
       "Sex: fechado",
       "Sáb: fechado",
     ]);
+  });
+});
+
+describe("proximaAbertura", () => {
+  const turnos = [
+    { diaSemana: 5, abre: "18:00", fecha: "23:00" }, // sexta
+    { diaSemana: 0, abre: "11:00", fecha: "15:00" }, // domingo
+  ];
+  it.each([
+    ["2026-10-02T10:00", "hoje às 18:00"], // sexta de manhã
+    ["2026-10-02T23:30", "domingo às 11:00"], // sexta à noite
+    ["2026-10-03T12:00", "amanhã às 11:00"], // sábado
+    ["2026-10-04T16:00", "sexta às 18:00"], // domingo depois de fechar
+  ])("%s -> %s", (instante, esperado) => {
+    expect(proximaAbertura(turnos, emSaoPaulo(instante), "America/Sao_Paulo")).toBe(esperado);
+  });
+
+  it("sem turnos devolve null", () => {
+    expect(proximaAbertura([], new Date(), "America/Sao_Paulo")).toBeNull();
   });
 });

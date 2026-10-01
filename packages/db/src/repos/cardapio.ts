@@ -24,13 +24,14 @@ export function criarCardapioRepo(db: Db): CardapioRepo {
         await db
           .from("categorias")
           .select(
-            "id, nome, ordem, produtos(id, nome, descricao, imagem_url, ativo, variacoes_produto(id, nome, tipo, preco, ativo))"
+            "id, nome, ordem, ativo, produtos(id, nome, descricao, imagem_url, ativo, ordem, variacoes_produto(id, nome, tipo, preco, ativo, ordem))"
           )
           .order("ordem"),
         "Erro ao carregar cardápio"
       );
 
       return categorias
+        .filter((categoria) => categoria.ativo)
         .map(
           (categoria): CategoriaCardapio => ({
             id: categoria.id,
@@ -39,12 +40,14 @@ export function criarCardapioRepo(db: Db): CardapioRepo {
             produtos: categoria.produtos
               .filter((produto) => produto.ativo)
               .map((produto) => ({
+                ordem: produto.ordem,
                 id: produto.id,
                 nome: produto.nome,
                 descricao: produto.descricao,
                 imagemUrl: produto.imagem_url,
                 variacoes: produto.variacoes_produto
                   .filter((variacao) => variacao.ativo)
+                  .sort((a, b) => a.ordem - b.ordem)
                   .map((variacao) => ({
                     id: variacao.id,
                     nome: variacao.nome,
@@ -60,7 +63,8 @@ export function criarCardapioRepo(db: Db): CardapioRepo {
               .filter((produto) =>
                 produto.variacoes.some((v) => v.tipo === "tamanho" || v.tipo === "padrao")
               )
-              .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")),
+              .sort((a, b) => a.ordem - b.ordem || a.nome.localeCompare(b.nome, "pt-BR"))
+              .map(({ ordem: _ordem, ...produto }) => produto),
           })
         )
         .filter((categoria) => categoria.produtos.length > 0);

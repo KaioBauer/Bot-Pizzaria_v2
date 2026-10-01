@@ -1,7 +1,7 @@
 import type { Canal, ChamadaTool, MensagemConversa, Repositorios } from "@pizzaria/shared";
 import { cacheComValidade } from "../cache";
 import { normalizarFormatacao } from "../formatacao";
-import { momentoLocal, situacaoLoja } from "../horario";
+import { momentoLocal, proximaAbertura, situacaoLoja } from "../horario";
 import type { LlmProvider } from "../llm/tipos";
 import { loggerSilencioso, type Logger } from "../logger";
 import { mensagemPedidoConfirmado } from "../pedido";
@@ -118,6 +118,7 @@ export function criarAgente(deps: DependenciasAgente) {
       telefoneCanal: entrada.telefone ?? null,
       cliente,
       pixDisponivel,
+      proximaAbertura: situacao.aberta ? null : proximaAbertura(config.horarios, instante, config.fusoHorario),
     });
 
     const ctx: ContextoTools = {

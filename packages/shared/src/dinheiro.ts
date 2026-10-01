@@ -29,3 +29,21 @@ export function formatarTelefone(telefone: string): string {
   if (d.length === 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
   return telefone;
 }
+
+/**
+ * Lê um valor digitado (pt-BR) em centavos: "35", "35,9", "R$ 1.234,56",
+ * "35.90". Devolve null se não for um valor válido não negativo.
+ */
+export function lerReais(texto: string): number | null {
+  let t = texto.replace(/R\$|\s/g, "");
+  if (!t) return null;
+  if (t.includes(",")) t = t.replace(/\./g, "").replace(",", ".");
+  else if (/^\d{1,3}(\.\d{3})+$/.test(t)) t = t.replace(/\./g, "");
+  if (!/^\d+(\.\d{1,2})?$/.test(t)) return null;
+  return paraCentavos(t);
+}
+
+/** 3550 -> "35,50" (para preencher campos de formulário). */
+export function centavosParaCampo(centavos: number): string {
+  return (centavos / 100).toFixed(2).replace(".", ",");
+}

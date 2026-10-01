@@ -52,6 +52,8 @@ export interface ContextoPrompt {
   telefoneCanal: string | null;
   cliente: ClienteConhecido | null;
   pixDisponivel: boolean;
+  /** "hoje às 18:00" etc., quando fechada. */
+  proximaAbertura: string | null;
 }
 
 function descreverSituacao(ctx: ContextoPrompt): string {
@@ -60,7 +62,7 @@ function descreverSituacao(ctx: ContextoPrompt): string {
     ctx.situacao.motivo === "pausada"
       ? "a pizzaria pausou temporariamente o recebimento de pedidos"
       : "estamos fora do horário de funcionamento";
-  return `FECHADA (${motivo}). NÃO aceite pedidos agora: avise o cliente com simpatia, informe o horário de funcionamento e convide-o a voltar. Você ainda pode mostrar o cardápio e consultar pedidos já feitos.`;
+  return `FECHADA (${motivo}${ctx.proximaAbertura ? `; abre ${ctx.proximaAbertura}` : ""}). NÃO aceite pedidos agora: avise o cliente com simpatia, diga quando abre e convide-o a voltar. Você ainda pode mostrar o cardápio e consultar pedidos já feitos.`;
 }
 
 export function montarPromptSistema(ctx: ContextoPrompt): string {

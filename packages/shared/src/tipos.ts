@@ -73,6 +73,9 @@ export interface ConfiguracaoLoja {
   nomePizzaria: string;
   telefone: string | null;
   endereco: string | null;
+  whatsappNumero: string | null;
+  telegramUsuario: string | null;
+  instagram: string | null;
   fusoHorario: string;
   pedidoMinimoCentavos: number;
   aceitandoPedidos: boolean;
