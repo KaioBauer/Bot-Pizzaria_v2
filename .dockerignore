@@ -1,0 +1,12 @@
+**/node_modules
+**/.next
+**/dist
+**/.env
+**/.env.*
+!**/.env.example
+**/logs
+**/*.log
+.git
+supabase/.temp
+apps/print-agent
+docs

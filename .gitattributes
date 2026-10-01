@@ -1,0 +1,5 @@
+# Finais de linha LF no repositório (as imagens Docker rodam em Linux).
+* text=auto eol=lf
+*.ps1 text eol=crlf
+*.png binary
+*.jpg binary

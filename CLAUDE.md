@@ -92,6 +92,22 @@ por injeção — por isso é testado com implementações em memória (`core/sr
 - **Next 16:** `proxy.ts` (não middleware), `cookies()`/`params` assíncronos, Tailwind 4.
   Docs da versão em `apps/web/node_modules/next/dist/docs/`.
 
+- **Pix:** `packages/core/src/pagamentos` — `GatewayPix` (Mercado Pago em `mercadopago.ts`,
+  via fetch, sem SDK) + `criarServicoPix`. Pedido Pix nasce `aguardando_pagamento`; status
+  real sempre relido na API (webhook não é confiável); conferência periódica cobre webhook
+  perdido e expira vencidos; pago em pedido cancelado -> estorno. Falha ao gerar a cobrança
+  descarta o pedido (`descartarAguardandoPagamento`, sem notificar). Copia-e-cola enviado
+  com `{ literal: true }` (contém "*", que o Markdown do Telegram comeria).
+- **WhatsApp:** `apps/bot/src/canais/whatsapp.ts` (Evolution API v2). Webhook com token na URL;
+  ignora grupos, status, canais, próprio número, reentregas e mensagens antigas. No compose a
+  Evolution chama o bot pela rede interna.
+- **Web sem service_role:** todo acesso do painel usa a sessão do admin (RLS); cardápio público
+  usa anon (`lib/supabase/publico.ts`). Fotos no bucket `produtos` (escrita só admin).
+- **Relatórios:** views `relatorio_vendas_diarias` e `relatorio_produtos_vendidos` com
+  `security_invoker` (respeitam RLS); meio a meio conta meia pizza por sabor.
+- **Deploy:** Dockerfiles em `apps/bot` e `apps/web` (contexto = raiz), `docker-compose.yml`
+  com perfil `whatsapp`, Nginx em `deploy/nginx`. Passo a passo: `docs/DEPLOY.md`.
+
 ## Convenções
 
 - Código, nomes e mensagens em português; termos técnicos consagrados podem ficar em
@@ -107,7 +123,6 @@ por injeção — por isso é testado com implementações em memória (`core/sr
 
 ## Pendências conhecidas
 
-- `horarios_funcionamento` está provisoriamente 24h e `bairros_entrega` vazia — ajustar
-  no painel (Fase 4) antes de produção.
-- Telas de cardápio do painel e cardápio público ainda são as antigas (classe `.legado`);
-  refeitas na Fase 4. Provisório: `packages/db/src/admin/cardapio.ts`.
+- `horarios_funcionamento` está provisoriamente 24h e `bairros_entrega` vazia — ajustar em
+  /admin/configuracoes antes de produção.
+- Pix e WhatsApp testados com gateway/payloads simulados; validar com credenciais reais.

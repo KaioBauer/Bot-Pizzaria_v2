@@ -1,0 +1,111 @@
+# Deploy na VPS (Docker + Nginx)
+
+O que roda onde:
+
+| Onde | O quê |
+|---|---|
+| VPS (Docker) | `bot` (Telegram, WhatsApp, Pix, notificações) e `web` (painel + cardápio). Opcional: `evolution` (WhatsApp) com Postgres e Redis próprios |
+| VPS (Nginx) | HTTPS e proxy para os containers |
+| Supabase | banco, login, Realtime, fotos |
+| PC da pizzaria | `print-agent` como serviço do Windows (ver README) |
+
+Domínios sugeridos: `painel.SEU-DOMINIO` (painel e cardápio em `/cardapio`) e `bot.SEU-DOMINIO` (webhooks).
+
+## 1. Preparar o servidor (uma vez)
+
+```bash
+# Docker + plugin compose (Ubuntu/Debian)
+curl -fsSL https://get.docker.com | sh
+sudo usermod -aG docker $USER    # sair e entrar de novo no SSH
+
+# DNS: aponte painel.SEU-DOMINIO e bot.SEU-DOMINIO para o IP da VPS.
+git clone https://github.com/KaioBauer/Bot-Pizzaria_v2.git vianna && cd vianna
+```
+
+## 2. Variáveis
+
+```bash
+cp deploy/.env.example .env              # build do web (+ Evolution, se usar WhatsApp)
+cp apps/bot/.env.example apps/bot/.env   # bot
+nano .env apps/bot/.env
+```
+
+No `apps/bot/.env` de produção:
+
+```ini
+NODE_ENV=production
+PUBLIC_URL=https://bot.SEU-DOMINIO
+TELEGRAM_MODE=webhook
+TELEGRAM_WEBHOOK_SECRET=<openssl rand -hex 32>
+OPENAI_MODEL=gpt-5.4-mini
+# + SUPABASE_*, OPENAI_API_KEY, TELEGRAM_BOT_TOKEN
+# Pix: MP_ACCESS_TOKEN, MP_WEBHOOK_SECRET (obrigatório em produção)
+# WhatsApp: WHATSAPP_ENABLED=true, EVOLUTION_API_KEY, WHATSAPP_WEBHOOK_TOKEN
+#           (os mesmos valores do .env da raiz)
+```
+
+## 3. Subir
+
+```bash
+docker compose up -d --build                       # bot + painel
+# ou, com WhatsApp:
+docker compose --profile whatsapp up -d --build
+docker compose ps                                  # tudo "healthy"
+curl -s localhost:3001/health                      # {"ok":true}
+```
+
+## 4. Nginx + HTTPS
+
+```bash
+sudo cp deploy/nginx/vianna.conf /etc/nginx/sites-available/vianna.conf
+sudo sed -i 's/SEU-DOMINIO/seudominio.com.br/g' /etc/nginx/sites-available/vianna.conf
+sudo ln -s /etc/nginx/sites-available/vianna.conf /etc/nginx/sites-enabled/
+sudo nginx -t && sudo systemctl reload nginx
+sudo certbot --nginx -d painel.seudominio.com.br -d bot.seudominio.com.br
+```
+
+O bot registra o webhook do Telegram sozinho ao iniciar (com `TELEGRAM_MODE=webhook`).
+
+## 5. Mercado Pago (Pix)
+
+1. https://www.mercadopago.com.br/developers/panel → sua aplicação → **Credenciais de produção** → `Access Token` em `MP_ACCESS_TOKEN`.
+2. **Webhooks** → URL `https://bot.SEU-DOMINIO/webhooks/mercadopago`, evento **Pagamentos** → copie a **assinatura secreta** para `MP_WEBHOOK_SECRET`.
+3. `docker compose up -d bot` — o log mostra `pix: true`. Teste com um pedido de R$ 1,00 e confira no painel.
+
+Mesmo sem webhook, o bot confere os Pix pendentes a cada minuto (`PIX_CONFERENCIA_SEGUNDOS`).
+
+## 6. WhatsApp (Evolution API)
+
+1. `docker compose --profile whatsapp up -d`
+2. Túnel para o gerenciador (não exposto na internet): `ssh -L 8080:127.0.0.1:8080 usuario@vps`
+3. Abra http://localhost:8080/manager, entre com o `EVOLUTION_API_KEY`, crie a instância **`vianna`** (o mesmo `EVOLUTION_INSTANCIA`) e leia o QR Code com o celular do número da pizzaria.
+4. O webhook já vem configurado para o bot pela rede interna do Docker. Mande um "oi" para o número.
+5. No painel → Configurações, preencha o **WhatsApp do bot** para o botão do cardápio público.
+
+> Use um número dedicado à pizzaria. A Evolution usa o WhatsApp Web (Baileys), não a API oficial da Meta.
+
+## 7. Supabase
+
+- Authentication → URL Configuration → **Site URL** = `https://painel.SEU-DOMINIO`.
+- Authentication → Sign In / Providers → **desligar "Allow new users to sign up"**.
+- Criar o admin: `pnpm usuario admin seu@email.com` (no seu computador, com `apps/bot/.env`).
+
+## Atualizar
+
+```bash
+git pull
+docker compose --profile whatsapp up -d --build   # (sem --profile se não usa WhatsApp)
+docker image prune -f
+```
+
+Mudanças de banco: `pnpm exec supabase db push --linked` (do seu computador), antes de subir o código novo.
+
+## Logs e diagnóstico
+
+```bash
+docker compose logs -f bot          # JSON (pino); erros com "level":50
+docker compose logs -f web
+docker compose restart bot
+```
+
+Logs rotacionados automaticamente (10 MB × 5 por serviço).

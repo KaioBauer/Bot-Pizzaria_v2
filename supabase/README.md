@@ -32,6 +32,11 @@ marcar a baseline como aplicada). Banco local (requer Docker): `supabase start` 
 | `pedido_status_historico` | Preenchida por trigger a cada mudança de status |
 | `pedido_contadores` | Último número de pedido por dia |
 | `conversas`, `conversa_mensagens` | Histórico do agente por chat |
+| `notificacoes_cliente` | Fila (outbox) de avisos de status ao cliente, enviada pelo bot |
+| `pagamentos`, `webhook_eventos` | Cobranças Pix e registro idempotente dos webhooks do Mercado Pago |
+| `relatorio_vendas_diarias`, `relatorio_produtos_vendidos` | Views dos relatórios (security_invoker) |
+| Storage `produtos` | Fotos dos produtos (leitura pública, escrita do admin) |
 
-RLS ligado em todas. Leitura pública: cardápio ativo, configurações, horários e bairros
-ativos. O resto só via `service_role` (as policies do painel entram na Fase 2).
+RLS ligado em todas. Papéis em `app_metadata.papel`: `admin` (painel) e `impressora`
+(print-agent). Leitura pública: cardápio ativo, configurações, horários e bairros ativos.
+O bot usa `service_role`.
