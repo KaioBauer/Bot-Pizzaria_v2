@@ -15,9 +15,12 @@ const PADRAO_TEXTO = /(?:^|\s)c_([a-f0-9]{16})(?=$|[\s.,!)])/i;
 
 export const PREFIXO_CARRINHO_WEB = "c_";
 
-/** Texto pré-preenchido do link do WhatsApp (o cliente só toca em enviar). */
+/**
+ * Texto pré-preenchido do link do WhatsApp (o cliente só toca em enviar).
+ * Sem emoji: o redirecionamento do wa.me estraga caracteres fora do básico (vira "�").
+ */
 export function textoWhatsappCarrinho(codigo: string): string {
-  return `Olá! Quero enviar o pedido que montei no cardápio 🍕\nCódigo: ${PREFIXO_CARRINHO_WEB}${codigo}`;
+  return `Olá! Quero enviar o pedido que montei no cardápio.\nCódigo: ${PREFIXO_CARRINHO_WEB}${codigo}`;
 }
 
 export function codigoCarrinhoWeb(texto: string): string | null {
