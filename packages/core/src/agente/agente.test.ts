@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { MensagemConversa } from "@pizzaria/shared";
 import { configDeTeste, ID, sabor, variacoesDeTeste } from "../testes/fixtures";
 import { chamar, llmRoteirizado, repositoriosEmMemoria, texto } from "../testes/memoria";
-import { criarAgente, MENSAGEM_ERRO, recortarHistorico } from "./agente";
+import { afirmaPedidoFeito, criarAgente, MENSAGEM_ERRO, recortarHistorico } from "./agente";
 
 // Sexta 2026-10-02, 20:00 em São Paulo: dentro do horário de teste (18:00–23:30).
 const ABERTO = new Date("2026-10-02T20:00:00-03:00");
@@ -203,5 +203,44 @@ describe("recortarHistorico", () => {
     ];
     expect(recortarHistorico(historico)).toEqual(historico.slice(2));
     expect(recortarHistorico([{ papel: "assistant", conteudo: "x" }])).toEqual([]);
+  });
+});
+
+describe("confirmação falsa (modelo diz que confirmou sem finalizar_pedido)", () => {
+  it.each([
+    ["Perfeito. Seu pedido foi confirmado ✅", true],
+    ["Pedido confirmado! Já vai para a cozinha.", true],
+    ["Seu pedido já está registrado 🙂", true],
+    ["Confirmei seu pedido, obrigado!", true],
+    ["Posso confirmar o pedido?", false],
+    ["Assim que o pedido for confirmado, aviso você.", false],
+    ["Quer confirmar?", false],
+  ])("%s -> %s", (texto, esperado) => {
+    expect(afirmaPedidoFeito(texto)).toBe(esperado);
+  });
+
+  it("pede correção ao modelo, que então finaliza de verdade", async () => {
+    const { agente, pedidos, requisicoes } = montar([texto("Perfeito. Seu pedido foi confirmado ✅"), chamar(["finalizar_pedido", argsFinalizar])]);
+    const r = await agente.processarMensagem(entrada("👍🏻"));
+    expect(pedidos).toHaveLength(1);
+    expect(r.texto).toContain("Pedido *#1* confirmado");
+    expect(requisicoes[1]?.sistema).toContain("Correção obrigatória");
+    expect(requisicoes[0]?.sistema).not.toContain("Correção obrigatória");
+  });
+
+  it("se o modelo insistir, não engana o cliente: pede um sim", async () => {
+    const { agente, pedidos, conversas } = montar([texto("Seu pedido foi confirmado!"), texto("Pedido confirmado ✅")]);
+    const r = await agente.processarMensagem(entrada("👍🏻"));
+    expect(pedidos).toHaveLength(0);
+    expect(r.texto).toContain("me confirma com um *sim*");
+    const [conversa] = conversas.values();
+    expect(conversa?.mensagens.at(-1)).toMatchObject({ papel: "assistant", conteudo: r.texto });
+  });
+
+  it("falar de pedido anterior depois de consultar o status é permitido", async () => {
+    const { agente, requisicoes } = montar([chamar(["consultar_status_pedido", {}]), texto("Seu pedido #3 foi confirmado e está em preparo.")]);
+    const r = await agente.processarMensagem(entrada("cadê meu pedido?"));
+    expect(r.texto).toBe("Seu pedido #3 foi confirmado e está em preparo.");
+    expect(requisicoes).toHaveLength(2);
   });
 });

@@ -12,6 +12,7 @@ import { mensagemBoasVindas, reconhecerComando } from "./comandos";
 import { montarPromptSistema } from "./prompt";
 import {
   DEFINICOES_TOOLS,
+  TOOL,
   executarTool,
   type ContextoTools,
   type PedidoCriado,
@@ -66,6 +67,23 @@ export const MENSAGEM_ERRO =
   "Desculpe, tive um probleminha aqui 😕 Pode mandar sua mensagem de novo em instantes?";
 const MENSAGEM_NAO_ENTENDI = "Desculpe, não entendi. Pode repetir, por favor?";
 const MAX_CARACTERES_ENTRADA = 2000;
+const MENSAGEM_PEDIR_CONFIRMACAO = "Para eu fechar seu pedido, me confirma com um *sim*? 🙂";
+
+/**
+ * O modelo às vezes responde "pedido confirmado" sem chamar finalizar_pedido —
+ * o cliente acha que pediu e o pedido não existe. Detecta essa afirmação.
+ */
+const AFIRMA_PEDIDO_FEITO =
+  /\b(pedido|compra)\s+(foi\s+|está\s+|esta\s+|já\s+|ja\s+)*(confirmad|finalizad|registrad|realizad|anotad|fechad|enviad[oa]\s+para\s+a\s+cozinha)|\bconfirmei\s+(o\s+)?seu\s+pedido/i;
+
+export function afirmaPedidoFeito(texto: string): boolean {
+  return AFIRMA_PEDIDO_FEITO.test(texto);
+}
+
+const AVISO_SEM_FINALIZAR = `
+
+# Correção obrigatória
+Você ia dizer ao cliente que o pedido foi confirmado, mas finalizar_pedido NÃO foi chamado e o pedido NÃO existe. Se o cliente já confirmou o resumo (sim, ok, 👍, pode fechar...), chame finalizar_pedido agora com os mesmos dados do último calcular_pedido. Se ainda não confirmou, peça a confirmação. Nunca diga que o pedido foi confirmado sem chamar finalizar_pedido.`;
 
 /** Descarta o início do histórico até a primeira mensagem do cliente, para
  * nunca enviar ao modelo um resultado de tool sem a chamada correspondente. */
@@ -215,21 +233,34 @@ Seu pedido continua salvo no cardápio: quando abrirmos, é só tocar de novo em
       { papel: "user", conteudo: entrada.texto.trim().slice(0, MAX_CARACTERES_ENTRADA) },
     ];
 
+    let corrigido = false;
+    let consultouStatus = false;
     for (let rodada = 0; rodada < maxRodadas; rodada++) {
       const resposta = await deps.llm.completar({
-        sistema,
+        sistema: corrigido ? sistema + AVISO_SEM_FINALIZAR : sistema,
         mensagens: [...historico, ...novas],
         tools: DEFINICOES_TOOLS,
       });
 
       if (resposta.toolCalls.length === 0) {
-        const texto = corrigirLinkCardapio(normalizarFormatacao(resposta.conteudo ?? ""), deps.opcoes?.urlCardapio) || MENSAGEM_NAO_ENTENDI;
+        let texto = corrigirLinkCardapio(normalizarFormatacao(resposta.conteudo ?? ""), deps.opcoes?.urlCardapio) || MENSAGEM_NAO_ENTENDI;
+        // Pedido criado retorna antes daqui; falar de pedido de antes (status) é legítimo.
+        if (!consultouStatus && afirmaPedidoFeito(texto)) {
+          if (!corrigido) {
+            corrigido = true;
+            logger.warn({ canal, chatId, texto }, "Modelo afirmou pedido confirmado sem finalizar_pedido; pedindo correção");
+            continue;
+          }
+          logger.warn({ canal, chatId, texto }, "Modelo insistiu em confirmar sem finalizar_pedido; pedindo confirmação ao cliente");
+          texto = MENSAGEM_PEDIR_CONFIRMACAO;
+        }
         novas.push({ papel: "assistant", conteudo: texto });
         await persistir(conversaId, novas);
         return { texto };
       }
 
       novas.push({ papel: "assistant", conteudo: resposta.conteudo, toolCalls: resposta.toolCalls });
+      consultouStatus ||= resposta.toolCalls.some((c) => c.nome === TOOL.consultarStatus);
 
       let pedidoCriado: PedidoCriado | undefined;
       for (const chamada of resposta.toolCalls) {
