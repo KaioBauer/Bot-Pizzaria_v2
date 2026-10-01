@@ -84,6 +84,21 @@ describe("adaptador WhatsApp", () => {
     expect(recebidas).toHaveLength(0);
   });
 
+  it("aceita o webhook com o evento no caminho (Evolution 2.3)", async () => {
+    const { servidor, recebidas } = await montar();
+    const payload = { event: "messages.upsert", data: msg({ messageTimestamp: Date.now() / 1000 }) };
+    const r = await servidor.inject({ method: "POST", url: "/webhooks/whatsapp/segredo-123/messages-upsert", payload });
+    expect(r.statusCode).toBe(200);
+    expect(recebidas).toHaveLength(1);
+  });
+
+  it("link do cardápio vai com prévia", async () => {
+    const { adaptador, enviadas } = await montar();
+    const url = "https://vianna.exemplo/cardapio";
+    await adaptador.sendMessage("5511987654321", `Cardápio: ${url}`, { botao: { texto: "Ver cardápio", url } });
+    expect(enviadas[0]?.corpo).toMatchObject({ linkPreview: true });
+  });
+
   it("entrega a mensagem ao manipulador uma única vez (reentrega ignorada)", async () => {
     const { servidor, recebidas } = await montar();
     const payload = { event: "messages.upsert", data: msg({ messageTimestamp: Date.now() / 1000 }) };
@@ -98,7 +113,7 @@ describe("adaptador WhatsApp", () => {
     const { adaptador, enviadas } = await montar();
     await adaptador.sendMessage("5511987654321", "Olá!");
     await adaptador.sendImage!("5511987654321", { conteudo: Buffer.from("png"), tipoMime: "image/png", legenda: "QR" });
-    expect(enviadas[0]).toEqual({ url: "https://evo.exemplo/message/sendText/vianna", corpo: { number: "5511987654321", text: "Olá!" } });
+    expect(enviadas[0]).toEqual({ url: "https://evo.exemplo/message/sendText/vianna", corpo: { number: "5511987654321", text: "Olá!", linkPreview: false } });
     expect(enviadas[1]).toMatchObject({
       url: "https://evo.exemplo/message/sendMedia/vianna",
       corpo: { mediatype: "image", mimetype: "image/png", media: Buffer.from("png").toString("base64"), caption: "QR" },
