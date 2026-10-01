@@ -9,13 +9,20 @@ import type { ResultadoCotacao } from "../precificacao";
  * conversa fica registrada (com os IDs) para o modelo seguir dali.
  */
 
-const PADRAO = /^\/start(?:@\w+)?\s+c_([a-f0-9]{8,32})\s*$/i;
+const PADRAO_TELEGRAM = /^\/start(?:@\w+)?\s+c_([a-f0-9]{8,32})\s*$/i;
+/** WhatsApp: o link wa.me abre a conversa com um texto pronto que contém o código. */
+const PADRAO_TEXTO = /(?:^|\s)c_([a-f0-9]{16})(?=$|[\s.,!)])/i;
 
 export const PREFIXO_CARRINHO_WEB = "c_";
 
+/** Texto pré-preenchido do link do WhatsApp (o cliente só toca em enviar). */
+export function textoWhatsappCarrinho(codigo: string): string {
+  return `Olá! Quero enviar o pedido que montei no cardápio 🍕\nCódigo: ${PREFIXO_CARRINHO_WEB}${codigo}`;
+}
+
 export function codigoCarrinhoWeb(texto: string): string | null {
   for (const linha of texto.split("\n")) {
-    const codigo = PADRAO.exec(linha.trim())?.[1];
+    const codigo = PADRAO_TELEGRAM.exec(linha.trim())?.[1] ?? PADRAO_TEXTO.exec(linha)?.[1];
     if (codigo) return codigo.toLowerCase();
   }
   return null;

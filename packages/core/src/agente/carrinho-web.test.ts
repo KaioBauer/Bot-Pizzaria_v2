@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { configDeTeste, ID, sabor, variacoesDeTeste } from "../testes/fixtures";
 import { llmRoteirizado, repositoriosEmMemoria, texto } from "../testes/memoria";
 import { criarAgente } from "./agente";
-import { codigoCarrinhoWeb } from "./carrinho-web";
+import { codigoCarrinhoWeb, textoWhatsappCarrinho } from "./carrinho-web";
 
 const ABERTO = new Date("2026-10-02T20:00:00-03:00");
 const FECHADO = new Date("2026-10-02T10:00:00-03:00");
@@ -31,7 +31,11 @@ describe("codigoCarrinhoWeb", () => {
     ["/start", null],
     ["/start cardapio", null],
     ["/start c_xyz", null],
-    [`quero c_${CODIGO}`, null],
+    [`Olá! Quero enviar o pedido que montei no cardápio 🍕
+Código: c_${CODIGO}`, CODIGO],
+    [`codigo c_${CODIGO}.`, CODIGO],
+    [`abc_${CODIGO}`, null],
+    ["Código: c_a1b2c3", null],
   ])("%s -> %s", (texto, esperado) => {
     expect(codigoCarrinhoWeb(texto)).toBe(esperado);
   });
@@ -81,6 +85,13 @@ describe("carrinho do cardápio no agente", () => {
     const r = await agente.processarMensagem(entrada(`/start c_${CODIGO}`));
     expect(r.texto).toContain("tem um detalhe");
     expect(r.texto).not.toContain("Subtotal");
+  });
+
+  it("WhatsApp: código no texto pronto do link wa.me", async () => {
+    const { agente, carrinhos } = montar();
+    const r = await agente.processarMensagem({ ...entrada(textoWhatsappCarrinho(CODIGO)), canal: "whatsapp" });
+    expect(r.texto).toContain("Recebi seu pedido do cardápio");
+    expect(carrinhos.has(CODIGO)).toBe(false);
   });
 
   it("loja fechada: avisa e não consome o carrinho", async () => {

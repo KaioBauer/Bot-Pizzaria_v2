@@ -5,6 +5,7 @@ import { createContext, use, useEffect, useMemo, useRef, useState, useTransition
 import { precificarItens } from "@pizzaria/core/precificacao";
 import {
   formatarReais,
+  type Canal,
   type CategoriaCardapio,
   type ItemPedidoArgs,
   type ProdutoCardapio,
@@ -21,6 +22,8 @@ import { enviarCarrinhoAction } from "./actions";
  */
 
 const CHAVE_ARMAZENAMENTO = "vianna:carrinho:v1";
+const rotuloCanal: Record<Canal, string> = { telegram: "Telegram", whatsapp: "WhatsApp" };
+const estiloCanal: Record<Canal, string> = { telegram: "bg-[#229ED9]", whatsapp: "bg-[#25D366]" };
 
 interface OpcaoTamanho {
   nome: string;
@@ -393,7 +396,7 @@ export function Carrinho({
   categorias,
   tamanhos,
   aberta,
-  telegramHabilitado,
+  canais,
   linkWhatsapp,
   linkTelegram,
   children,
@@ -401,7 +404,8 @@ export function Carrinho({
   categorias: CategoriaCardapio[];
   tamanhos: TamanhoPizza[];
   aberta: boolean;
-  telegramHabilitado: boolean;
+  /** Canais para onde o carrinho pode ser enviado (Telegram/WhatsApp configurados). */
+  canais: Canal[];
   /** Botões de chat mostrados com o carrinho vazio. */
   linkWhatsapp: string | null;
   linkTelegram: string | null;
@@ -414,7 +418,7 @@ export function Carrinho({
   const [sacolaAberta, setSacolaAberta] = useState(false);
   const [enviando, iniciarEnvio] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
-  const [linkEnviado, setLinkEnviado] = useState<string | null>(null);
+  const [enviado, setEnviado] = useState<{ canal: Canal; link: string } | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
 
   // Carrinho salvo neste navegador (sobrevive a recarregar a página). Itens que
@@ -455,7 +459,7 @@ export function Carrinho({
       return atual.map((i, n) => (n === igual ? { ...i, quantidade: Math.min(50, i.quantidade + novo.quantidade) } : i));
     });
     setMontando(null);
-    setLinkEnviado(null);
+    setEnviado(null);
     setAviso("Adicionado ao pedido");
   }
 
@@ -463,12 +467,12 @@ export function Carrinho({
     setItens((atual) => (quantidade <= 0 ? atual.filter((_, n) => n !== indice) : atual.map((i, n) => (n === indice ? { ...i, quantidade } : i))));
   }
 
-  function enviar() {
+  function enviar(canal: Canal) {
     setErro(null);
     iniciarEnvio(async () => {
-      const r = await enviarCarrinhoAction(itens);
+      const r = await enviarCarrinhoAction(canal, itens);
       if (!r.ok) return setErro(r.erro);
-      setLinkEnviado(r.link);
+      setEnviado({ canal, link: r.link });
       setItens([]);
       window.location.href = r.link;
     });
@@ -477,10 +481,10 @@ export function Carrinho({
   const produtoMontando = montando ? catalogo.produtos.get(montando) : undefined;
 
   return (
-    <ContextoCarrinho value={{ habilitado: telegramHabilitado, abrirMontador: setMontando }}>
+    <ContextoCarrinho value={{ habilitado: canais.length > 0, abrirMontador: setMontando }}>
       {children}
 
-      {quantidadeTotal > 0 || linkEnviado ? (
+      {quantidadeTotal > 0 || enviado ? (
         <div className="fixed inset-x-0 bottom-0 z-20 border-t border-stone-200/80 bg-white/90 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur">
           <div className="mx-auto max-w-2xl">
             <button type="button" onClick={() => setSacolaAberta(true)} className="flex h-13 w-full items-center gap-3 rounded-2xl bg-stone-950 px-5 font-bold text-white shadow-sm transition hover:bg-stone-800">
@@ -532,9 +536,9 @@ export function Carrinho({
           titulo="Seu pedido"
           aoFechar={() => setSacolaAberta(false)}
           rodape={
-            linkEnviado ? (
-              <a href={linkEnviado} className="flex h-13 w-full items-center justify-center gap-2 rounded-2xl bg-[#229ED9] font-bold text-white shadow-sm transition hover:brightness-95">
-                <Send className="size-5" /> Abrir o Telegram
+            enviado ? (
+              <a href={enviado.link} className={cn(estiloCanal[enviado.canal], "flex h-13 w-full items-center justify-center gap-2 rounded-2xl font-bold text-white shadow-sm transition hover:brightness-95")}>
+                {enviado.canal === "whatsapp" ? <MessageCircle className="size-5" /> : <Send className="size-5" />} Abrir o {rotuloCanal[enviado.canal]}
               </a>
             ) : (
               <div className="space-y-3">
@@ -543,28 +547,36 @@ export function Carrinho({
                   <span className="font-display text-2xl font-semibold tabular">{formatarReais(subtotal)}</span>
                 </div>
                 {erro && <p role="alert" className="text-sm font-medium text-red-700">{erro}</p>}
-                <button
-                  type="button"
-                  onClick={enviar}
-                  disabled={enviando || !aberta || itens.length === 0}
-                  className="flex h-13 w-full items-center justify-center gap-2 rounded-2xl bg-[#229ED9] font-bold text-white shadow-sm transition hover:brightness-95 disabled:opacity-50"
-                >
-                  <Send className="size-5" /> {enviando ? "Enviando..." : "Enviar pelo Telegram"}
-                </button>
+                <div className="flex gap-2">
+                  {canais.map((canal) => (
+                    <button
+                      key={canal}
+                      type="button"
+                      onClick={() => enviar(canal)}
+                      disabled={enviando || !aberta || itens.length === 0}
+                      className={cn(estiloCanal[canal], "flex h-13 flex-1 items-center justify-center gap-2 rounded-2xl font-bold text-white shadow-sm transition hover:brightness-95 disabled:opacity-50")}
+                    >
+                      {canal === "whatsapp" ? <MessageCircle className="size-5" /> : <Send className="size-5" />}
+                      {enviando ? "Enviando..." : canais.length > 1 ? rotuloCanal[canal] : `Enviar pelo ${rotuloCanal[canal]}`}
+                    </button>
+                  ))}
+                </div>
                 <p className="text-center text-xs text-stone-500">
-                  {aberta ? "Entrega ou retirada e pagamento você escolhe na conversa." : "Estamos fechados agora. Seu pedido fica salvo aqui para enviar quando abrirmos."}
+                  {aberta
+                    ? `${canais.length > 1 ? "Escolha onde enviar. " : ""}Entrega ou retirada e pagamento você escolhe na conversa.`
+                    : "Estamos fechados agora. Seu pedido fica salvo aqui para enviar quando abrirmos."}
                 </p>
               </div>
             )
           }
         >
-          {linkEnviado ? (
+          {enviado ? (
             <div className="py-6 text-center">
               <span className="mx-auto flex size-14 items-center justify-center rounded-full bg-manjericao-100 text-manjericao-700">
                 <Check className="size-7" strokeWidth={3} />
               </span>
               <p className="mt-4 font-display text-xl font-semibold">Pedido enviado!</p>
-              <p className="mt-1 text-sm text-stone-600">Continue no Telegram: confirme entrega ou retirada e a forma de pagamento. Se o Telegram não abriu, toque no botão abaixo.</p>
+              <p className="mt-1 text-sm text-stone-600">{enviado.canal === "whatsapp" ? "No WhatsApp, toque em enviar na mensagem pronta e siga a conversa" : "Continue no Telegram"}: confirme entrega ou retirada e a forma de pagamento. Se não abriu, toque no botão abaixo.</p>
             </div>
           ) : itens.length === 0 ? (
             <p className="py-10 text-center text-sm text-stone-500">Seu pedido está vazio.</p>

@@ -133,7 +133,7 @@ export function criarAgente(deps: DependenciasAgente) {
             nomeCliente: cliente?.nome ?? entrada.clienteNome ?? null,
           })}
 
-Seu pedido continua salvo no cardápio: quando abrirmos, é só tocar de novo em *Enviar pelo Telegram*.`,
+Seu pedido continua salvo no cardápio: quando abrirmos, é só tocar de novo em *Enviar pelo ${canal === "whatsapp" ? "WhatsApp" : "Telegram"}*.`,
         };
       }
       const itens = lerItensCarrinho(await deps.repos.carrinhos.consumir(codigoCarrinho));

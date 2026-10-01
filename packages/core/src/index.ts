@@ -1,5 +1,5 @@
 export * from "./agente/agente";
-export { itensCarrinhoSchema, PREFIXO_CARRINHO_WEB } from "./agente/carrinho-web";
+export { itensCarrinhoSchema, PREFIXO_CARRINHO_WEB, textoWhatsappCarrinho } from "./agente/carrinho-web";
 export { DEFINICOES_TOOLS, TOOL, type PedidoCriado } from "./agente/tools";
 export * from "./formatacao";
 export * from "./horario";

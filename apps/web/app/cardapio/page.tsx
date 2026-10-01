@@ -71,7 +71,8 @@ export default async function CardapioPage() {
   const linkWhatsapp = config.whatsappNumero ? `https://wa.me/${config.whatsappNumero}?text=${encodeURIComponent("Olá! Quero fazer um pedido 🍕")}` : null;
   const linkTelegram = config.telegramUsuario ? `https://t.me/${config.telegramUsuario}?start=cardapio` : null;
   const temBotoes = Boolean(linkWhatsapp || linkTelegram);
-  const montarPedido = Boolean(config.telegramUsuario);
+  const canaisPedido = [...(config.whatsappNumero ? (["whatsapp"] as const) : []), ...(config.telegramUsuario ? (["telegram"] as const) : [])];
+  const montarPedido = canaisPedido.length > 0;
 
   const status = situacao.aberta
     ? { texto: "Aberto agora", detalhe: "Peça pelo chat — respondemos na hora", cor: "bg-manjericao-500" }
@@ -128,7 +129,7 @@ export default async function CardapioPage() {
         categorias={categorias}
         tamanhos={config.tamanhos}
         aberta={situacao.aberta}
-        telegramHabilitado={montarPedido}
+        canais={canaisPedido}
         linkWhatsapp={linkWhatsapp}
         linkTelegram={linkTelegram}
       >
@@ -139,7 +140,7 @@ export default async function CardapioPage() {
               <h2 id="titulo-tamanhos" className="font-display text-2xl font-semibold">Tamanhos</h2>
               <p className="mt-1 text-sm text-stone-400">
                 Monte com vários sabores. Sabores especiais somam o adicional de cada um.
-                {montarPedido && " Toque em Montar pizza e envie o pedido pelo Telegram."}
+                {montarPedido && " Toque em Montar pizza e envie o pedido pelo chat."}
               </p>
             </div>
             <ul className="divide-y divide-white/10 px-5">
