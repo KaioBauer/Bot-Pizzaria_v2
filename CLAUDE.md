@@ -9,6 +9,7 @@ cardápio web e Pix. Monorepo pnpm, TypeScript strict, Supabase.
 pnpm install
 pnpm check            # typecheck de todos os pacotes + testes (rodar antes de entregar)
 pnpm test             # vitest
+pnpm dev              # bot + web juntos (Iniciar.cmd faz o mesmo com dois cliques)
 pnpm dev:bot          # bot (Telegram em polling), lê apps/bot/.env
 pnpm dev:web          # painel + cardápio, lê apps/web/.env.local
 pnpm db:types         # regenera packages/db/src/database.types.ts do banco linkado

@@ -8,6 +8,7 @@
     "node": ">=22"
   },
   "scripts": {
+    "dev": "pnpm --parallel --filter @pizzaria/bot --filter @pizzaria/web dev",
     "dev:bot": "pnpm --filter @pizzaria/bot dev",
     "dev:web": "pnpm --filter @pizzaria/web dev",
     "build": "pnpm -r --if-present build",

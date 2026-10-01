@@ -56,9 +56,12 @@ Recomendado: Supabase → Authentication → Sign In / Providers → desligar "A
 ## Rodando em desenvolvimento
 
 ```bash
-pnpm dev:bot   # bot (Telegram em long polling) em http://localhost:3001/health
-pnpm dev:web   # painel em http://localhost:3000/admin e cardápio em /cardapio
+pnpm dev       # bot (Telegram) + painel/cardápio, juntos, num terminal só
 ```
+
+No Windows, dá para ligar com dois cliques em **`Iniciar.cmd`** (abre o painel no navegador).
+Separado: `pnpm dev:bot` (http://localhost:3001/health) e `pnpm dev:web` (http://localhost:3000/admin).
+A impressão roda à parte, como serviço do Windows (ver abaixo).
 
 ### Print-agent (PC da pizzaria)
 
