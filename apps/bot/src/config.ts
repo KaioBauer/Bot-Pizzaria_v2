@@ -22,6 +22,9 @@ const esquema = z
     /** Só para modelos de raciocínio (gpt-5*). */
     OPENAI_REASONING_EFFORT: z.enum(["none", "minimal", "low", "medium", "high"]).default("none"),
 
+    /** Link do cardápio público enviado pelo bot. Ex.: https://painel.dominio/cardapio */
+    CARDAPIO_URL: z.url().optional(),
+
     CONVERSA_EXPIRACAO_MINUTOS: z.coerce.number().int().positive().default(180),
     HISTORICO_LIMITE: z.coerce.number().int().min(10).default(40),
 

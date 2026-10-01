@@ -45,6 +45,8 @@ export interface OpcoesAgente {
   maxRodadas?: number;
   /** Validade do cache de cardápio e configurações. */
   validadeCacheMs?: number;
+  /** Link do cardápio público, enviado quando o cliente pede o cardápio. */
+  urlCardapio?: string;
 }
 
 export interface DependenciasAgente {
@@ -126,6 +128,7 @@ export function criarAgente(deps: DependenciasAgente) {
       cliente,
       pixDisponivel,
       proximaAbertura: situacao.aberta ? null : proximaAbertura(config.horarios, instante, config.fusoHorario),
+      urlCardapio: deps.opcoes?.urlCardapio ?? null,
     });
 
     const ctx: ContextoTools = {

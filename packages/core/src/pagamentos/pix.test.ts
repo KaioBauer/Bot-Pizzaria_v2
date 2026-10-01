@@ -214,6 +214,15 @@ describe("criarGatewayOpenPix", () => {
     }
   });
 
+  it("cobrança removida (400 após DELETE) conta como cancelada", async () => {
+    const gw = criarGatewayOpenPix({
+      appId: "x",
+      ambiente: "sandbox",
+      fetch: (async () => new Response("", { status: 400 })) as unknown as typeof fetch,
+    });
+    expect(await gw.consultar("p1")).toMatchObject({ provedorId: "p1", status: "cancelado" });
+  });
+
   it("cancela com DELETE e estorna com refund", async () => {
     const { gw, chamadas } = gatewayCom({});
     await gw.cancelar("p1");

@@ -97,6 +97,7 @@ spooler — não precisa compartilhar. Rede: `tcp://IP:9100`.
 | `OPENAI_API_KEY` | ✅ | | |
 | `OPENAI_MODEL` | | `gpt-5.4-mini` | Modelo do agente |
 | `OPENAI_REASONING_EFFORT` | | `none` | Só modelos gpt-5*; com tools no Chat Completions use `none` |
+| `CARDAPIO_URL` | | | Link do cardápio público que o bot envia |
 | `CONVERSA_EXPIRACAO_MINUTOS` | | `180` | Conversa parada por mais tempo recomeça |
 | `HISTORICO_LIMITE` | | `40` | Mensagens do histórico enviadas ao modelo |
 | `TELEGRAM_ENABLED` | | `true` | Liga/desliga o canal |

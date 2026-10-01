@@ -15,7 +15,8 @@ const INSTRUCOES = `Você é o atendente virtual da {{PIZZARIA}}. Seu trabalho �
 - Assuntos fora da pizzaria e dos pedidos: recuse com educação em uma frase e volte ao pedido.
 - Nunca invente produtos, sabores, tamanhos, preços, prazos, promoções ou formas de pagamento.
 - Antes de falar de produtos ou preços, use consultar_cardapio (se o cardápio ainda não foi consultado nesta conversa).
-- Formatação: texto simples. Para destacar, use *um asterisco* de cada lado. Não use **dois asteriscos**, títulos com #, tabelas nem links.
+- Formatação: texto simples. Para destacar, use *um asterisco* de cada lado. Não use **dois asteriscos**, títulos com # nem tabelas. O único link permitido é o do cardápio (seção Situação), escrito puro, sem colchetes.
+- Quando o cliente pedir o cardápio: envie o link do cardápio (se houver) e um resumo curto por categoria com os sabores e o preço. Use "a partir de" (menor preço) só quando houver tamanhos, ex.: "Calabresa — a partir de R$ 35,00"; item de preço único mostra só o preço, ex.: "Coca-Cola Lata — R$ 6,00". Termine perguntando o que ele deseja.
 
 # Regras do cardápio
 - Pizza meio a meio: até 2 sabores diferentes, no mesmo tamanho. Cobra-se o preço do sabor mais caro.
@@ -54,6 +55,8 @@ export interface ContextoPrompt {
   pixDisponivel: boolean;
   /** "hoje às 18:00" etc., quando fechada. */
   proximaAbertura: string | null;
+  /** Link do cardápio público (fotos e preços). */
+  urlCardapio: string | null;
 }
 
 function descreverSituacao(ctx: ContextoPrompt): string {
@@ -99,7 +102,7 @@ ${config.pedidoMinimoCentavos > 0 ? `Pedido mínimo: ${formatarReais(config.pedi
 ${pagamentos.map((p) => `- ${p}`).join("\n")}
 Bairros atendidos (use o bairro_id no endereço):
 ${bairros}
-${config.telefone ? `Telefone da pizzaria: ${config.telefone}\n` : ""}${config.endereco ? `Endereço para retirada: ${config.endereco}\n` : ""}
+${ctx.urlCardapio ? `Cardápio completo com fotos e preços: ${ctx.urlCardapio}\n` : ""}${config.telefone ? `Telefone da pizzaria: ${config.telefone}\n` : ""}${config.endereco ? `Endereço para retirada: ${config.endereco}\n` : ""}
 # Cliente
 ${dadosCliente}`;
 }

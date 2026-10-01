@@ -49,6 +49,7 @@ const agente = criarAgente({
   opcoes: {
     expiracaoConversaMinutos: config.CONVERSA_EXPIRACAO_MINUTOS,
     limiteHistorico: config.HISTORICO_LIMITE,
+    ...(config.CARDAPIO_URL ? { urlCardapio: config.CARDAPIO_URL } : {}),
   },
 });
 

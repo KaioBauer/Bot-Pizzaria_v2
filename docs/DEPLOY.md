@@ -36,6 +36,7 @@ No `apps/bot/.env` de produção:
 NODE_ENV=production
 PUBLIC_URL=https://bot.SEU-DOMINIO
 TELEGRAM_MODE=webhook
+CARDAPIO_URL=https://painel.SEU-DOMINIO/cardapio
 TELEGRAM_WEBHOOK_SECRET=<openssl rand -hex 32>
 OPENAI_MODEL=gpt-5.4-mini
 # + SUPABASE_*, OPENAI_API_KEY, TELEGRAM_BOT_TOKEN

@@ -42,6 +42,15 @@ describe("agente", () => {
     expect(conversa?.mensagens.map((m) => m.papel)).toEqual(["user", "assistant"]);
   });
 
+  it("informa o link do cardápio no prompt quando configurado", async () => {
+    const memoria = repositoriosEmMemoria({ variacoes: variacoesDeTeste(), config: configDeTeste() });
+    const { llm, requisicoes } = llmRoteirizado([texto("Aqui está!")]);
+    const agente = criarAgente({ repos: memoria.repos, llm, agora: () => ABERTO, opcoes: { urlCardapio: "https://painel.exemplo/cardapio" } });
+    await agente.processarMensagem(entrada("quero o cardápio"));
+    expect(requisicoes[0]?.sistema).toContain("Cardápio completo com fotos e preços: https://painel.exemplo/cardapio");
+    expect(requisicoes[0]?.sistema).toContain("envie o link do cardápio");
+  });
+
   it("finaliza com preços do servidor, ignorando valores do modelo", async () => {
     const { agente, pedidos, conversas } = montar([chamar(["finalizar_pedido", argsFinalizar])]);
     const r = await agente.processarMensagem(entrada("pode fechar"));

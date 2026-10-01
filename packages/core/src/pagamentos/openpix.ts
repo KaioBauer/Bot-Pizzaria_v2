@@ -88,7 +88,16 @@ export function criarGatewayOpenPix(opcoes: OpcoesOpenPix): GatewayPix {
     },
 
     async consultar(provedorId) {
-      const { charge } = await chamar<{ charge: CobrancaOpenPix }>("GET", caminhoCobranca(provedorId));
+      let charge: CobrancaOpenPix;
+      try {
+        ({ charge } = await chamar<{ charge: CobrancaOpenPix }>("GET", caminhoCobranca(provedorId)));
+      } catch (err) {
+        // Cobrança cancelada (DELETE) deixa de existir: a API responde 400/404.
+        if (err instanceof ErroOpenPix && (err.status === 400 || err.status === 404)) {
+          return { provedorId, status: "cancelado", valorCentavos: 0, referenciaExterna: provedorId };
+        }
+        throw err;
+      }
       return {
         provedorId: charge.correlationID,
         status: STATUS[charge.status ?? ""] ?? "pendente",
