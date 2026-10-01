@@ -1,13 +1,20 @@
 import Fastify, { type FastifyBaseLogger } from "fastify";
 import pino from "pino";
-import { criarAgente, criarGatewayMercadoPago, criarProvedorOpenAi, criarServicoPix, type RespostaAgente } from "@pizzaria/core";
+import {
+  criarAgente,
+  criarCacheChavesOpenPix,
+  criarGatewayOpenPix,
+  criarProvedorOpenAi,
+  criarServicoPix,
+  type RespostaAgente,
+} from "@pizzaria/core";
 import { criarClienteServico, criarRepositorios } from "@pizzaria/db";
 import { criarAdaptadorTelegram } from "./canais/telegram";
 import type { ChannelAdapter } from "./canais/tipos";
 import { criarAdaptadorWhatsapp } from "./canais/whatsapp";
 import { carregarConfig } from "./config";
 import { criarNotificador } from "./notificador";
-import { registrarPix, ROTA_WEBHOOK_MP } from "./pix";
+import { registrarPix } from "./pix";
 import { criarProcessadorPorChat } from "./processador";
 
 const config = carregarConfig();
@@ -22,13 +29,9 @@ const logger = pino({
 const db = criarClienteServico(config.SUPABASE_URL, config.SUPABASE_SERVICE_ROLE_KEY);
 const repos = criarRepositorios(db);
 
-const pix = config.MP_ACCESS_TOKEN
+const pix = config.OPENPIX_APP_ID
   ? criarServicoPix({
-      gateway: criarGatewayMercadoPago({
-        accessToken: config.MP_ACCESS_TOKEN,
-        emailPagador: config.MP_EMAIL_PAGADOR,
-        ...(config.PUBLIC_URL ? { urlNotificacao: `${config.PUBLIC_URL}${ROTA_WEBHOOK_MP}` } : {}),
-      }),
+      gateway: criarGatewayOpenPix({ appId: config.OPENPIX_APP_ID, ambiente: config.OPENPIX_AMBIENTE }),
       repos,
       logger: logger.child({ modulo: "pix" }),
     })
@@ -131,7 +134,8 @@ const pagamentos = pix
       db,
       pix,
       logger: logger.child({ modulo: "pix" }),
-      segredoWebhook: config.MP_WEBHOOK_SECRET,
+      chavesPublicas: criarCacheChavesOpenPix(config.OPENPIX_AMBIENTE),
+      ...(config.OPENPIX_WEBHOOK_AUTORIZACAO ? { autorizacaoWebhook: config.OPENPIX_WEBHOOK_AUTORIZACAO } : {}),
       conferenciaMs: config.PIX_CONFERENCIA_SEGUNDOS * 1000,
     })
   : null;
@@ -152,4 +156,7 @@ for (const canal of canais.values()) await canal.iniciar(servidor);
 await servidor.listen({ port: config.PORT, host: "0.0.0.0" });
 await notificador.iniciar();
 pagamentos?.iniciar();
-logger.info({ porta: config.PORT, canais: [...canais.keys()], pix: Boolean(pix) }, "Bot no ar");
+logger.info(
+  { porta: config.PORT, canais: [...canais.keys()], pix: pix ? `openpix (${config.OPENPIX_AMBIENTE})` : false },
+  "Bot no ar"
+);

@@ -10,7 +10,7 @@ Decisões de arquitetura e convenções: [`CLAUDE.md`](CLAUDE.md). Deploy: [`doc
 | 2 | Painel com pedidos em tempo real + notificação do cliente | ✅ |
 | 3 | `print-agent` (impressora térmica) | ✅ |
 | 4 | Cardápio público, CRUD de cardápio e configurações | ✅ |
-| 5 | Pix (Mercado Pago) | ✅ (liga com as credenciais) |
+| 5 | Pix (OpenPix / Woovi) | ✅ (liga com o AppID) |
 | 6 | WhatsApp (Evolution API) | ✅ (liga com `WHATSAPP_ENABLED`) |
 | 7 | Relatórios, Docker e deploy | ✅ |
 
@@ -19,7 +19,7 @@ Decisões de arquitetura e convenções: [`CLAUDE.md`](CLAUDE.md). Deploy: [`doc
 ```
 Cliente ── Telegram / WhatsApp ──► apps/bot ──► packages/core (agente LLM + regras) ──► Supabase
                                      │   ▲                                               │  │
-                     Mercado Pago ───┘   └── notificações de status (outbox) ◄───────────┘  │ Realtime
+                      OpenPix ───┘   └── notificações de status (outbox) ◄───────────┘  │ Realtime
                                                                                             ▼
                                        apps/web (painel /admin + cardápio /cardapio)   apps/print-agent (PC da loja)
 ```
@@ -103,9 +103,9 @@ spooler — não precisa compartilhar. Rede: `tcp://IP:9100`.
 | `TELEGRAM_BOT_TOKEN` | se habilitado | | Token do BotFather |
 | `TELEGRAM_MODE` | | `polling` | `polling` (dev) ou `webhook` (produção) |
 | `TELEGRAM_WEBHOOK_SECRET` | com webhook | | Segredo validado em cada chamada |
-| `MP_ACCESS_TOKEN` | | | Liga o Pix (Mercado Pago) |
-| `MP_WEBHOOK_SECRET` | produção c/ Pix | | Assinatura do webhook do MP |
-| `MP_EMAIL_PAGADOR` | | `pagamentos@viannapizzaria.com.br` | E-mail de pagador exigido pela API |
+| `OPENPIX_APP_ID` | | | Liga o Pix (OpenPix/Woovi) |
+| `OPENPIX_AMBIENTE` | | `sandbox` | `sandbox` ou `producao` |
+| `OPENPIX_WEBHOOK_AUTORIZACAO` | | | Valor de "Authorization" cadastrado no webhook (opcional) |
 | `PIX_CONFERENCIA_SEGUNDOS` | | `60` | Conferência periódica dos Pix pendentes |
 | `WHATSAPP_ENABLED` | | `false` | Liga o WhatsApp |
 | `EVOLUTION_URL` | c/ WhatsApp | | URL da Evolution API (`http://evolution:8080` no compose) |

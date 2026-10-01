@@ -12,6 +12,10 @@
   "dependencies": {
     "@pizzaria/shared": "workspace:*",
     "openai": "^7.25.0",
-    "zod": "^4.6.5"
+    "zod": "^4.6.5",
+    "qrcode": "^1.5.4"
+  },
+  "devDependencies": {
+    "@types/qrcode": "^1.5.5"
   }
 }

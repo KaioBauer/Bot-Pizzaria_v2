@@ -92,8 +92,9 @@ por injeção — por isso é testado com implementações em memória (`core/sr
 - **Next 16:** `proxy.ts` (não middleware), `cookies()`/`params` assíncronos, Tailwind 4.
   Docs da versão em `apps/web/node_modules/next/dist/docs/`.
 
-- **Pix:** `packages/core/src/pagamentos` — `GatewayPix` (Mercado Pago em `mercadopago.ts`,
-  via fetch, sem SDK) + `criarServicoPix`. Pedido Pix nasce `aguardando_pagamento`; status
+- **Pix:** `packages/core/src/pagamentos` — `GatewayPix` (OpenPix/Woovi em `openpix.ts`, via
+  fetch, sem SDK; `correlationID` = id do pedido; QR gerado localmente do brCode; webhook
+  RSA-SHA256 sobre o corpo cru, chaves de `/api/v1/webhook/public-keys`) + `criarServicoPix`. Pedido Pix nasce `aguardando_pagamento`; status
   real sempre relido na API (webhook não é confiável); conferência periódica cobre webhook
   perdido e expira vencidos; pago em pedido cancelado -> estorno. Falha ao gerar a cobrança
   descarta o pedido (`descartarAguardandoPagamento`, sem notificar). Copia-e-cola enviado

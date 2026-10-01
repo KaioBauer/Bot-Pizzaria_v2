@@ -1,68 +1,98 @@
+import { timingSafeEqual } from "node:crypto";
 import type { FastifyInstance } from "fastify";
 import type { Logger } from "pino";
-import { validarAssinaturaMercadoPago, type ServicoPix } from "@pizzaria/core";
+import { validarAssinaturaOpenPix, type ServicoPix } from "@pizzaria/core";
 import { concluirEventoWebhook, registrarEventoWebhook, type Db } from "@pizzaria/db";
 import { execucaoUnica } from "@pizzaria/shared";
 
-const PROVEDOR = "mercadopago";
-export const ROTA_WEBHOOK_MP = "/webhooks/mercadopago";
+const PROVEDOR = "openpix";
+export const ROTA_WEBHOOK_PIX = "/webhooks/openpix";
+
+const EVENTOS_DE_COBRANCA = new Set(["OPENPIX:CHARGE_COMPLETED", "OPENPIX:CHARGE_EXPIRED", "OPENPIX:TRANSACTION_RECEIVED"]);
+
+interface EventoOpenPix {
+  event?: string;
+  evento?: string;
+  charge?: { correlationID?: string; status?: string };
+  pix?: { charge?: { correlationID?: string } };
+}
+
+function igual(a: string | undefined, b: string): boolean {
+  if (!a) return false;
+  const x = Buffer.from(a);
+  const y = Buffer.from(b);
+  return x.length === y.length && timingSafeEqual(x, y);
+}
 
 /**
- * Webhook do Mercado Pago + conferência periódica dos Pix pendentes.
- * O webhook só diz "o pagamento X mudou": o status real é sempre consultado
- * na API pelo ServicoPix. Respondemos 200 na hora (o MP reenvia se demorar)
- * e processamos em segundo plano.
+ * Webhook da OpenPix/Woovi + conferência periódica dos Pix pendentes.
+ * O webhook só diz "a cobrança X mudou": o status real é sempre consultado
+ * na API pelo ServicoPix. Respondemos 200 na hora e processamos em segundo plano.
  */
 export function registrarPix(opcoes: {
   servidor: FastifyInstance;
   db: Db;
   pix: ServicoPix;
   logger: Logger;
-  segredoWebhook?: string;
+  chavesPublicas: () => Promise<string[]>;
+  /** Valor do campo "Authorization" cadastrado no webhook da Woovi (opcional, defesa extra). */
+  autorizacaoWebhook?: string;
   conferenciaMs: number;
 }) {
-  const { servidor, db, pix, logger } = opcoes;
-  if (!opcoes.segredoWebhook) logger.warn("MP_WEBHOOK_SECRET ausente: webhooks aceitos sem validar assinatura (só use em teste)");
+  const { db, pix, logger } = opcoes;
 
-  servidor.post<{ Querystring: Record<string, string | undefined>; Body: { type?: string; action?: string; data?: { id?: string | number } } | undefined }>(
-    ROTA_WEBHOOK_MP,
-    async (req, resposta) => {
-      const tipo = req.query.type ?? req.query.topic ?? req.body?.type;
-      const dataId = req.query["data.id"] ?? req.query.id ?? (req.body?.data?.id !== undefined ? String(req.body.data.id) : undefined);
-      const requestId = req.headers["x-request-id"] as string | undefined;
+  // Escopo próprio: só esta rota recebe o corpo cru (a assinatura é sobre os bytes exatos).
+  void opcoes.servidor.register(async (escopo) => {
+    escopo.addContentTypeParser("application/json", { parseAs: "buffer" }, (_req, corpo, pronto) => pronto(null, corpo));
 
-      if (opcoes.segredoWebhook) {
-        const valida = validarAssinaturaMercadoPago({
-          assinatura: req.headers["x-signature"] as string | undefined,
-          requestId,
-          dataId,
-          segredo: opcoes.segredoWebhook,
-        });
-        if (!valida) {
-          logger.warn({ dataId, requestId }, "Webhook do Mercado Pago com assinatura inválida");
-          return resposta.code(401).send({ ok: false });
-        }
+    escopo.post(ROTA_WEBHOOK_PIX, async (req, resposta) => {
+      const corpoCru = req.body as Buffer;
+
+      if (opcoes.autorizacaoWebhook && !igual(req.headers.authorization, opcoes.autorizacaoWebhook)) {
+        logger.warn("Webhook OpenPix com Authorization inválido");
+        return resposta.code(401).send({ ok: false });
       }
-      if (tipo !== "payment" || !dataId) return resposta.code(200).send({ ok: true, ignorado: true });
+      const valida = validarAssinaturaOpenPix({
+        corpoCru,
+        assinatura: req.headers["x-webhook-signature"] as string | undefined,
+        chavesPublicas: await opcoes.chavesPublicas(),
+      });
+      if (!valida) {
+        logger.warn("Webhook OpenPix com assinatura inválida");
+        return resposta.code(401).send({ ok: false });
+      }
 
-      const chave = `${dataId}:${requestId ?? req.body?.action ?? "sem-request-id"}`;
-      if (!(await registrarEventoWebhook(db, PROVEDOR, chave, { query: req.query, body: req.body ?? null }))) {
+      let evento: EventoOpenPix;
+      try {
+        evento = JSON.parse(corpoCru.toString("utf8")) as EventoOpenPix;
+      } catch {
+        return resposta.code(400).send({ ok: false });
+      }
+      if (evento.evento === "teste_webhook") return resposta.code(200).send({ ok: true, teste: true });
+
+      const correlationID = evento.charge?.correlationID ?? evento.pix?.charge?.correlationID;
+      if (!evento.event || !EVENTOS_DE_COBRANCA.has(evento.event) || !correlationID) {
+        return resposta.code(200).send({ ok: true, ignorado: true });
+      }
+
+      const chave = `${evento.event}:${correlationID}:${(req.headers["x-webhook-event-id"] as string | undefined) ?? evento.charge?.status ?? ""}`;
+      if (!(await registrarEventoWebhook(db, PROVEDOR, chave, evento))) {
         return resposta.code(200).send({ ok: true, duplicado: true });
       }
 
       void pix
-        .processarAtualizacao(dataId)
+        .processarAtualizacao(correlationID)
         .then((resultado) => {
-          logger.info({ dataId, resultado }, "Webhook de pagamento processado");
+          logger.info({ correlationID, evento: evento.event, resultado }, "Webhook de pagamento processado");
           return concluirEventoWebhook(db, PROVEDOR, chave, resultado);
         })
         .catch((err: unknown) => {
-          logger.error({ err, dataId }, "Falha ao processar webhook (a conferência periódica tenta de novo)");
+          logger.error({ err, correlationID }, "Falha ao processar webhook (a conferência periódica tenta de novo)");
           return concluirEventoWebhook(db, PROVEDOR, chave, `erro: ${String(err).slice(0, 200)}`);
         });
       return resposta.code(200).send({ ok: true });
-    }
-  );
+    });
+  });
 
   const conferir = execucaoUnica(() => pix.conferirPendentes(), (err) => logger.error({ err }, "Falha na conferência de Pix"));
   let temporizador: NodeJS.Timeout | null = null;

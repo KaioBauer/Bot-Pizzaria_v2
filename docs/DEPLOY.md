@@ -4,7 +4,7 @@ O que roda onde:
 
 | Onde | O quê |
 |---|---|
-| VPS (Docker) | `bot` (Telegram, WhatsApp, Pix, notificações) e `web` (painel + cardápio). Opcional: `evolution` (WhatsApp) com Postgres e Redis próprios |
+| VPS (Docker) | `bot` (Telegram, WhatsApp, Pix OpenPix, notificações) e `web` (painel + cardápio). Opcional: `evolution` (WhatsApp) com Postgres e Redis próprios |
 | VPS (Nginx) | HTTPS e proxy para os containers |
 | Supabase | banco, login, Realtime, fotos |
 | PC da pizzaria | `print-agent` como serviço do Windows (ver README) |
@@ -39,7 +39,7 @@ TELEGRAM_MODE=webhook
 TELEGRAM_WEBHOOK_SECRET=<openssl rand -hex 32>
 OPENAI_MODEL=gpt-5.4-mini
 # + SUPABASE_*, OPENAI_API_KEY, TELEGRAM_BOT_TOKEN
-# Pix: MP_ACCESS_TOKEN, MP_WEBHOOK_SECRET (obrigatório em produção)
+# Pix: OPENPIX_APP_ID, OPENPIX_AMBIENTE=producao
 # WhatsApp: WHATSAPP_ENABLED=true, EVOLUTION_API_KEY, WHATSAPP_WEBHOOK_TOKEN
 #           (os mesmos valores do .env da raiz)
 ```
@@ -66,13 +66,13 @@ sudo certbot --nginx -d painel.seudominio.com.br -d bot.seudominio.com.br
 
 O bot registra o webhook do Telegram sozinho ao iniciar (com `TELEGRAM_MODE=webhook`).
 
-## 5. Mercado Pago (Pix)
+## 5. Pix (OpenPix / Woovi)
 
-1. https://www.mercadopago.com.br/developers/panel → sua aplicação → **Credenciais de produção** → `Access Token` em `MP_ACCESS_TOKEN`.
-2. **Webhooks** → URL `https://bot.SEU-DOMINIO/webhooks/mercadopago`, evento **Pagamentos** → copie a **assinatura secreta** para `MP_WEBHOOK_SECRET`.
-3. `docker compose up -d bot` — o log mostra `pix: true`. Teste com um pedido de R$ 1,00 e confira no painel.
+1. No painel da Woovi (produção: https://app.woovi.com) → **API/Plugins** → **Nova API** → copie o **AppID** para `OPENPIX_APP_ID` e use `OPENPIX_AMBIENTE=producao`.
+2. **Webhooks** → novo webhook com URL `https://bot.SEU-DOMINIO/webhooks/openpix` para os eventos **Cobrança paga** (`OPENPIX:CHARGE_COMPLETED`) e **Cobrança expirada** (`OPENPIX:CHARGE_EXPIRED`). Opcional: preencha "Authorization" com um valor aleatório e repita em `OPENPIX_WEBHOOK_AUTORIZACAO`.
+3. `docker compose up -d bot` — o log mostra `pix: "openpix (producao)"`. Teste com um pedido de valor baixo.
 
-Mesmo sem webhook, o bot confere os Pix pendentes a cada minuto (`PIX_CONFERENCIA_SEGUNDOS`).
+A assinatura `x-webhook-signature` (RSA-SHA256) é validada com as chaves públicas da Woovi. Mesmo sem webhook, o bot confere os Pix pendentes a cada minuto (`PIX_CONFERENCIA_SEGUNDOS`).
 
 ## 6. WhatsApp (Evolution API)
 

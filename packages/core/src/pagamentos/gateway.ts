@@ -1,4 +1,4 @@
-/** Contrato do provedor de Pix (Mercado Pago hoje; trocável). */
+/** Contrato do provedor de Pix (OpenPix/Woovi hoje; trocável). */
 
 export type StatusCobranca = "pendente" | "aprovado" | "recusado" | "cancelado" | "estornado";
 

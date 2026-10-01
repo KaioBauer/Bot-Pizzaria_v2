@@ -25,11 +25,11 @@ const esquema = z
     CONVERSA_EXPIRACAO_MINUTOS: z.coerce.number().int().positive().default(180),
     HISTORICO_LIMITE: z.coerce.number().int().min(10).default(40),
 
-    /** Pix online: ligado quando o token existe. */
-    MP_ACCESS_TOKEN: z.string().optional(),
-    /** Segredo da assinatura do webhook (painel do Mercado Pago > Webhooks). */
-    MP_WEBHOOK_SECRET: z.string().optional(),
-    MP_EMAIL_PAGADOR: z.email().default("pagamentos@viannapizzaria.com.br"),
+    /** Pix online (OpenPix/Woovi): ligado quando o AppID existe. */
+    OPENPIX_APP_ID: z.string().optional(),
+    OPENPIX_AMBIENTE: z.enum(["sandbox", "producao"]).default("sandbox"),
+    /** Valor do campo "Authorization" cadastrado no webhook da Woovi (defesa extra, opcional). */
+    OPENPIX_WEBHOOK_AUTORIZACAO: z.string().optional(),
     PIX_CONFERENCIA_SEGUNDOS: z.coerce.number().int().min(15).default(60),
 
     TELEGRAM_ENABLED: booleano(true),
@@ -55,9 +55,8 @@ const esquema = z
       exigir("EVOLUTION_API_KEY", "com WHATSAPP_ENABLED=true");
       exigir("WHATSAPP_WEBHOOK_TOKEN", "com WHATSAPP_ENABLED=true");
     }
-    if (env.MP_ACCESS_TOKEN && env.NODE_ENV === "production") {
-      exigir("MP_WEBHOOK_SECRET", "em produção com Pix ligado");
-      exigir("PUBLIC_URL", "em produção com Pix ligado (URL do webhook)");
+    if (env.OPENPIX_APP_ID && env.NODE_ENV === "production" && env.OPENPIX_AMBIENTE !== "producao") {
+      ctx.addIssue({ code: "custom", path: ["OPENPIX_AMBIENTE"], message: "em produção use OPENPIX_AMBIENTE=producao" });
     }
     if (env.TELEGRAM_ENABLED && env.TELEGRAM_MODE === "webhook") {
       exigir("PUBLIC_URL", "com TELEGRAM_MODE=webhook");

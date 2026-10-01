@@ -33,7 +33,7 @@ function paraRegistro(l: Linha): PagamentoRegistro {
   };
 }
 
-export function criarPagamentosRepo(db: Db, provedor = "mercadopago"): PagamentosRepo {
+export function criarPagamentosRepo(db: Db, provedor = "openpix"): PagamentosRepo {
   return {
     async criar(p) {
       const resultado = await db

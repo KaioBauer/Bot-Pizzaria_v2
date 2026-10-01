@@ -1,9 +1,9 @@
-import { createHmac } from "node:crypto";
+import { createSign, generateKeyPairSync } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { criarAgente } from "../agente/agente";
 import { configDeTeste, ID, sabor, variacoesDeTeste } from "../testes/fixtures";
 import { chamar, gatewayPixFalso, llmRoteirizado, repositoriosEmMemoria, texto } from "../testes/memoria";
-import { validarAssinaturaMercadoPago } from "./mercadopago";
+import { criarGatewayOpenPix, validarAssinaturaOpenPix } from "./openpix";
 import { criarServicoPix, MOTIVO_PIX_EXPIRADO, MOTIVO_PIX_RECUSADO } from "./pix";
 
 const ABERTO = new Date("2026-10-02T20:00:00-03:00");
@@ -156,32 +156,68 @@ describe("criarServicoPix.processarAtualizacao", () => {
   });
 });
 
-describe("validarAssinaturaMercadoPago", () => {
-  const segredo = "segredo-de-teste";
-  const ts = "1790870400";
-  const agora = Number(ts) * 1000 + 5_000;
-  const assinar = (manifesto: string) => createHmac("sha256", segredo).update(manifesto).digest("hex");
-  const v1 = assinar(`id:123456;request-id:req-1;ts:${ts};`);
+describe("validarAssinaturaOpenPix", () => {
+  const { privateKey, publicKey } = generateKeyPairSync("rsa", { modulusLength: 1024 });
+  const outra = generateKeyPairSync("rsa", { modulusLength: 1024 }).publicKey.export({ type: "spki", format: "pem" }).toString();
+  const pem = publicKey.export({ type: "spki", format: "pem" }).toString();
+  const corpo = JSON.stringify({ event: "OPENPIX:CHARGE_COMPLETED", charge: { correlationID: "abc", status: "COMPLETED" } });
+  const assinar = (texto: string) => createSign("sha256").update(texto).sign(privateKey, "base64");
 
-  it("aceita assinatura válida", () => {
-    expect(validarAssinaturaMercadoPago({ assinatura: `ts=${ts},v1=${v1}`, requestId: "req-1", dataId: "123456", segredo, agora })).toBe(true);
+  it("aceita assinatura do corpo cru com a chave vigente", () => {
+    expect(validarAssinaturaOpenPix({ corpoCru: corpo, assinatura: assinar(corpo), chavesPublicas: [outra, pem] })).toBe(true);
   });
 
-  it("rejeita segredo, id ou request-id diferentes", () => {
-    const base = { assinatura: `ts=${ts},v1=${v1}`, requestId: "req-1", dataId: "123456", segredo, agora };
-    expect(validarAssinaturaMercadoPago({ ...base, segredo: "outro" })).toBe(false);
-    expect(validarAssinaturaMercadoPago({ ...base, dataId: "999" })).toBe(false);
-    expect(validarAssinaturaMercadoPago({ ...base, requestId: "req-2" })).toBe(false);
+  it("rejeita corpo alterado, chave errada ou cabeçalho ausente", () => {
+    expect(validarAssinaturaOpenPix({ corpoCru: corpo.replace("abc", "xyz"), assinatura: assinar(corpo), chavesPublicas: [pem] })).toBe(false);
+    expect(validarAssinaturaOpenPix({ corpoCru: corpo, assinatura: assinar(corpo), chavesPublicas: [outra] })).toBe(false);
+    expect(validarAssinaturaOpenPix({ corpoCru: corpo, assinatura: undefined, chavesPublicas: [pem] })).toBe(false);
+    expect(validarAssinaturaOpenPix({ corpoCru: corpo, assinatura: "lixo", chavesPublicas: [pem] })).toBe(false);
   });
 
-  it("rejeita notificação antiga (replay) e cabeçalho malformado", () => {
-    expect(validarAssinaturaMercadoPago({ assinatura: `ts=${ts},v1=${v1}`, requestId: "req-1", dataId: "123456", segredo, agora: agora + 60 * 60_000 })).toBe(false);
-    expect(validarAssinaturaMercadoPago({ assinatura: "lixo", requestId: "req-1", dataId: "123456", segredo, agora })).toBe(false);
-    expect(validarAssinaturaMercadoPago({ assinatura: undefined, requestId: "req-1", dataId: "123456", segredo, agora })).toBe(false);
+  it("assina sobre os bytes exatos (JSON reformatado não vale)", () => {
+    const reformatado = JSON.stringify(JSON.parse(corpo), null, 2);
+    expect(validarAssinaturaOpenPix({ corpoCru: reformatado, assinatura: assinar(corpo), chavesPublicas: [pem] })).toBe(false);
+  });
+});
+
+describe("criarGatewayOpenPix", () => {
+  function gatewayCom(respostas: Record<string, unknown>) {
+    const chamadas: Array<{ metodo: string; url: string; corpo: unknown; auth: string | null }> = [];
+    const gw = criarGatewayOpenPix({
+      appId: "app-id-teste",
+      ambiente: "sandbox",
+      fetch: (async (url: string, init: RequestInit) => {
+        const metodo = init.method ?? "GET";
+        chamadas.push({ metodo, url, corpo: init.body ? JSON.parse(String(init.body)) : null, auth: new Headers(init.headers).get("Authorization") });
+        return new Response(JSON.stringify(respostas[`${metodo} ${new URL(url).pathname}`] ?? {}), { status: 200 });
+      }) as unknown as typeof fetch,
+    });
+    return { gw, chamadas };
+  }
+
+  it("cria a cobrança em centavos com o pedido como correlationID e gera o QR localmente", async () => {
+    const { gw, chamadas } = gatewayCom({
+      "POST /api/v1/charge": { charge: { correlationID: "pedido-1", value: 5500, status: "ACTIVE", brCode: "00020101021226", expiresDate: "2026-10-02T23:30:00.000Z" } },
+    });
+    const c = await gw.criarCobranca({ pedidoId: "pedido-1", descricao: "Vianna - pedido #1", valorCentavos: 5500, expiraEm: new Date(Date.now() + 30 * 60_000) });
+    expect(chamadas[0]).toMatchObject({ metodo: "POST", url: "https://api.woovi-sandbox.com/api/v1/charge?return_existing=true", auth: "app-id-teste" });
+    expect(chamadas[0]!.corpo).toMatchObject({ correlationID: "pedido-1", value: 5500, comment: "Vianna - pedido #1" });
+    expect((chamadas[0]!.corpo as { expiresIn: number }).expiresIn).toBeGreaterThanOrEqual(1790);
+    expect(c).toMatchObject({ provedorId: "pedido-1", qrCode: "00020101021226", expiraEm: new Date("2026-10-02T23:30:00.000Z") });
+    expect(Buffer.from(c.qrCodeBase64, "base64").subarray(1, 4).toString()).toBe("PNG");
   });
 
-  it("normaliza data.id alfanumérico para minúsculas", () => {
-    const assinatura = `ts=${ts},v1=${assinar(`id:abc123;request-id:req-1;ts:${ts};`)}`;
-    expect(validarAssinaturaMercadoPago({ assinatura, requestId: "req-1", dataId: "ABC123", segredo, agora })).toBe(true);
+  it("mapeia os status da cobrança", async () => {
+    for (const [status, esperado] of [["ACTIVE", "pendente"], ["COMPLETED", "aprovado"], ["EXPIRED", "cancelado"]] as const) {
+      const { gw } = gatewayCom({ "GET /api/v1/charge/p1": { charge: { correlationID: "p1", value: 600, status } } });
+      expect(await gw.consultar("p1")).toEqual({ provedorId: "p1", status: esperado, valorCentavos: 600, referenciaExterna: "p1" });
+    }
+  });
+
+  it("cancela com DELETE e estorna com refund", async () => {
+    const { gw, chamadas } = gatewayCom({});
+    await gw.cancelar("p1");
+    await gw.estornar("p1");
+    expect(chamadas.map((c) => `${c.metodo} ${new URL(c.url).pathname}`)).toEqual(["DELETE /api/v1/charge/p1", "POST /api/v1/charge/p1/refund"]);
   });
 });
