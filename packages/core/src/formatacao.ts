@@ -13,3 +13,12 @@ export function normalizarFormatacao(texto: string): string {
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
+
+/**
+ * O modelo às vezes repete um link do cardápio visto antes no histórico (ex.:
+ * endereço antigo); troca qualquer link ".../cardapio" pelo atual.
+ */
+export function corrigirLinkCardapio(texto: string, urlCardapio: string | null | undefined): string {
+  if (!urlCardapio) return texto;
+  return texto.replace(/https?:\/\/[^\s)\]]+?\/cardapio(?=$|[\s)\].,!?])/g, urlCardapio);
+}

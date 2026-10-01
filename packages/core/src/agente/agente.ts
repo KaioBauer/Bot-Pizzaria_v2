@@ -1,6 +1,6 @@
 import type { Canal, ChamadaTool, MensagemConversa, Repositorios } from "@pizzaria/shared";
 import { cacheComValidade } from "../cache";
-import { normalizarFormatacao } from "../formatacao";
+import { corrigirLinkCardapio, normalizarFormatacao } from "../formatacao";
 import { momentoLocal, proximaAbertura, situacaoLoja } from "../horario";
 import type { LlmProvider } from "../llm/tipos";
 import { loggerSilencioso, type Logger } from "../logger";
@@ -223,7 +223,7 @@ Seu pedido continua salvo no cardápio: quando abrirmos, é só tocar de novo em
       });
 
       if (resposta.toolCalls.length === 0) {
-        const texto = normalizarFormatacao(resposta.conteudo ?? "") || MENSAGEM_NAO_ENTENDI;
+        const texto = corrigirLinkCardapio(normalizarFormatacao(resposta.conteudo ?? ""), deps.opcoes?.urlCardapio) || MENSAGEM_NAO_ENTENDI;
         novas.push({ papel: "assistant", conteudo: texto });
         await persistir(conversaId, novas);
         return { texto };

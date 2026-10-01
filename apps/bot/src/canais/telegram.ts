@@ -1,6 +1,6 @@
 import { Bot, GrammyError, InputFile, webhookCallback } from "grammy";
 import type { Logger } from "pino";
-import { dividirTexto, type ChannelAdapter, type ManipuladorMensagem } from "./tipos";
+import { dividirTexto, type ChannelAdapter, type ManipuladorMensagem, type OpcoesEnvio } from "./tipos";
 
 const LIMITE_TELEGRAM = 4000;
 const ROTA_WEBHOOK = "/webhooks/telegram";
@@ -36,17 +36,23 @@ export function criarAdaptadorTelegram(opcoes: OpcoesTelegram): ChannelAdapter {
 
   bot.catch((erro) => logger.error({ err: erro.error }, "Erro não tratado no Telegram"));
 
-  async function enviarParte(chatId: string, texto: string) {
+  async function enviarParte(chatId: string, texto: string, botao?: OpcoesEnvio["botao"]) {
+    const teclado = botao ? { reply_markup: { inline_keyboard: [[{ text: botao.texto, url: botao.url }]] } } : {};
+    const recusado = (erro: unknown) => erro instanceof GrammyError && erro.error_code === 400;
     try {
       // Markdown simples (*negrito*); se o texto tiver marcação quebrada,
       // o Telegram recusa e reenviamos como texto puro.
-      await bot.api.sendMessage(chatId, texto, { parse_mode: "Markdown" });
+      await bot.api.sendMessage(chatId, texto, { parse_mode: "Markdown", ...teclado });
     } catch (erro) {
-      if (erro instanceof GrammyError && erro.error_code === 400) {
+      if (!recusado(erro)) throw erro;
+      try {
+        await bot.api.sendMessage(chatId, texto, teclado);
+      } catch (erroPuro) {
+        // Botão com URL que o Telegram não aceita (ex.: localhost): manda sem o botão.
+        if (!botao || !recusado(erroPuro)) throw erroPuro;
+        logger.warn({ url: botao.url }, "Telegram recusou o botão de link; enviando sem ele");
         await bot.api.sendMessage(chatId, texto);
-        return;
       }
-      throw erro;
     }
   }
 
@@ -58,9 +64,11 @@ export function criarAdaptadorTelegram(opcoes: OpcoesTelegram): ChannelAdapter {
     },
 
     async sendMessage(chatId, texto, opcoes) {
-      for (const parte of dividirTexto(texto, LIMITE_TELEGRAM)) {
+      const partes = dividirTexto(texto, LIMITE_TELEGRAM);
+      for (const [i, parte] of partes.entries()) {
+        const botao = i === partes.length - 1 ? opcoes?.botao : undefined;
         if (opcoes?.literal) await bot.api.sendMessage(chatId, parte);
-        else await enviarParte(chatId, parte);
+        else await enviarParte(chatId, parte, botao);
       }
     },
 

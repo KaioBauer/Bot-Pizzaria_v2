@@ -126,9 +126,12 @@ export function criarAdaptadorWhatsapp(opcoes: OpcoesWhatsapp): ChannelAdapter {
       manipulador = novo;
     },
 
-    async sendMessage(chatId, texto) {
+    async sendMessage(chatId, texto, opcoes) {
+      // Botões da API não oficial do WhatsApp não aparecem para todos; o destaque do
+      // link é a prévia (título, descrição e imagem do cardápio), que abre ao tocar.
       for (const parte of dividirTexto(texto, LIMITE_WHATSAPP)) {
-        await chamar(`/message/sendText/${instancia}`, { number: chatId, text: parte });
+        const previa = Boolean(opcoes?.botao && parte.includes(opcoes.botao.url));
+        await chamar(`/message/sendText/${instancia}`, { number: chatId, text: parte, linkPreview: previa });
       }
     },
 

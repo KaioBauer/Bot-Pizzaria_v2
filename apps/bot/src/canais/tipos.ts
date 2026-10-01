@@ -2,6 +2,11 @@ import type { FastifyInstance } from "fastify";
 import type { MensagemEntrada } from "@pizzaria/core";
 import type { Canal } from "@pizzaria/shared";
 
+export interface OpcoesEnvio {
+  literal?: boolean;
+  botao?: { texto: string; url: string };
+}
+
 export type ManipuladorMensagem = (mensagem: MensagemEntrada) => void;
 
 export interface Imagem {
@@ -21,8 +26,11 @@ export interface ChannelAdapter {
    * aguardado: o adaptador responde ao canal (webhook) imediatamente.
    */
   onMessage(manipulador: ManipuladorMensagem): void;
-  /** `literal`: envia sem interpretar formatação (ex.: código Pix copia e cola, que contém "*"). */
-  sendMessage(chatId: string, texto: string, opcoes?: { literal?: boolean }): Promise<void>;
+  /**
+   * `literal`: envia sem interpretar formatação (ex.: código Pix copia e cola, que contém "*").
+   * `botao`: link em destaque (Telegram: botão abaixo da mensagem; WhatsApp: prévia do link).
+   */
+  sendMessage(chatId: string, texto: string, opcoes?: OpcoesEnvio): Promise<void>;
   sendImage?(chatId: string, imagem: Imagem): Promise<void>;
   /** Indicador de "digitando..." enquanto o agente pensa. */
   indicarDigitando?(chatId: string): Promise<void>;

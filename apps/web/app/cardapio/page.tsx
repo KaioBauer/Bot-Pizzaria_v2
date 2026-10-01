@@ -11,10 +11,16 @@ import { BotaoAdicionar, Carrinho } from "./carrinho";
 export const revalidate = 60;
 
 export async function generateMetadata(): Promise<Metadata> {
-  const config = await criarRepositorios(clientePublico()).loja.configuracao();
+  const repos = criarRepositorios(clientePublico());
+  const [config, categorias] = await Promise.all([repos.loja.configuracao(), repos.cardapio.ativo()]);
+  const titulo = `Cardápio · ${config.nomePizzaria}`;
+  const descricao = `Monte sua pizza e peça pelo WhatsApp ou Telegram. Cardápio completo da ${config.nomePizzaria}.`;
+  // Prévia do link no WhatsApp/Telegram: foto de uma pizza do cardápio.
+  const foto = categorias.flatMap((c) => c.produtos).find((p) => p.imagemUrl)?.imagemUrl;
   return {
-    title: { absolute: `Cardápio · ${config.nomePizzaria}` },
-    description: `Peça pelo WhatsApp ou Telegram. Cardápio completo da ${config.nomePizzaria}.`,
+    title: { absolute: titulo },
+    description: descricao,
+    openGraph: { title: titulo, description: descricao, type: "website", locale: "pt_BR", ...(foto ? { images: [{ url: foto, width: 450, height: 450 }] } : {}) },
   };
 }
 

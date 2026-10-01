@@ -88,7 +88,9 @@ if (config.WHATSAPP_ENABLED) {
 if (canais.size === 0) logger.warn("Nenhum canal habilitado");
 
 async function entregar(canal: ChannelAdapter, chatId: string, resposta: RespostaAgente) {
-  await canal.sendMessage(chatId, resposta.texto);
+  // Mensagem com o link do cardápio ganha o botão "Ver cardápio".
+  const botao = config.CARDAPIO_URL && resposta.texto.includes(config.CARDAPIO_URL) ? { texto: "📋 Ver cardápio", url: config.CARDAPIO_URL } : undefined;
+  await canal.sendMessage(chatId, resposta.texto, botao ? { botao } : undefined);
   for (const anexo of resposta.anexos ?? []) {
     if (anexo.tipo === "imagem") {
       await canal.sendImage?.(chatId, {
