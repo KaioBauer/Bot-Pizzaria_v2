@@ -1,3 +1,4 @@
+import type { FastifyReply, FastifyRequest } from "fastify";
 import { timingSafeEqual } from "node:crypto";
 import type { Logger } from "pino";
 import { dividirTexto, type ChannelAdapter, type ManipuladorMensagem } from "./tipos";
@@ -147,7 +148,9 @@ export function criarAdaptadorWhatsapp(opcoes: OpcoesWhatsapp): ChannelAdapter {
     },
 
     async iniciar(servidor) {
-      servidor.post<{ Params: { token: string }; Body: EventoEvolution }>("/webhooks/whatsapp/:token", async (req, resposta) => {
+      // A Evolution 2.3 pode acrescentar o evento ao caminho (/messages-upsert) mesmo
+      // com WEBHOOK_BY_EVENTS=false; as duas formas caem no mesmo tratamento.
+      const tratar = async (req: FastifyRequest<{ Params: { token: string }; Body: EventoEvolution }>, resposta: FastifyReply) => {
         if (!tokenConfere(req.params.token, opcoes.tokenWebhook)) return resposta.code(401).send({ ok: false });
 
         for (const dados of eventoDeMensagem(req.body ?? {})) {
@@ -163,7 +166,9 @@ export function criarAdaptadorWhatsapp(opcoes: OpcoesWhatsapp): ChannelAdapter {
           }
         }
         return resposta.code(200).send({ ok: true });
-      });
+      };
+      servidor.post<{ Params: { token: string }; Body: EventoEvolution }>("/webhooks/whatsapp/:token", tratar);
+      servidor.post<{ Params: { token: string }; Body: EventoEvolution }>("/webhooks/whatsapp/:token/:evento", tratar);
       logger.info({ instancia: opcoes.instancia }, "WhatsApp (Evolution API) aguardando webhooks");
     },
 
