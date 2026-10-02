@@ -59,7 +59,9 @@ export function AvisoAtendimento() {
   const pendentes = usePendentesAtendimento();
   const pathname = usePathname();
   const [som, setSom] = useState(true);
-  useEffect(() => setSom(somAtivo()), [pendentes]);
+  useEffect(() => {
+    setSom(somAtivo());
+  }, [pendentes]);
   if (pendentes === 0 || pathname.startsWith("/admin/conversas")) return null;
 
   return (

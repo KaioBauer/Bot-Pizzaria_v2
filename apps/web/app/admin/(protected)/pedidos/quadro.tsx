@@ -45,7 +45,9 @@ export function QuadroPedidos({ inicial }: { inicial: PedidoPainel[] }) {
   const conexaoAnterior = useRef<Conexao>("conectando");
 
   // Vistos persistem por aparelho (localStorage), lidos só no cliente.
-  useEffect(() => setVistos(lerVistos()), []);
+  useEffect(() => {
+    setVistos(lerVistos());
+  }, []);
 
   const atualizar = useCallback((pedido: PedidoPainel) => {
     setPedidos((atual) => new Map(atual).set(pedido.id, pedido));

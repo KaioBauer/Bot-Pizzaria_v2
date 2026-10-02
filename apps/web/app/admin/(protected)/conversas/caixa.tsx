@@ -107,7 +107,10 @@ export function Caixa({ inicial }: { inicial: AtendimentoPainel[] }) {
     void recarregarMensagens(selecionado).finally(() => setCarregando(false));
   }, [selecionado, recarregarMensagens]);
 
-  useEffect(() => fim.current?.scrollIntoView({ block: "end" }), [mensagens.length, selecionado]);
+  // Chaves de propósito: no Chrome novo scrollIntoView devolve Promise, e o efeito não pode retornar nada.
+  useEffect(() => {
+    fim.current?.scrollIntoView({ block: "end" });
+  }, [mensagens.length, selecionado]);
 
   async function acao(fn: () => Promise<void>) {
     setErro(null);
