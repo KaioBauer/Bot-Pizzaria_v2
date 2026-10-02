@@ -7,7 +7,9 @@ export function criarAtendimentoRepo(db: Db): AtendimentoRepo {
   return {
     async iaPausada(canal, chatId) {
       const r = await db.from("atendimentos").select("ia_pausada").eq("canal", canal).eq("chat_id", chatId).maybeSingle();
-      return Boolean(exigir(r, "Erro ao consultar atendimento")?.ia_pausada);
+      // Chat sem registro ainda (cliente novo) = IA respondendo; `exigir` trataria o null como erro.
+      if (r.error) exigir(r, "Erro ao consultar atendimento");
+      return Boolean(r.data?.ia_pausada);
     },
 
     async registrar(canal, chatId, m) {

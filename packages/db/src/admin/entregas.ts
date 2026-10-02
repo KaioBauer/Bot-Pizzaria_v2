@@ -19,7 +19,8 @@ export async function entregaDoPedido(db: Db, pedidoId: string): Promise<Entrega
     .select("entrega_iniciada_em, entregue_em, entrega_foto, entrega_lat, entrega_lng, entrega_precisao_m, valor_recebido, entregador:entregadores(nome)")
     .eq("id", pedidoId)
     .maybeSingle();
-  const p = exigir(r, "Erro ao carregar entrega");
+  if (r.error) exigir(r, "Erro ao carregar entrega");
+  const p = r.data;
   if (!p || (!p.entrega_iniciada_em && !p.entregue_em)) return null;
 
   let fotoUrl: string | null = null;

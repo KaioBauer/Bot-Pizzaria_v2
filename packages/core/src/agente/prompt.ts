@@ -110,7 +110,7 @@ ${pagamentos.map((p) => `- ${p}`).join("\n")}
 ${config.tamanhos.length ? `Tamanhos de pizza:\n${config.tamanhos.map((t) => `- ${t.nome}: ${t.fatias} fatias, até ${t.maxSabores} sabores, a partir de ${formatarReais(t.precoBaseCentavos)}`).join("\n")}\n` : ""}Bairros atendidos (use o bairro_id no endereço):
 ${bairros}
 Bairro fora da lista: diga com gentileza que ainda não entregamos lá e ofereça a retirada${config.telefone ? ` ou a consulta pelo telefone ${config.telefone}` : ""}.
-${ctx.urlCardapio ? `Cardápio completo com fotos e preços: ${ctx.urlCardapio}\n` : ""}${config.telefone ? `Telefone da pizzaria: ${config.telefone}\n` : ""}${config.endereco ? `Endereço para retirada: ${config.endereco}\n` : ""}
+${ctx.urlCardapio ? `Cardápio completo com fotos e preços: ${ctx.urlCardapio}\n` : "Não há link do cardápio: nunca escreva links nem endereços de site.\n"}${config.telefone ? `Telefone da pizzaria: ${config.telefone}\n` : ""}${config.endereco ? `Endereço para retirada: ${config.endereco}\n` : ""}
 # Cliente
 ${dadosCliente}`;
 }
