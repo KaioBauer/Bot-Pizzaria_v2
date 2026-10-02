@@ -26,12 +26,20 @@ export async function proxy(request: NextRequest) {
 
   const { data } = await supabase.auth.getClaims();
   const logado = Boolean(data?.claims);
-  const naLogin = request.nextUrl.pathname === "/admin/login";
+  const caminho = request.nextUrl.pathname;
 
-  if (!logado && !naLogin) return NextResponse.redirect(new URL("/admin/login", request.url));
+  if (!logado && caminho.startsWith("/entrega") && caminho !== "/entrega/login") {
+    // Motoboy: depois do login volta para o pedido do QR que ele escaneou.
+    const login = new URL("/entrega/login", request.url);
+    login.searchParams.set("proximo", caminho);
+    return NextResponse.redirect(login);
+  }
+  if (!logado && caminho.startsWith("/admin") && caminho !== "/admin/login") {
+    return NextResponse.redirect(new URL("/admin/login", request.url));
+  }
   return resposta;
 }
 
 export const config = {
-  matcher: ["/admin/:path*"],
+  matcher: ["/admin/:path*", "/entrega/:path*"],
 };

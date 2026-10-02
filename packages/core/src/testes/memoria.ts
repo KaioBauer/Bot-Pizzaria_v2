@@ -24,6 +24,8 @@ export function repositoriosEmMemoria(params: {
   };
   const conversas = new Map<string, { mensagens: MensagemConversa[]; encerrada: boolean; pedidoId: string | null }>();
   const carrinhos = new Map<string, unknown>();
+  const atendimentos = new Map<string, { iaPausada: boolean; precisaAtencao: boolean; motivo?: string; ultima?: string; autor?: string }>();
+  const chave = (canal: string, chatId: string) => `${canal}:${chatId}`;
   let sequencia = 0;
 
   const repos: Repositorios = {
@@ -98,6 +100,17 @@ export function repositoriosEmMemoria(params: {
         conversa.pedidoId = pedidoId;
       },
     },
+    atendimento: {
+      iaPausada: async (canal, chatId) => atendimentos.get(chave(canal, chatId))?.iaPausada ?? false,
+      registrar: async (canal, chatId, m) => {
+        const atual = atendimentos.get(chave(canal, chatId)) ?? { iaPausada: false, precisaAtencao: false };
+        atendimentos.set(chave(canal, chatId), { ...atual, ultima: m.texto, autor: m.autor, precisaAtencao: atual.precisaAtencao || Boolean(m.precisaAtencao) });
+      },
+      pausar: async (canal, chatId, d) => {
+        const atual = atendimentos.get(chave(canal, chatId)) ?? { iaPausada: false, precisaAtencao: false };
+        atendimentos.set(chave(canal, chatId), { ...atual, iaPausada: true, precisaAtencao: true, motivo: d.motivo });
+      },
+    },
     carrinhos: {
       consumir: async (codigo) => {
         const itens = carrinhos.get(codigo);
@@ -107,7 +120,7 @@ export function repositoriosEmMemoria(params: {
     },
   };
 
-  return { repos, pedidos, pagamentos, conversas, carrinhos };
+  return { repos, pedidos, pagamentos, conversas, carrinhos, atendimentos };
 }
 
 /** LLM roteirizado: devolve as respostas na ordem e registra as requisições. */

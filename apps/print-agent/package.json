@@ -14,15 +14,17 @@
   "dependencies": {
     "@pizzaria/db": "workspace:*",
     "@pizzaria/shared": "workspace:*",
+    "@supabase/supabase-js": "^2.117.2",
     "node-thermal-printer": "^4.4.0",
     "pino": "^10.3.1",
-    "zod": "^4.6.5",
-    "@supabase/supabase-js": "^2.117.2"
+    "qrcode": "^1.5.4",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@types/qrcode": "^1.5.6",
+    "node-windows": "^1.0.0-beta.8",
     "pino-pretty": "^13.1.3",
     "tsup": "^8.5.1",
-    "tsx": "^4.23.15",
-    "node-windows": "^1.0.0-beta.8"
+    "tsx": "^4.23.15"
   }
 }

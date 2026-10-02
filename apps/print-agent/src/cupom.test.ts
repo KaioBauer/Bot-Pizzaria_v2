@@ -103,3 +103,21 @@ describe("quebrar / emColunas", () => {
     expect(emColunas("Pizza muito comprida", "10,00", 16)).toEqual(["Pizza muito", "comprida   10,00"]);
   });
 });
+
+describe("QR do motoboy", () => {
+  const url = "https://painel.exemplo/entrega/00000000-0000-4000-8000-000000000001";
+
+  it("entrega com painel configurado sai com o QR antes do corte", () => {
+    const cmds = montarCupom(pedido, { ...opcoes, urlEntrega: url });
+    const qr = cmds.findIndex((c) => c.tipo === "qr");
+    expect(cmds[qr]).toEqual({ tipo: "qr", conteudo: url });
+    expect(cmds.at(-1)).toEqual({ tipo: "corte" });
+    expect(qr).toBeLessThan(cmds.length - 1);
+    expect(cupomComoTexto(cmds, 32)).toContain("MOTOBOY: ESCANEIE");
+  });
+
+  it("retirada ou sem painel: sem QR", () => {
+    expect(montarCupom({ ...pedido, tipoEntrega: "retirada", enderecoTexto: null }, { ...opcoes, urlEntrega: url }).some((c) => c.tipo === "qr")).toBe(false);
+    expect(montarCupom(pedido, opcoes).some((c) => c.tipo === "qr")).toBe(false);
+  });
+});

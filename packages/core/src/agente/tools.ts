@@ -26,6 +26,7 @@ export const TOOL = {
   calcularPedido: "calcular_pedido",
   finalizarPedido: "finalizar_pedido",
   consultarStatus: "consultar_status_pedido",
+  chamarAtendente: "chamar_atendente",
 } as const;
 
 /** Remove chaves que só custam tokens (a validação real é feita pelo Zod no servidor). */
@@ -69,6 +70,17 @@ export const DEFINICOES_TOOLS: DefinicaoTool[] = [
     descricao: "Consulta o status dos pedidos recentes deste cliente (últimos 3 dias).",
     parametros: { type: "object", properties: {}, additionalProperties: false },
   },
+  {
+    nome: TOOL.chamarAtendente,
+    descricao:
+      "Passa a conversa para um atendente humano da pizzaria e você para de responder este cliente. Use quando o cliente pedir uma pessoa, reclamar de um pedido ou quando você não conseguir resolver.",
+    parametros: {
+      type: "object",
+      properties: { motivo: { type: "string", description: "Resumo curto para o atendente, ex.: 'pedido #12 atrasado, cliente irritado'" } },
+      required: ["motivo"],
+      additionalProperties: false,
+    },
+  },
 ];
 
 export interface ContextoTools {
@@ -96,6 +108,8 @@ export interface ResultadoTool {
   /** JSON devolvido ao modelo. */
   conteudo: string;
   pedidoCriado?: PedidoCriado;
+  /** A conversa passou para um humano: a IA para de responder este chat. */
+  atendenteChamado?: boolean;
 }
 
 const json = (valor: unknown): ResultadoTool => ({ conteudo: JSON.stringify(valor) });
@@ -262,6 +276,13 @@ export async function executarTool(
           feito_em: momentoLocal(new Date(p.criadoEm), ctx.config.fusoHorario).texto,
         })),
       });
+    }
+
+    case TOOL.chamarAtendente: {
+      const motivo = typeof (argumentos as { motivo?: unknown })?.motivo === "string" ? (argumentos as { motivo: string }).motivo.trim() : "";
+      await ctx.repos.atendimento.pausar(ctx.canal, ctx.chatId, { motivo: motivo || "Cliente precisa de atendimento", por: "ia" });
+      ctx.logger.info({ canal: ctx.canal, chatId: ctx.chatId, motivo }, "Conversa passada para atendente humano");
+      return { conteudo: JSON.stringify({ sucesso: true }), atendenteChamado: true };
     }
 
     default:

@@ -1,5 +1,6 @@
 import type { Repositorios } from "@pizzaria/shared";
 import type { Db } from "../client";
+import { criarAtendimentoRepo } from "./atendimento";
 import { criarCardapioRepo } from "./cardapio";
 import { criarCarrinhosRepo } from "./carrinhos";
 import { criarClientesRepo } from "./clientes";
@@ -17,5 +18,6 @@ export function criarRepositorios(db: Db): Repositorios {
     conversas: criarConversasRepo(db),
     pagamentos: criarPagamentosRepo(db),
     carrinhos: criarCarrinhosRepo(db),
+    atendimento: criarAtendimentoRepo(db),
   };
 }

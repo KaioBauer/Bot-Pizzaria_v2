@@ -67,6 +67,8 @@ export const MENSAGEM_ERRO =
   "Desculpe, tive um probleminha aqui 😕 Pode mandar sua mensagem de novo em instantes?";
 const MENSAGEM_NAO_ENTENDI = "Desculpe, não entendi. Pode repetir, por favor?";
 const MAX_CARACTERES_ENTRADA = 2000;
+export const MENSAGEM_ATENDENTE_CHAMADO =
+  "Certo! Chamei um atendente da pizzaria, ele continua a conversa com você por aqui em instantes 🙏";
 const MENSAGEM_PEDIR_CONFIRMACAO = "Para eu fechar seu pedido, me confirma com um *sim*? 🙂";
 
 /**
@@ -128,11 +130,26 @@ export function criarAgente(deps: DependenciasAgente) {
     const instante = agora();
     const { canal, chatId } = entrada;
 
-    const [config, conversaId, cliente] = await Promise.all([
+    const [config, conversaId, cliente, iaPausada] = await Promise.all([
       configuracao(),
       deps.repos.conversas.obterAtiva(canal, chatId, new Date(instante.getTime() - expiracaoMs)),
       deps.repos.clientes.buscar(canal, chatId),
+      deps.repos.atendimento.iaPausada(canal, chatId),
     ]);
+
+    // Atendimento humano: a IA fica quieta; a mensagem vai para o painel com aviso.
+    if (iaPausada) {
+      const conteudo = entrada.texto.trim().slice(0, MAX_CARACTERES_ENTRADA);
+      await deps.repos.conversas.adicionar(conversaId, [{ papel: "user", conteudo, autor: "cliente" }]);
+      await deps.repos.atendimento.registrar(canal, chatId, {
+        texto: conteudo,
+        autor: "cliente",
+        clienteNome: cliente?.nome ?? entrada.clienteNome ?? null,
+        precisaAtencao: true,
+      });
+      logger.info({ canal, chatId }, "IA pausada: mensagem encaminhada ao atendente");
+      return { texto: "" };
+    }
 
     // Pedido montado no cardápio do site (link "Enviar pelo Telegram").
     const codigoCarrinho = codigoCarrinhoWeb(entrada.texto);
@@ -263,6 +280,7 @@ Seu pedido continua salvo no cardápio: quando abrirmos, é só tocar de novo em
       consultouStatus ||= resposta.toolCalls.some((c) => c.nome === TOOL.consultarStatus);
 
       let pedidoCriado: PedidoCriado | undefined;
+      let atendenteChamado = false;
       for (const chamada of resposta.toolCalls) {
         // Toda tool call precisa de resposta, mesmo as ignoradas.
         const resultado = pedidoCriado
@@ -270,6 +288,13 @@ Seu pedido continua salvo no cardápio: quando abrirmos, é só tocar de novo em
           : await executarComSeguranca(chamada, ctx);
         novas.push({ papel: "tool", toolCallId: chamada.id, conteudo: resultado.conteudo });
         pedidoCriado ??= resultado.pedidoCriado;
+        atendenteChamado ||= Boolean(resultado.atendenteChamado);
+      }
+
+      if (atendenteChamado && !pedidoCriado) {
+        novas.push({ papel: "assistant", conteudo: MENSAGEM_ATENDENTE_CHAMADO });
+        await persistir(conversaId, novas);
+        return { texto: MENSAGEM_ATENDENTE_CHAMADO };
       }
 
       if (pedidoCriado) {
@@ -303,7 +328,14 @@ Seu pedido continua salvo no cardápio: quando abrirmos, é só tocar de novo em
     /** Nunca lança: qualquer falha vira uma resposta amigável ao cliente. */
     async processarMensagem(entrada: MensagemEntrada): Promise<RespostaAgente> {
       try {
-        return await processar(entrada);
+        const resposta = await processar(entrada);
+        // Lista do painel: última mensagem do chat (vazio = IA pausada, já registrado).
+        if (resposta.texto) {
+          await deps.repos.atendimento
+            .registrar(entrada.canal, entrada.chatId, { texto: resposta.texto, autor: "ia", clienteNome: entrada.clienteNome ?? null })
+            .catch((err: unknown) => logger.error({ err }, "Falha ao registrar atendimento"));
+        }
+        return resposta;
       } catch (err) {
         logger.error({ err, canal: entrada.canal, chatId: entrada.chatId }, "Falha ao processar mensagem");
         return { texto: MENSAGEM_ERRO };

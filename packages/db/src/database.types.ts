@@ -14,6 +14,54 @@ export type Database = {
   }
   public: {
     Tables: {
+      atendimentos: {
+        Row: {
+          canal: string
+          chat_id: string
+          cliente_nome: string | null
+          created_at: string
+          ia_pausada: boolean
+          motivo: string | null
+          pausada_em: string | null
+          pausada_por: string | null
+          precisa_atencao: boolean
+          ultima_mensagem: string | null
+          ultima_mensagem_autor: string | null
+          ultima_mensagem_em: string
+          updated_at: string
+        }
+        Insert: {
+          canal: string
+          chat_id: string
+          cliente_nome?: string | null
+          created_at?: string
+          ia_pausada?: boolean
+          motivo?: string | null
+          pausada_em?: string | null
+          pausada_por?: string | null
+          precisa_atencao?: boolean
+          ultima_mensagem?: string | null
+          ultima_mensagem_autor?: string | null
+          ultima_mensagem_em?: string
+          updated_at?: string
+        }
+        Update: {
+          canal?: string
+          chat_id?: string
+          cliente_nome?: string | null
+          created_at?: string
+          ia_pausada?: boolean
+          motivo?: string | null
+          pausada_em?: string | null
+          pausada_por?: string | null
+          precisa_atencao?: boolean
+          ultima_mensagem?: string | null
+          ultima_mensagem_autor?: string | null
+          ultima_mensagem_em?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       bairros_entrega: {
         Row: {
           ativo: boolean
@@ -163,6 +211,8 @@ export type Database = {
       }
       conversa_mensagens: {
         Row: {
+          autor: string | null
+          autor_id: string | null
           conteudo: string | null
           conversa_id: string
           created_at: string
@@ -172,6 +222,8 @@ export type Database = {
           tool_calls: Json | null
         }
         Insert: {
+          autor?: string | null
+          autor_id?: string | null
           conteudo?: string | null
           conversa_id: string
           created_at?: string
@@ -181,6 +233,8 @@ export type Database = {
           tool_calls?: Json | null
         }
         Update: {
+          autor?: string | null
+          autor_id?: string | null
           conteudo?: string | null
           conversa_id?: string
           created_at?: string
@@ -290,6 +344,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      entregadores: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          nome: string
+          telefone: string | null
+          user_id: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          nome: string
+          telefone?: string | null
+          user_id: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          nome?: string
+          telefone?: string | null
+          user_id?: string
+        }
+        Relationships: []
       }
       horarios_funcionamento: {
         Row: {
@@ -430,6 +508,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      mensagens_atendente: {
+        Row: {
+          autor_id: string
+          canal: string
+          chat_id: string
+          created_at: string
+          enviada_em: string | null
+          id: number
+          tentativas: number
+          texto: string
+          ultimo_erro: string | null
+        }
+        Insert: {
+          autor_id?: string
+          canal: string
+          chat_id: string
+          created_at?: string
+          enviada_em?: string | null
+          id?: never
+          tentativas?: number
+          texto: string
+          ultimo_erro?: string | null
+        }
+        Update: {
+          autor_id?: string
+          canal?: string
+          chat_id?: string
+          created_at?: string
+          enviada_em?: string | null
+          id?: never
+          tentativas?: number
+          texto?: string
+          ultimo_erro?: string | null
+        }
+        Relationships: []
       }
       notificacoes_cliente: {
         Row: {
@@ -583,6 +697,13 @@ export type Database = {
           data_ref: string
           endereco_id: string | null
           endereco_texto: string | null
+          entrega_foto: string | null
+          entrega_iniciada_em: string | null
+          entrega_lat: number | null
+          entrega_lng: number | null
+          entrega_precisao_m: number | null
+          entregador_id: string | null
+          entregue_em: string | null
           forma_pagamento: string
           id: string
           impressao_reivindicada_em: string | null
@@ -598,6 +719,7 @@ export type Database = {
           tipo_entrega: string
           troco_para: number | null
           updated_at: string
+          valor_recebido: number | null
           valor_total: number
         }
         Insert: {
@@ -610,6 +732,13 @@ export type Database = {
           data_ref: string
           endereco_id?: string | null
           endereco_texto?: string | null
+          entrega_foto?: string | null
+          entrega_iniciada_em?: string | null
+          entrega_lat?: number | null
+          entrega_lng?: number | null
+          entrega_precisao_m?: number | null
+          entregador_id?: string | null
+          entregue_em?: string | null
           forma_pagamento: string
           id?: string
           impressao_reivindicada_em?: string | null
@@ -625,6 +754,7 @@ export type Database = {
           tipo_entrega: string
           troco_para?: number | null
           updated_at?: string
+          valor_recebido?: number | null
           valor_total?: number
         }
         Update: {
@@ -637,6 +767,13 @@ export type Database = {
           data_ref?: string
           endereco_id?: string | null
           endereco_texto?: string | null
+          entrega_foto?: string | null
+          entrega_iniciada_em?: string | null
+          entrega_lat?: number | null
+          entrega_lng?: number | null
+          entrega_precisao_m?: number | null
+          entregador_id?: string | null
+          entregue_em?: string | null
           forma_pagamento?: string
           id?: string
           impressao_reivindicada_em?: string | null
@@ -652,6 +789,7 @@ export type Database = {
           tipo_entrega?: string
           troco_para?: number | null
           updated_at?: string
+          valor_recebido?: number | null
           valor_total?: number
         }
         Relationships: [
@@ -668,6 +806,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "enderecos"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pedidos_entregador_id_fkey"
+            columns: ["entregador_id"]
+            isOneToOne: false
+            referencedRelation: "entregadores"
+            referencedColumns: ["user_id"]
           },
         ]
       }
@@ -847,13 +992,38 @@ export type Database = {
       }
     }
     Functions: {
+      concluir_entrega: {
+        Args: {
+          p_foto: string
+          p_lat?: number
+          p_lng?: number
+          p_pedido: string
+          p_precisao_m?: number
+          p_valor_recebido?: number
+        }
+        Returns: undefined
+      }
       criar_carrinho_web: { Args: { p_itens: Json }; Returns: string }
       criar_pedido: { Args: { p_pedido: Json }; Returns: Json }
       eh_admin: { Args: never; Returns: boolean }
+      eh_entregador: { Args: never; Returns: boolean }
       eh_impressora: { Args: never; Returns: boolean }
+      entrega_detalhe: { Args: { p_pedido: string }; Returns: Json }
+      exigir_entregador: { Args: never; Returns: undefined }
+      iniciar_entrega: { Args: { p_pedido: string }; Returns: undefined }
       marcar_pedido_impresso: {
         Args: { p_pedido_id: string; p_reimpressao_atendida?: string }
         Returns: undefined
+      }
+      minhas_entregas: {
+        Args: never
+        Returns: {
+          cliente_nome: string
+          endereco_texto: string
+          entrega_iniciada_em: string
+          id: string
+          numero: number
+        }[]
       }
       papel_atual: { Args: never; Returns: string }
       reivindicar_impressao: {

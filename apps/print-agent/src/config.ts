@@ -20,6 +20,10 @@ const esquema = z.object({
   PRINTER_AVANCO_CORTE: z.coerce.number().int().min(0).max(10).default(3),
   PRINTER_VIAS: z.coerce.number().int().min(1).max(5).default(1),
 
+  /** Endereço público do painel (ex.: https://painel.vianna.com.br). Com ele, o cupom de
+   * entrega sai com um QR para o motoboy iniciar e confirmar a entrega. */
+  PAINEL_URL: z.url().optional(),
+
   /** Conferência periódica, além do Realtime (garantia contra eventos perdidos). */
   VARREDURA_SEGUNDOS: z.coerce.number().int().min(5).default(30),
 });

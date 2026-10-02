@@ -20,5 +20,16 @@ export async function exigirAdmin() {
   return { supabase, usuarioId: data.claims.sub, email: (data.claims.email as string | undefined) ?? null };
 }
 
+/** Motoboy logado (papel "entregador") ou admin. Fora disso, vai para o login de entregas. */
+export async function exigirEntregador(proximo = "/entrega") {
+  const supabase = await criarClienteSessao();
+  const { data } = await supabase.auth.getClaims();
+  const papel = papelDasClaims(data?.claims);
+  if (!data?.claims || (papel !== "entregador" && papel !== "admin")) {
+    redirect(`/entrega/login?proximo=${encodeURIComponent(proximo)}`);
+  }
+  return { supabase, usuarioId: data.claims.sub, papel: papel as "entregador" | "admin" };
+}
+
 /** Compatibilidade com as telas antigas do cardápio (reescritas na Fase 4). */
 export const requireAdminSession = exigirAdmin;

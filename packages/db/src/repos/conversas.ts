@@ -93,6 +93,8 @@ export function criarConversasRepo(db: Db): ConversasRepo {
                   ? (m.toolCalls as unknown as Json)
                   : null,
               tool_call_id: m.papel === "tool" ? m.toolCallId : null,
+              autor: m.papel === "tool" ? null : (m.autor ?? (m.papel === "user" ? "cliente" : "ia")),
+              autor_id: m.papel === "assistant" ? (m.autorId ?? null) : null,
             }))
           )
           .select("id"),

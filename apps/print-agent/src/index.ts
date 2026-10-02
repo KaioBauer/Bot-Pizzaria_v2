@@ -41,6 +41,7 @@ const agente = criarAgenteImpressao({
   colunas: config.colunas,
   vias: config.PRINTER_VIAS,
   varreduraMs: config.VARREDURA_SEGUNDOS * 1000,
+  ...(config.PAINEL_URL ? { painelUrl: config.PAINEL_URL } : {}),
 });
 
 async function desligar(sinal: string) {

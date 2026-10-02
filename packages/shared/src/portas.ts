@@ -16,10 +16,13 @@ import type {
  * que permite testá-lo com implementações em memória.
  */
 
+/** Quem escreveu: o cliente, a IA, um atendente pelo painel ou o sistema. */
+export type AutorMensagem = "cliente" | "ia" | "atendente" | "sistema";
+
 /** Mensagem de conversa em formato neutro (independe do provedor de LLM). */
 export type MensagemConversa =
-  | { papel: "user"; conteudo: string }
-  | { papel: "assistant"; conteudo: string | null; toolCalls?: ChamadaTool[] }
+  | { papel: "user"; conteudo: string; autor?: AutorMensagem }
+  | { papel: "assistant"; conteudo: string | null; toolCalls?: ChamadaTool[]; autor?: AutorMensagem; autorId?: string }
   | { papel: "tool"; toolCallId: string; conteudo: string };
 
 export interface ChamadaTool {
@@ -91,6 +94,22 @@ export interface CarrinhosRepo {
   consumir(codigo: string): Promise<unknown | null>;
 }
 
+/**
+ * Atendimento humano por chat. Com a IA pausada, o bot só registra as
+ * mensagens do cliente e avisa o painel; quem responde é o atendente.
+ */
+export interface AtendimentoRepo {
+  iaPausada(canal: Canal, chatId: string): Promise<boolean>;
+  /** Última mensagem do chat (lista do painel). `precisaAtencao` liga o aviso. */
+  registrar(
+    canal: Canal,
+    chatId: string,
+    mensagem: { texto: string; autor: AutorMensagem; clienteNome?: string | null; precisaAtencao?: boolean }
+  ): Promise<void>;
+  /** Pausa a IA neste chat e liga o aviso no painel. */
+  pausar(canal: Canal, chatId: string, dados: { motivo: string; por: "ia" | "atendente" }): Promise<void>;
+}
+
 export interface Repositorios {
   cardapio: CardapioRepo;
   loja: LojaRepo;
@@ -99,4 +118,5 @@ export interface Repositorios {
   conversas: ConversasRepo;
   pagamentos: PagamentosRepo;
   carrinhos: CarrinhosRepo;
+  atendimento: AtendimentoRepo;
 }

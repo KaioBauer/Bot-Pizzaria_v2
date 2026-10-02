@@ -31,6 +31,7 @@ export interface PedidoParaCupom {
 export type ComandoCupom =
   | { tipo: "texto"; texto: string; centro?: boolean; negrito?: boolean; grande?: boolean }
   | { tipo: "linha"; caractere: "-" | "=" }
+  | { tipo: "qr"; conteudo: string }
   | { tipo: "corte" };
 
 export interface OpcoesCupom {
@@ -38,6 +39,8 @@ export interface OpcoesCupom {
   nomePizzaria: string;
   fusoHorario: string;
   reimpressao?: boolean;
+  /** Link da tela do motoboy (<painel>/entrega/<id>); entrega ganha um QR com ele. */
+  urlEntrega?: string | null;
 }
 
 const PAGAMENTO: Record<FormaPagamento, string> = {
@@ -171,6 +174,12 @@ export function montarCupom(pedido: PedidoParaCupom, opcoes: OpcoesCupom): Coman
     cmd.push({ tipo: "linha", caractere: "-" });
     varias(quebrar(`OBS DO PEDIDO: ${pedido.observacoes}`, colunas), { negrito: true });
   }
+  if (pedido.tipoEntrega === "entrega" && opcoes.urlEntrega) {
+    cmd.push({ tipo: "linha", caractere: "-" });
+    texto("MOTOBOY: ESCANEIE", { centro: true, negrito: true });
+    texto("para iniciar e confirmar a entrega", { centro: true });
+    cmd.push({ tipo: "qr", conteudo: opcoes.urlEntrega });
+  }
   cmd.push({ tipo: "linha", caractere: "=" });
   cmd.push({ tipo: "corte" });
   return cmd;
@@ -182,6 +191,7 @@ export function cupomComoTexto(comandos: ComandoCupom[], colunas: number): strin
     .map((c) => {
       if (c.tipo === "linha") return c.caractere.repeat(colunas);
       if (c.tipo === "corte") return "";
+      if (c.tipo === "qr") return `[QR ${c.conteudo}]`;
       if (!c.centro) return c.texto;
       const largura = c.grande ? Math.floor(colunas / 2) : colunas;
       return " ".repeat(Math.max(0, Math.floor((largura - c.texto.length) / 2))) + c.texto;

@@ -13,6 +13,7 @@ import { criarAdaptadorTelegram } from "./canais/telegram";
 import type { ChannelAdapter } from "./canais/tipos";
 import { criarAdaptadorWhatsapp } from "./canais/whatsapp";
 import { carregarConfig } from "./config";
+import { criarEnvioAtendente } from "./atendente";
 import { criarNotificador } from "./notificador";
 import { registrarPix } from "./pix";
 import { criarProcessadorPorChat } from "./processador";
@@ -88,6 +89,7 @@ if (config.WHATSAPP_ENABLED) {
 if (canais.size === 0) logger.warn("Nenhum canal habilitado");
 
 async function entregar(canal: ChannelAdapter, chatId: string, resposta: RespostaAgente) {
+  if (!resposta.texto && !resposta.anexos?.length) return; // IA pausada: quem responde é o atendente
   // Mensagem com o link do cardápio ganha o botão "Ver cardápio".
   const botao = config.CARDAPIO_URL && resposta.texto.includes(config.CARDAPIO_URL) ? { texto: "📋 Ver cardápio", url: config.CARDAPIO_URL } : undefined;
   await canal.sendMessage(chatId, resposta.texto, botao ? { botao } : undefined);
@@ -111,8 +113,10 @@ const processador = criarProcessadorPorChat(async (mensagem) => {
   const inicio = Date.now();
 
   // "digitando..." expira em poucos segundos; renova enquanto o agente pensa.
-  void canal.indicarDigitando?.(mensagem.chatId);
-  const digitando = setInterval(() => void canal.indicarDigitando?.(mensagem.chatId), 4500);
+  // Com atendente humano no chat a IA não responde: nada de "digitando".
+  const pausada = await repos.atendimento.iaPausada(mensagem.canal, mensagem.chatId).catch(() => false);
+  if (!pausada) void canal.indicarDigitando?.(mensagem.chatId);
+  const digitando = setInterval(() => !pausada && void canal.indicarDigitando?.(mensagem.chatId), 4500);
   try {
     const resposta = await agente.processarMensagem(mensagem);
     clearInterval(digitando);
@@ -131,6 +135,13 @@ const processador = criarProcessadorPorChat(async (mensagem) => {
 for (const canal of canais.values()) canal.onMessage((mensagem) => processador.receber(mensagem));
 
 const notificador = criarNotificador({ db, canais, logger: logger.child({ modulo: "notificacoes" }) });
+const envioAtendente = criarEnvioAtendente({
+  db,
+  repos,
+  canais,
+  logger: logger.child({ modulo: "atendente" }),
+  expiracaoConversaMs: config.CONVERSA_EXPIRACAO_MINUTOS * 60_000,
+});
 const pagamentos = pix
   ? registrarPix({
       servidor,
@@ -147,6 +158,7 @@ async function desligar(sinal: string) {
   logger.info({ sinal }, "Desligando...");
   await pagamentos?.parar();
   await notificador.parar();
+  await envioAtendente.parar();
   await Promise.allSettled([...canais.values()].map((c) => c.parar()));
   await processador.ocioso();
   await servidor.close();
@@ -158,6 +170,7 @@ process.once("SIGTERM", () => void desligar("SIGTERM"));
 for (const canal of canais.values()) await canal.iniciar(servidor);
 await servidor.listen({ port: config.PORT, host: "0.0.0.0" });
 await notificador.iniciar();
+await envioAtendente.iniciar();
 pagamentos?.iniciar();
 logger.info(
   { porta: config.PORT, canais: [...canais.keys()], pix: pix ? `openpix (${config.OPENPIX_AMBIENTE})` : false },

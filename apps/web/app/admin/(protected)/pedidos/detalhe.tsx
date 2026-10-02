@@ -2,7 +2,7 @@
 
 import { ArrowRight, Ban, Banknote, Bike, CreditCard, MapPin, MessageCircle, Phone, Printer, QrCode, Store, X } from "lucide-react";
 import { useEffect, useState } from "react";
-import { historicoStatusPedido, type PedidoPainel } from "@pizzaria/db";
+import { entregaDoPedido, historicoStatusPedido, type EntregaDoPedido, type PedidoPainel } from "@pizzaria/db";
 import { formatarReais, formatarTelefone, ROTULO_PAGAMENTO, ROTULO_STATUS, statusFinal, type StatusPedido } from "@pizzaria/shared";
 import { Botao, cn, estiloEntrada, Selo } from "../../../../components/ui";
 import { acaoPrincipal } from "../../../../lib/quadro";
@@ -35,6 +35,7 @@ export function DetalhePedido(props: {
 }) {
   const { pedido } = props;
   const [historico, setHistorico] = useState<Historico>([]);
+  const [entrega, setEntrega] = useState<EntregaDoPedido | null>(null);
   const [cancelando, setCancelando] = useState(false);
   const [motivo, setMotivo] = useState("");
   const acao = acaoPrincipal(pedido.status, pedido.tipoEntrega);
@@ -43,7 +44,8 @@ export function DetalhePedido(props: {
 
   useEffect(() => {
     historicoStatusPedido(clienteNavegador(), pedido.id).then(setHistorico).catch(() => setHistorico([]));
-  }, [pedido.id, pedido.status]);
+    if (pedido.tipoEntrega === "entrega") entregaDoPedido(clienteNavegador(), pedido.id).then(setEntrega).catch(() => setEntrega(null));
+  }, [pedido.id, pedido.status, pedido.tipoEntrega]);
 
   useEffect(() => {
     const aoTeclar = (e: KeyboardEvent) => e.key === "Escape" && props.aoFechar();
@@ -110,6 +112,38 @@ export function DetalhePedido(props: {
               >
                 <MapPin className="size-4" /> Abrir no mapa
               </a>
+            )}
+            {entrega && (
+              <div className="space-y-3 rounded-2xl bg-white p-4 ring-1 ring-stone-200">
+                <p className="text-sm">
+                  <Bike className="mr-1 inline size-4 text-sky-600" />
+                  <b>{entrega.entregadorNome ?? "Motoboy"}</b>
+                  {entrega.iniciadaEm && ` saiu às ${hora(entrega.iniciadaEm)}`}
+                  {entrega.entregueEm && ` · entregou às ${hora(entrega.entregueEm)}`}
+                </p>
+                {entrega.valorRecebidoCentavos !== null && (
+                  <p className="text-sm text-stone-600">
+                    Recebeu {formatarReais(entrega.valorRecebidoCentavos)}
+                    {pedido.formaPagamento === "dinheiro" && entrega.valorRecebidoCentavos > pedido.totalCentavos && ` · troco de ${formatarReais(entrega.valorRecebidoCentavos - pedido.totalCentavos)}`}
+                  </p>
+                )}
+                {entrega.fotoUrl && (
+                  <a href={entrega.fotoUrl} target="_blank" rel="noreferrer" className="block">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={entrega.fotoUrl} alt="Foto da entrega" className="max-h-64 w-full rounded-xl object-cover" />
+                  </a>
+                )}
+                {entrega.local && (
+                  <a
+                    href={`https://www.google.com/maps/search/?api=1&query=${entrega.local.lat},${entrega.local.lng}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 text-sm font-medium text-marca-700 hover:underline"
+                  >
+                    <MapPin className="size-4" /> Onde a foto foi tirada{entrega.local.precisaoM ? ` (±${Math.round(entrega.local.precisaoM)} m)` : ""}
+                  </a>
+                )}
+              </div>
             )}
           </Bloco>
 

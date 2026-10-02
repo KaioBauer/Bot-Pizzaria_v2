@@ -1,6 +1,7 @@
 import { LogOut, Pause, Play } from "lucide-react";
 import { proximaAbertura, situacaoLoja } from "@pizzaria/core";
-import { criarRepositorios } from "@pizzaria/db";
+import { contarPrecisaAtencao, criarRepositorios } from "@pizzaria/db";
+import { AvisoAtendimento, ProvedorAtendimento } from "../../../components/painel/atendimento";
 import { MenuInferior, MenuLateral } from "../../../components/painel/navegacao";
 import { cn, Logo } from "../../../components/ui";
 import { exigirAdmin } from "../../../lib/auth";
@@ -9,7 +10,10 @@ import { alternarLojaAction } from "./configuracoes/actions";
 
 export default async function PainelLayout({ children }: { children: React.ReactNode }) {
   const { supabase, email } = await exigirAdmin();
-  const config = await criarRepositorios(supabase).loja.configuracao();
+  const [config, pendentesAtendimento] = await Promise.all([
+    criarRepositorios(supabase).loja.configuracao(),
+    contarPrecisaAtencao(supabase).catch(() => 0),
+  ]);
   const agora = new Date();
   const situacao = situacaoLoja(config, agora);
   const abre = situacao.aberta ? null : proximaAbertura(config.horarios, agora, config.fusoHorario);
@@ -37,6 +41,8 @@ export default async function PainelLayout({ children }: { children: React.React
   );
 
   return (
+    <ProvedorAtendimento inicial={pendentesAtendimento}>
+    <AvisoAtendimento />
     <div className="min-h-dvh md:pl-20 lg:pl-64">
       {/* Barra lateral (tablet e desktop) */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-20 flex-col bg-stone-950 px-3 py-5 md:flex lg:w-64 lg:px-4">
@@ -92,5 +98,6 @@ export default async function PainelLayout({ children }: { children: React.React
       <div className="pb-20 md:pb-0">{children}</div>
       <MenuInferior />
     </div>
+    </ProvedorAtendimento>
   );
 }

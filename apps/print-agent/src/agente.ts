@@ -14,6 +14,8 @@ export interface OpcoesAgenteImpressao {
   colunas: number;
   vias: number;
   varreduraMs: number;
+  /** Endereço do painel (https://...): pedidos de entrega saem com QR para o motoboy. */
+  painelUrl?: string;
   /** Identificação deste agente na trava de impressão (padrão: máquina + processo). */
   idAgente?: string;
 }
@@ -78,7 +80,8 @@ export function criarAgenteImpressao(opcoes: OpcoesAgenteImpressao) {
         continue;
       }
       try {
-        const cupom = montarCupom(pedido.cupom, { colunas: opcoes.colunas, ...loja, reimpressao });
+        const urlEntrega = opcoes.painelUrl ? `${opcoes.painelUrl.replace(/\/+$/, "")}/entrega/${pedido.id}` : null;
+        const cupom = montarCupom(pedido.cupom, { colunas: opcoes.colunas, ...loja, reimpressao, urlEntrega });
         await impressora.imprimir(cupom, opcoes.vias, `Pedido ${pedido.cupom.numero}`);
         falhas.delete(pedido.id);
         log.info("Pedido impresso");

@@ -1,4 +1,5 @@
 import { CharacterSet, PrinterTypes, ThermalPrinter } from "node-thermal-printer";
+import QRCode from "qrcode";
 import type { ComandoCupom } from "./cupom";
 import { SpoolerWindows } from "./transporte/windows";
 
@@ -43,8 +44,19 @@ export function criarImpressora(opcoes: OpcoesImpressora): Impressora {
     });
   }
 
-  function renderizar(doc: ThermalPrinter, comandos: ComandoCupom[]) {
+  // QR como imagem (raster): funciona em qualquer térmica, inclusive as genéricas
+  // que não entendem o comando nativo de QR. ~45% da largura do papel.
+  const larguraQr = Math.round(opcoes.colunas * 12 * 0.45);
+
+  async function renderizar(doc: ThermalPrinter, comandos: ComandoCupom[]) {
     for (const c of comandos) {
+      if (c.tipo === "qr") {
+        const png = await QRCode.toBuffer(c.conteudo, { type: "png", width: larguraQr, margin: 1, errorCorrectionLevel: "M" });
+        doc.alignCenter();
+        await doc.printImageBuffer(png);
+        doc.alignLeft();
+        continue;
+      }
       if (c.tipo === "linha") {
         doc.alignLeft();
         doc.println(c.caractere.repeat(opcoes.colunas));
@@ -70,7 +82,7 @@ export function criarImpressora(opcoes: OpcoesImpressora): Impressora {
   return {
     async imprimir(comandos, vias, documento) {
       const doc = novoDocumento();
-      for (let i = 0; i < vias; i++) renderizar(doc, comandos);
+      for (let i = 0; i < vias; i++) await renderizar(doc, comandos);
       await doc.execute({ docname: documento });
     },
 
