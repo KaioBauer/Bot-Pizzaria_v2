@@ -56,6 +56,19 @@ por injeção — por isso é testado com implementações em memória (`core/sr
   (`agente/carrinho-web.ts`): consome, reprecifica, responde o resumo e grava no histórico a
   mensagem do cliente com os itens em JSON (IDs) para o modelo seguir do passo 2. Loja fechada
   não consome o carrinho. Requer `configuracoes.telegram_usuario`.
+- **Atendimento humano:** `atendimentos` (por canal+chat, sobrevive à expiração da conversa)
+  guarda `ia_pausada` e o aviso `precisa_atencao`. A IA chama `chamar_atendente` (cliente pede
+  pessoa, reclamação, não sabe resolver); com a IA pausada o agente só grava a mensagem e liga o
+  aviso (resposta vazia = bot não envia nem mostra "digitando"). Só volta pelo botão "Devolver
+  para a IA". Respostas do painel vão para `mensagens_atendente` (outbox; o bot envia e grava no
+  histórico com autor "atendente"); inserir ali já pausa a IA (trigger). Tela `/admin/conversas`;
+  aviso sonoro + selo no menu em todo o painel (`components/painel/atendimento.tsx`).
+- **Entregas (motoboy):** papel `entregador` + tabela `entregadores` (`pnpm usuario entregador
+  email "Nome"`). Cupom de entrega sai com QR para `<PAINEL_URL>/entrega/<pedido>` (imagem
+  raster, funciona em térmica genérica). O motoboy só usa RPCs (`entrega_detalhe`,
+  `iniciar_entrega`, `concluir_entrega`, `minhas_entregas`) — sem SELECT em pedidos. Concluir
+  exige foto (bucket privado `entregas`) e, em dinheiro/cartão, valor recebido >= total; GPS é
+  registrado quando o celular permite. Iniciar a partir de "novo" passa por "em_preparo".
 - **Snapshots no pedido:** nome do cliente, telefone, endereço formatado, descrição e preço
   de cada item ficam congelados — editar cardápio/cliente não altera pedido antigo.
 - **Gravação atômica** via RPC `criar_pedido(p_pedido jsonb)` (cliente + endereço +
