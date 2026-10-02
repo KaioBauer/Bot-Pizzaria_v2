@@ -14,8 +14,8 @@ export function SecaoEntregadores({ entregadores }: { entregadores: EntregadorPa
           Quem pode escanear o QR do cupom para iniciar e confirmar entregas. Desativado, o login para de funcionar nas entregas.
         </p>
         <p className="mt-3 rounded-xl bg-stone-100 p-3 text-xs text-stone-600">
-          Novo motoboy: no PC, rode{" "}
-          <code className="font-mono font-semibold">pnpm usuario entregador email@x.com &quot;Nome&quot;</code> e escolha a senha. Ele entra em{" "}
+          Novo motoboy: no PC (ou com "!" aqui no Claude Code), rode{" "}
+          <code className="font-mono font-semibold">pnpm usuario entregador email@x.com &quot;Nome&quot;</code> — a senha aparece no final. Ele entra em{" "}
           <code className="font-mono">/entrega</code> no celular.
         </p>
       </div>

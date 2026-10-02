@@ -80,9 +80,21 @@ if (papel === "impressora") {
 } else {
   if (!emailArg) throw new Error(`Informe o e-mail: pnpm usuario ${papel} email@exemplo.com`);
   if (papel === "entregador" && (nomeArg?.trim().length ?? 0) < 2) throw new Error('Informe o nome: pnpm usuario entregador email@exemplo.com "Nome"');
-  const terminal = createInterface({ input: process.stdin, output: process.stdout });
-  const senha = await terminal.question(`Senha ${papel === "admin" ? "do painel" : "do motoboy"} (mínimo 8 caracteres): `);
-  terminal.close();
+  if (/@(x|exemplo|domotoboy)\.com$/i.test(emailArg) || nomeArg === "Nome do Motoboy") {
+    throw new Error("Use o e-mail e o nome de verdade (os do comando eram só exemplo).");
+  }
+  // Sem terminal interativo (ex.: "!" no Claude Code), o motoboy ganha uma senha
+  // gerada, mostrada uma vez no final; o admin precisa digitar a dele.
+  const gerada = papel === "entregador" && !process.stdin.isTTY;
+  let senha: string;
+  if (gerada) {
+    senha = `vianna-${randomBytes(4).toString("hex")}`;
+  } else {
+    if (!process.stdin.isTTY) throw new Error("Rode este comando num terminal (PowerShell), onde dá para digitar a senha.");
+    const terminal = createInterface({ input: process.stdin, output: process.stdout });
+    senha = await terminal.question(`Senha ${papel === "admin" ? "do painel" : "do motoboy"} (mínimo 8 caracteres): `);
+    terminal.close();
+  }
   if (senha.length < 8) throw new Error("Senha muito curta");
   const { resultado, id } = await salvarUsuario(emailArg, senha);
   if (papel === "entregador") {
@@ -92,4 +104,5 @@ if (papel === "impressora") {
     if (error) throw error;
   }
   console.log(`${papel === "admin" ? "Admin" : `Motoboy ${nomeArg}`} (${emailArg}) ${resultado}`);
+  if (gerada) console.log(`Senha do motoboy: ${senha}  (passe para ele; dá para trocar rodando o comando de novo)`);
 }
