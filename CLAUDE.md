@@ -79,7 +79,7 @@ por injeção — por isso é testado com implementações em memória (`core/sr
   `fecha <= abre` atravessa a meia-noite). Fechada: o prompt avisa e as tools
   `calcular_pedido`/`finalizar_pedido` recusam no servidor.
 - **Agente:** tools `consultar_cardapio`, `calcular_pedido` (cotação oficial para o resumo),
-  `finalizar_pedido`, `consultar_status_pedido`. A confirmação do pedido é montada pelo
+  `finalizar_pedido`, `consultar_status_pedido`, `chamar_atendente`. A confirmação do pedido é montada pelo
   código (`mensagemPedidoConfirmado`), não pelo LLM. `processarMensagem` nunca lança.
 - **Histórico** em `conversas`/`conversa_mensagens` (formato neutro). Janela de
   `HISTORICO_LIMITE` mensagens, recortada para começar numa mensagem do cliente.
@@ -127,6 +127,23 @@ por injeção — por isso é testado com implementações em memória (`core/sr
 - **WhatsApp:** `apps/bot/src/canais/whatsapp.ts` (Evolution API v2). Webhook com token na URL;
   ignora grupos, status, canais, próprio número, reentregas e mensagens antigas. No compose a
   Evolution chama o bot pela rede interna.
+- **Conectar WhatsApp pelo painel:** Configurações → WhatsApp (`configuracoes/whatsapp.tsx`). As server
+  actions repassam o token de sessão do admin ao bot (`BOT_URL`), rotas `/admin/whatsapp`
+  (`admin-whatsapp.ts`, confere JWT + papel admin via `auth.getUser`); `whatsapp-conexao.ts` cria a
+  instância se faltar, devolve QR/código de pareamento, status e logout. Chave da Evolution só no bot.
+- **Pedido por áudio:** canais entregam `MensagemCanal` com `audio` (baixado sob demanda: Telegram
+  getFile; WhatsApp base64 do webhook ou `/chat/getBase64FromMediaMessage`). `audio.ts` transcreve
+  dentro da fila do chat (ordem preservada) com `Transcritor` do core (OpenAI whisper-1, dica de
+  vocabulário do cardápio) e manda ao agente com `PREFIXO_AUDIO` — o prompt manda confirmar o entendido.
+- **Travas anti-alucinação** (`core/src/agente/verificacao.ts`), além do prompt ("Fontes da verdade"):
+  resposta com valor em R$, link ou telefone sem fonte oficial (cardápio, configuração, resultado de
+  tool ou fala do cliente) volta ao modelo uma vez com "Correção obrigatória"; se insistir, vai uma
+  resposta segura. `finalizar_pedido` **não recebe itens**: registra os itens/entrega/bairro do último
+  `calcular_pedido` com sucesso (o modelo chegou a corromper IDs ao recopiar). Exige que nome,
+  telefone, endereço, pagamento e troco tenham sido ditos pelo cliente (ou venham do canal/cadastro)
+  **antes** desse resumo, e que a última mensagem do cliente depois dele confirme ("sim", 👍...).
+  `calcular_pedido` avisa o modelo quando itens da cotação anterior sumiram. Simular conversa com o
+  modelo real: script com `repositoriosEmMemoria` + `criarRepositorios(...).cardapio` (só leitura).
 - **Web sem service_role:** todo acesso do painel usa a sessão do admin (RLS); cardápio público
   usa anon (`lib/supabase/publico.ts`). Fotos no bucket `produtos` (escrita só admin).
 - **Relatórios:** views `relatorio_vendas_diarias` e `relatorio_produtos_vendidos` com
@@ -151,4 +168,5 @@ por injeção — por isso é testado com implementações em memória (`core/sr
 
 - `horarios_funcionamento` está provisoriamente 24h e `bairros_entrega` vazia — ajustar em
   /admin/configuracoes antes de produção.
-- Pix e WhatsApp testados com gateway/payloads simulados; validar com credenciais reais.
+- Pix testado com gateway simulado; validar com credenciais reais. WhatsApp e áudio validados na
+  Evolution local (download + Whisper com áudio real).

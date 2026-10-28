@@ -7,8 +7,10 @@ import {
   ROTULO_STATUS,
   type Canal,
   type CategoriaCardapio,
+  type ClienteConhecido,
   type ConfiguracaoLoja,
   type ItemPedidoArgs,
+  type MensagemConversa,
   type NovoPedido,
   type Repositorios,
   type TipoEntrega,
@@ -20,6 +22,7 @@ import { descreverValores, montarNovoPedido } from "../pedido";
 import type { CobrancaCriada } from "../pagamentos/gateway";
 import type { ServicoPix } from "../pagamentos/pix";
 import { cotarPedido, idsDeVariacao, type Cotacao, type ResultadoCotacao } from "../precificacao";
+import { conferirDadosCliente, confirmaResumo, itensQueSairam, ultimaCotacao } from "./verificacao";
 
 export const TOOL = {
   consultarCardapio: "consultar_cardapio",
@@ -50,19 +53,19 @@ export const DEFINICOES_TOOLS: DefinicaoTool[] = [
   {
     nome: TOOL.consultarCardapio,
     descricao:
-      "Lista os produtos disponíveis agora, por categoria, com variações (tamanho, borda, adicional, padrão), IDs e preços.",
+      "Única fonte de produtos, sabores, ingredientes (descrição), tamanhos, bordas, adicionais e preços disponíveis agora, com os IDs. O que não estiver aqui não existe na pizzaria. Chame antes de citar qualquer produto ou preço.",
     parametros: { type: "object", properties: {}, additionalProperties: false },
   },
   {
     nome: TOOL.calcularPedido,
     descricao:
-      "Valida os itens e calcula os valores oficiais (itens, taxa de entrega e total). Use antes de mostrar o resumo ao cliente.",
+      "Valida os itens (IDs copiados de consultar_cardapio) e calcula os valores oficiais (itens, taxa de entrega e total). Obrigatório antes de citar qualquer total e antes de finalizar_pedido.",
     parametros: esquema(calcularPedidoArgsSchema),
   },
   {
     nome: TOOL.finalizarPedido,
     descricao:
-      "Registra o pedido. Só chame depois que o cliente confirmar explicitamente o resumo com o total.",
+      "Registra o pedido com exatamente os itens, a entrega/retirada e o bairro do último calcular_pedido (não é preciso repetir os itens). Só chame depois que o cliente confirmar esse resumo; se algo mudou, chame calcular_pedido de novo e peça nova confirmação. Nome, telefone, endereço e troco precisam ter sido informados pelo cliente (ou estar em Cliente): o servidor recusa dados sem origem.",
     parametros: esquema(finalizarPedidoArgsSchema),
   },
   {
@@ -94,6 +97,11 @@ export interface ContextoTools {
   pix: ServicoPix | null;
   cardapio: () => Promise<CategoriaCardapio[]>;
   logger: Logger;
+  /** Histórico + mensagens desta rodada, já com os resultados de tools anteriores. */
+  mensagens: () => MensagemConversa[];
+  cliente: ClienteConhecido | null;
+  telefoneCanal: string | null;
+  nomePerfil: string | null;
 }
 
 export interface PedidoCriado {
@@ -158,6 +166,18 @@ function cotacaoParaModelo(cotacao: Cotacao) {
   };
 }
 
+/** Erros da cotação para o modelo; ID errado ganha a instrução de como corrigir. */
+function errosCotacao(erros: string[]): ResultadoTool {
+  const idErrado = erros.some((e) => /não existe no cardápio|não pertence ao produto|ID inválido/.test(e));
+  return json({
+    sucesso: false,
+    erros,
+    ...(idErrado
+      ? { como_corrigir: "Use só produto_id/variacao_id copiados do resultado de consultar_cardapio (chame consultar_cardapio agora se precisar) e tente de novo, sem incomodar o cliente." }
+      : {}),
+  });
+}
+
 function lerArgumentos(bruto: string): unknown {
   try {
     return bruto ? JSON.parse(bruto) : {};
@@ -199,11 +219,22 @@ export async function executarTool(
       const fechada = lojaFechada(ctx);
       if (fechada) return fechada;
       const args = calcularPedidoArgsSchema.safeParse(argumentos);
-      if (!args.success) return erro(`Dados inválidos: ${descreverErrosZod(args.error)}`);
+      if (!args.success) return errosCotacao([`Dados inválidos: ${descreverErrosZod(args.error)}`]);
 
+      const anterior = ultimaCotacao(ctx.mensagens());
       const resultado = await cotar(ctx, args.data.itens, args.data.tipo_entrega, args.data.bairro_id);
-      if (!resultado.ok) return json({ sucesso: false, erros: resultado.erros });
-      return json({ sucesso: true, ...cotacaoParaModelo(resultado.cotacao) });
+      if (!resultado.ok) return errosCotacao(resultado.erros);
+      const sairam = itensQueSairam(anterior, args.data.itens);
+      return json({
+        sucesso: true,
+        ...cotacaoParaModelo(resultado.cotacao),
+        ...(sairam.length
+          ? {
+              atencao_itens_fora: sairam,
+              atencao: "Estes itens estavam na cotação anterior e não estão nesta. Se o cliente não pediu para tirá-los, chame calcular_pedido de novo com o pedido inteiro antes de responder.",
+            }
+          : {}),
+      });
     }
 
     case TOOL.finalizarPedido: {
@@ -215,18 +246,46 @@ export async function executarTool(
         return erro("Pix online não está disponível no momento; ofereça dinheiro ou cartão na entrega.");
       }
 
-      const resultado = await cotar(
-        ctx,
-        args.data.itens,
-        args.data.tipo_entrega,
-        args.data.endereco?.bairro_id
-      );
-      if (!resultado.ok) return json({ sucesso: false, erros: resultado.erros });
+      // Registra exatamente o que o cliente viu e respondeu: o último resumo de calcular_pedido.
+      const cotacaoMostrada = ultimaCotacao(ctx.mensagens());
+      if (!cotacaoMostrada) {
+        return erro("Pedido NÃO registrado: antes de finalizar, chame calcular_pedido, mostre o resumo ao cliente e espere ele confirmar.");
+      }
+      if (cotacaoMostrada.respostas.length === 0) {
+        return erro("Pedido NÃO registrado: o cliente ainda não respondeu ao resumo. Mostre o resumo (resumo_valores) e pergunte se pode confirmar.");
+      }
+      const { itens, tipo_entrega, bairro_id } = cotacaoMostrada.args;
+      const pedidoArgs = { ...args.data, itens, tipo_entrega, endereco: tipo_entrega === "entrega" ? (args.data.endereco ?? null) : null };
+      if (tipo_entrega === "entrega") {
+        if (!pedidoArgs.endereco) return erro("Pedido NÃO registrado: Endereço é obrigatório para entrega (rua, número e bairro).");
+        if (pedidoArgs.endereco.bairro_id !== bairro_id) {
+          return erro("Pedido NÃO registrado: o bairro do endereço é diferente do usado no resumo. Chame calcular_pedido agora com o bairro certo, mostre o novo resumo e peça confirmação.");
+        }
+      }
+      // Os dados do pedido precisam ter sido ditos ANTES do resumo (que o cliente confirma com tudo).
+      const fontesCliente = { config: ctx.config, telefoneCanal: ctx.telefoneCanal, cliente: ctx.cliente, nomePerfil: ctx.nomePerfil };
+      const semOrigem = conferirDadosCliente(pedidoArgs, { ...fontesCliente, mensagens: cotacaoMostrada.antes });
+      if (semOrigem.length) {
+        const ditoDepois = conferirDadosCliente(pedidoArgs, { ...fontesCliente, mensagens: ctx.mensagens() }).length === 0;
+        return erro(
+          ditoDepois
+            ? "Pedido NÃO registrado: o cliente passou dados (pagamento, troco, nome ou endereço) depois do resumo. Chame calcular_pedido agora, nesta mesma resposta (com o pedido inteiro), mostre o resumo final com todos os dados e peça confirmação."
+            : `Pedido NÃO registrado. ${semOrigem.join(" ")}`
+        );
+      }
+      if (!confirmaResumo(cotacaoMostrada.respostas)) {
+        return erro(
+          `Pedido NÃO registrado: o cliente não confirmou o resumo (última mensagem: "${cotacaoMostrada.respostas.at(-1)!.slice(0, 120)}"). Responda ao que ele disse; se ele mudou ou acrescentou algo, chame calcular_pedido com o pedido inteiro e peça confirmação. Só finalize depois de um "sim".`
+        );
+      }
+
+      const resultado = await cotar(ctx, itens, tipo_entrega, pedidoArgs.endereco?.bairro_id);
+      if (!resultado.ok) return errosCotacao(resultado.erros);
 
       const montagem = montarNovoPedido({
         canal: ctx.canal,
         chatId: ctx.chatId,
-        args: args.data,
+        args: pedidoArgs,
         cotacao: resultado.cotacao,
       });
       if (!montagem.ok) return erro(montagem.erro);

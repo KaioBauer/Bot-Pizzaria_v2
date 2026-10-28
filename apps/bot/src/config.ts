@@ -22,6 +22,13 @@ const esquema = z
     /** Só para modelos de raciocínio (gpt-5*). */
     OPENAI_REASONING_EFFORT: z.enum(["none", "minimal", "low", "medium", "high"]).default("none"),
 
+    /** Pedido por áudio: transcreve mensagens de voz (OpenAI, mesma chave do LLM). */
+    TRANSCRICAO_AUDIO: booleano(true),
+    /** whisper-1, gpt-4o-mini-transcribe ou gpt-4o-transcribe */
+    OPENAI_TRANSCRICAO_MODELO: z.string().default("whisper-1"),
+    /** Áudios mais longos que isso não são transcritos (custo e qualidade). */
+    AUDIO_DURACAO_MAXIMA_SEGUNDOS: z.coerce.number().int().min(10).max(600).default(180),
+
     /** Link do cardápio público enviado pelo bot. Ex.: https://painel.dominio/cardapio */
     CARDAPIO_URL: z.url().optional(),
 

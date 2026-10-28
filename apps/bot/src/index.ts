@@ -6,13 +6,17 @@ import {
   criarGatewayOpenPix,
   criarProvedorOpenAi,
   criarServicoPix,
+  criarTranscritorOpenAi,
   type RespostaAgente,
 } from "@pizzaria/core";
 import { criarClienteServico, criarRepositorios } from "@pizzaria/db";
 import { criarAdaptadorTelegram } from "./canais/telegram";
 import type { ChannelAdapter } from "./canais/tipos";
 import { criarAdaptadorWhatsapp } from "./canais/whatsapp";
+import { registrarAdminWhatsapp, validarAdminSupabase } from "./admin-whatsapp";
+import { criarPreparadorMensagens } from "./audio";
 import { carregarConfig } from "./config";
+import { criarConexaoWhatsapp } from "./whatsapp-conexao";
 import { criarEnvioAtendente } from "./atendente";
 import { criarNotificador } from "./notificador";
 import { registrarPix } from "./pix";
@@ -107,6 +111,16 @@ async function entregar(canal: ChannelAdapter, chatId: string, resposta: Respost
   }
 }
 
+const preparar = criarPreparadorMensagens({
+  transcritor: config.TRANSCRICAO_AUDIO
+    ? criarTranscritorOpenAi({ apiKey: config.OPENAI_API_KEY, modelo: config.OPENAI_TRANSCRICAO_MODELO })
+    : null,
+  canais,
+  repos,
+  duracaoMaximaSegundos: config.AUDIO_DURACAO_MAXIMA_SEGUNDOS,
+  logger: logger.child({ modulo: "audio" }),
+});
+
 const processador = criarProcessadorPorChat(async (mensagem) => {
   const canal = canais.get(mensagem.canal)!;
   const log = logger.child({ canal: mensagem.canal, chatId: mensagem.chatId });
@@ -130,6 +144,15 @@ const processador = criarProcessadorPorChat(async (mensagem) => {
   } finally {
     clearInterval(digitando);
   }
+}, preparar);
+
+registrarAdminWhatsapp({
+  servidor,
+  conexao: config.WHATSAPP_ENABLED
+    ? criarConexaoWhatsapp({ urlApi: config.EVOLUTION_URL!, apiKey: config.EVOLUTION_API_KEY!, instancia: config.EVOLUTION_INSTANCIA })
+    : null,
+  validarAdmin: validarAdminSupabase(db),
+  logger: logger.child({ modulo: "whatsapp-admin" }),
 });
 
 for (const canal of canais.values()) canal.onMessage((mensagem) => processador.receber(mensagem));
@@ -173,6 +196,11 @@ await notificador.iniciar();
 await envioAtendente.iniciar();
 pagamentos?.iniciar();
 logger.info(
-  { porta: config.PORT, canais: [...canais.keys()], pix: pix ? `openpix (${config.OPENPIX_AMBIENTE})` : false },
+  {
+    porta: config.PORT,
+    canais: [...canais.keys()],
+    pix: pix ? `openpix (${config.OPENPIX_AMBIENTE})` : false,
+    audio: config.TRANSCRICAO_AUDIO ? config.OPENAI_TRANSCRICAO_MODELO : false,
+  },
   "Bot no ar"
 );

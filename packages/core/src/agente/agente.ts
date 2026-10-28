@@ -10,6 +10,7 @@ import { cotarPedido, idsDeVariacao } from "../precificacao";
 import { codigoCarrinhoWeb, conversaCarrinhoWeb, lerItensCarrinho, mensagemCarrinhoInvalido } from "./carrinho-web";
 import { mensagemBoasVindas, reconhecerComando } from "./comandos";
 import { montarPromptSistema } from "./prompt";
+import { removerNaoAutorizados, verificarResposta, type ProblemaResposta } from "./verificacao";
 import {
   DEFINICOES_TOOLS,
   TOOL,
@@ -26,8 +27,12 @@ export interface MensagemEntrada {
   clienteNome?: string | null;
   /** Telefone conhecido pelo canal (WhatsApp); null no Telegram. */
   telefone?: string | null;
+  /** Texto do cliente; áudio chega já transcrito, começando com `PREFIXO_AUDIO`. */
   texto: string;
 }
+
+/** Marca a mensagem do cliente que veio de áudio (o prompt pede cautela com a transcrição). */
+export const PREFIXO_AUDIO = "[áudio transcrito]";
 
 /** Conteúdo enviado depois do texto principal (ex.: QR Code e copia-e-cola do Pix). */
 export type Anexo =
@@ -70,6 +75,8 @@ const MAX_CARACTERES_ENTRADA = 2000;
 export const MENSAGEM_ATENDENTE_CHAMADO =
   "Certo! Chamei um atendente da pizzaria, ele continua a conversa com você por aqui em instantes 🙏";
 const MENSAGEM_PEDIR_CONFIRMACAO = "Para eu fechar seu pedido, me confirma com um *sim*? 🙂";
+const MENSAGEM_CONFERIR_VALORES =
+  "Para não te passar nenhum valor errado, deixa eu calcular no sistema: me confirma os itens do pedido (sabor, tamanho e quantidade)? 🙂";
 
 /**
  * O modelo às vezes responde "pedido confirmado" sem chamar finalizar_pedido —
@@ -82,10 +89,29 @@ export function afirmaPedidoFeito(texto: string): boolean {
   return AFIRMA_PEDIDO_FEITO.test(texto);
 }
 
-const AVISO_SEM_FINALIZAR = `
+const AVISO_SEM_FINALIZAR = `Você ia dizer ao cliente que o pedido foi confirmado, mas finalizar_pedido NÃO foi chamado e o pedido NÃO existe. Se o cliente já confirmou o resumo (sim, ok, 👍, pode fechar...), chame finalizar_pedido agora com os mesmos dados do último calcular_pedido. Se ainda não confirmou, peça a confirmação. Nunca diga que o pedido foi confirmado sem chamar finalizar_pedido.`;
+
+const formatarValor = (centavos: number) => `R$ ${(centavos / 100).toFixed(2).replace(".", ",")}`;
+
+function descreverProblema(p: ProblemaResposta): string {
+  switch (p.tipo) {
+    case "valor":
+      return `Você citou ${p.valores.map(formatarValor).join(", ")}, que não aparece(m) no cardápio, na configuração nem no resultado de uma ferramenta. Não faça contas nem estime valores: use só preços de consultar_cardapio e totais de calcular_pedido (chame a ferramenta se precisar).`;
+    case "link":
+      return `Você escreveu link(s) que não existem para a pizzaria (${p.links.join(", ")}). O único link permitido é o do cardápio, quando informado na seção Situação.`;
+    case "telefone":
+      return `Você escreveu telefone(s) que não vieram de nenhuma fonte (${p.telefones.join(", ")}). Use só o telefone da pizzaria da seção Situação e o que o cliente informou.`;
+  }
+}
+
+function avisoCorrecao(problemas: string[]): string {
+  return `
 
 # Correção obrigatória
-Você ia dizer ao cliente que o pedido foi confirmado, mas finalizar_pedido NÃO foi chamado e o pedido NÃO existe. Se o cliente já confirmou o resumo (sim, ok, 👍, pode fechar...), chame finalizar_pedido agora com os mesmos dados do último calcular_pedido. Se ainda não confirmou, peça a confirmação. Nunca diga que o pedido foi confirmado sem chamar finalizar_pedido.`;
+Sua última resposta NÃO foi enviada ao cliente porque tinha informação sem fonte oficial:
+${problemas.map((p) => `- ${p}`).join("\n")}
+Refaça a resposta seguindo as regras. Na dúvida, diga que vai confirmar ou chame chamar_atendente — nunca invente.`;
+}
 
 /** Descarta o início do histórico até a primeira mensagem do cliente, para
  * nunca enviar ao modelo um resultado de tool sem a chamada correspondente. */
@@ -244,17 +270,23 @@ Seu pedido continua salvo no cardápio: quando abrirmos, é só tocar de novo em
       pix: deps.pix ?? null,
       cardapio,
       logger,
+      mensagens: () => [...historico, ...novas],
+      cliente,
+      telefoneCanal: entrada.telefone ?? null,
+      nomePerfil: entrada.clienteNome ?? null,
     };
 
     const novas: MensagemConversa[] = [
       { papel: "user", conteudo: entrada.texto.trim().slice(0, MAX_CARACTERES_ENTRADA) },
     ];
 
+    // Uma chance de corrigir a resposta antes de ir ao cliente (ver verificacao.ts).
+    let correcao: string | null = null;
     let corrigido = false;
     let consultouStatus = false;
     for (let rodada = 0; rodada < maxRodadas; rodada++) {
       const resposta = await deps.llm.completar({
-        sistema: corrigido ? sistema + AVISO_SEM_FINALIZAR : sistema,
+        sistema: correcao ? sistema + correcao : sistema,
         mensagens: [...historico, ...novas],
         tools: DEFINICOES_TOOLS,
       });
@@ -262,14 +294,26 @@ Seu pedido continua salvo no cardápio: quando abrirmos, é só tocar de novo em
       if (resposta.toolCalls.length === 0) {
         let texto = corrigirLinkCardapio(normalizarFormatacao(resposta.conteudo ?? ""), deps.opcoes?.urlCardapio) || MENSAGEM_NAO_ENTENDI;
         // Pedido criado retorna antes daqui; falar de pedido de antes (status) é legítimo.
-        if (!consultouStatus && afirmaPedidoFeito(texto)) {
+        const pedidoFalso = !consultouStatus && afirmaPedidoFeito(texto);
+        const problemas = verificarResposta(texto, {
+          categorias: await cardapio().catch(() => []),
+          config,
+          mensagens: [...historico, ...novas],
+          urlCardapio: deps.opcoes?.urlCardapio ?? null,
+          telefoneCanal: entrada.telefone ?? null,
+          cliente,
+        });
+        if (pedidoFalso || problemas.length) {
           if (!corrigido) {
             corrigido = true;
-            logger.warn({ canal, chatId, texto }, "Modelo afirmou pedido confirmado sem finalizar_pedido; pedindo correção");
+            correcao = avisoCorrecao([...(pedidoFalso ? [AVISO_SEM_FINALIZAR] : []), ...problemas.map(descreverProblema)]);
+            logger.warn({ canal, chatId, texto, pedidoFalso, problemas }, "Resposta sem fonte oficial; pedindo correção ao modelo");
             continue;
           }
-          logger.warn({ canal, chatId, texto }, "Modelo insistiu em confirmar sem finalizar_pedido; pedindo confirmação ao cliente");
-          texto = MENSAGEM_PEDIR_CONFIRMACAO;
+          logger.warn({ canal, chatId, texto, pedidoFalso, problemas }, "Modelo insistiu em resposta sem fonte oficial; usando resposta segura");
+          if (pedidoFalso) texto = MENSAGEM_PEDIR_CONFIRMACAO;
+          else if (problemas.some((p) => p.tipo === "valor")) texto = MENSAGEM_CONFERIR_VALORES;
+          else texto = removerNaoAutorizados(texto, problemas) || MENSAGEM_NAO_ENTENDI;
         }
         novas.push({ papel: "assistant", conteudo: texto });
         await persistir(conversaId, novas);

@@ -186,3 +186,23 @@ export function gatewayPixFalso() {
     },
   };
 }
+
+/**
+ * Semeia uma conversa em que o cliente já informou tudo e o modelo já mostrou
+ * o resumo (calcular_pedido com sucesso) — pré-requisito do finalizar_pedido.
+ */
+export async function semearResumo(
+  repos: Repositorios,
+  chat: { canal: "telegram" | "whatsapp"; chatId: string },
+  args: { itens: unknown[]; tipo_entrega: string; endereco?: { bairro_id?: string } | null; forma_pagamento?: string },
+  falaCliente = `Quero isso. Meu nome é Maria, telefone 11 98765-4321, Rua das Flores 42. Pago no ${args.forma_pagamento === "cartao" ? "cartão" : (args.forma_pagamento ?? "dinheiro")}, troco para 200`
+) {
+  const conversa = await repos.conversas.obterAtiva(chat.canal, chat.chatId, new Date(0));
+  const calcular = { itens: args.itens, tipo_entrega: args.tipo_entrega, bairro_id: args.endereco?.bairro_id ?? null };
+  await repos.conversas.adicionar(conversa, [
+    { papel: "user", conteudo: falaCliente },
+    { papel: "assistant", conteudo: null, toolCalls: [{ id: "resumo", nome: "calcular_pedido", argumentos: JSON.stringify(calcular) }] },
+    { papel: "tool", toolCallId: "resumo", conteudo: JSON.stringify({ sucesso: true }) },
+    { papel: "assistant", conteudo: "Resumo do pedido. Posso confirmar?" },
+  ]);
+}

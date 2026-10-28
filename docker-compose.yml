@@ -33,6 +33,8 @@ services:
     environment:
       NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      # Conectar o WhatsApp pela tela Configurações (o painel fala com o bot pela rede interna).
+      BOT_URL: http://bot:3001
     ports: ["127.0.0.1:3000:3000"]
     restart: unless-stopped
     logging: *logs
@@ -59,7 +61,7 @@ services:
       WEBHOOK_GLOBAL_WEBHOOK_BY_EVENTS: "false"
       WEBHOOK_EVENTS_MESSAGES_UPSERT: "true"
     volumes: [evolution-instancias:/evolution/instances]
-    # Só local: o /manager (ler o QR Code) é acessado por túnel SSH.
+    # Só local: o QR Code é lido pelo painel (Configurações → WhatsApp); o /manager fica para diagnóstico por túnel SSH.
     ports: ["127.0.0.1:8080:8080"]
     restart: unless-stopped
     logging: *logs

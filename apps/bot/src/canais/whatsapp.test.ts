@@ -1,7 +1,7 @@
 import Fastify from "fastify";
 import pino from "pino";
 import { describe, expect, it } from "vitest";
-import type { MensagemEntrada } from "@pizzaria/core";
+import type { MensagemCanal } from "./tipos";
 import { criarAdaptadorWhatsapp, eventoDeMensagem, extrairMensagem } from "./whatsapp";
 
 const agora = 1_790_870_400_000;
@@ -40,7 +40,12 @@ describe("extrairMensagem", () => {
   });
 
   it("mídia sem legenda vira sem_texto", () => {
-    expect(extrairMensagem(msg({ message: { audioMessage: {} } }), agora)).toEqual({ tipo: "sem_texto", chatId: "5511987654321" });
+    expect(extrairMensagem(msg({ message: { imageMessage: {} } }), agora)).toEqual({ tipo: "sem_texto", chatId: "5511987654321" });
+  });
+
+  it("lê mensagem de voz com duração e formato", () => {
+    const r = extrairMensagem(msg({ message: { audioMessage: { mimetype: "audio/ogg; codecs=opus", seconds: 7, ptt: true } } }), agora);
+    expect(r).toEqual({ tipo: "audio", id: "ABC", chatId: "5511987654321", telefone: "5511987654321", nome: "Maria", duracaoSegundos: 7, mime: "audio/ogg; codecs=opus" });
   });
 
   it("conta com LID usa o número alternativo quando existe", () => {
@@ -67,10 +72,11 @@ describe("adaptador WhatsApp", () => {
       logger: pino({ level: "silent" }),
       fetch: (async (url: string, init: RequestInit) => {
         enviadas.push({ url, corpo: JSON.parse(String(init.body)) });
-        return new Response("{}", { status: 201 });
+        const corpo = url.includes("getBase64FromMediaMessage") ? { base64: Buffer.from("ogg").toString("base64"), mimetype: "audio/ogg" } : {};
+        return new Response(JSON.stringify(corpo), { status: 201 });
       }) as unknown as typeof fetch,
     });
-    const recebidas: MensagemEntrada[] = [];
+    const recebidas: MensagemCanal[] = [];
     adaptador.onMessage((m) => recebidas.push(m));
     const servidor = Fastify();
     await adaptador.iniciar(servidor);
@@ -107,6 +113,22 @@ describe("adaptador WhatsApp", () => {
     expect(recebidas).toEqual([
       { canal: "whatsapp", chatId: "5511987654321", clienteNome: "Maria", telefone: "5511987654321", texto: "oi, quero uma pizza" },
     ]);
+  });
+
+  it("áudio chega ao manipulador e é baixado pela Evolution só quando pedido", async () => {
+    const { servidor, recebidas, enviadas } = await montar();
+    const dados = msg({ messageTimestamp: Date.now() / 1000, message: { audioMessage: { mimetype: "audio/ogg; codecs=opus", seconds: 5 } } });
+    await servidor.inject({ method: "POST", url: "/webhooks/whatsapp/segredo-123", payload: { event: "messages.upsert", data: dados } });
+    expect(recebidas).toHaveLength(1);
+    const audio = recebidas[0]!.audio!;
+    expect(audio.duracaoSegundos).toBe(5);
+    expect(enviadas).toHaveLength(0);
+    const baixado = await audio.baixar();
+    expect(baixado).toEqual({ conteudo: Buffer.from("ogg"), mime: "audio/ogg" });
+    expect(enviadas[0]).toMatchObject({
+      url: "https://evo.exemplo/chat/getBase64FromMediaMessage/vianna",
+      corpo: { message: { key: { id: "ABC" } }, convertToMp4: false },
+    });
   });
 
   it("envia texto e imagem pela API da instância", async () => {

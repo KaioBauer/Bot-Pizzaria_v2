@@ -62,11 +62,16 @@ const telefoneSchema = z
       .max(13, "Telefone inválido")
   );
 
+/**
+ * finalizar_pedido NÃO recebe itens, tipo de entrega nem bairro: o servidor
+ * registra exatamente o último calcular_pedido que o cliente viu e confirmou.
+ * Assim o modelo não tem como trocar um item (ou um ID) entre o resumo e o pedido.
+ */
 export const finalizarPedidoArgsSchema = z
   .object({
-    itens: z.array(itemPedidoSchema).min(1).max(30),
-    tipo_entrega: z.enum(["entrega", "retirada"]),
-    endereco: enderecoSchema.nullish().describe("obrigatório quando tipo_entrega = 'entrega'"),
+    endereco: enderecoSchema
+      .nullish()
+      .describe("obrigatório se o resumo foi de entrega; bairro_id igual ao do calcular_pedido"),
     forma_pagamento: z.enum(["pix", "dinheiro", "cartao"]),
     troco_para: z
       .number()
@@ -78,13 +83,6 @@ export const finalizarPedidoArgsSchema = z
     observacoes: textoOpcional(300).describe("observação geral do pedido"),
   })
   .superRefine((pedido, ctx) => {
-    if (pedido.tipo_entrega === "entrega" && !pedido.endereco) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["endereco"],
-        message: "Endereço é obrigatório para entrega",
-      });
-    }
     if (pedido.troco_para != null && pedido.forma_pagamento !== "dinheiro") {
       ctx.addIssue({
         code: "custom",
@@ -98,6 +96,8 @@ export type ItemPedidoArgs = z.output<typeof itemPedidoSchema>;
 export type EnderecoArgs = z.output<typeof enderecoSchema>;
 export type CalcularPedidoArgs = z.output<typeof calcularPedidoArgsSchema>;
 export type FinalizarPedidoArgs = z.output<typeof finalizarPedidoArgsSchema>;
+/** Pedido pronto para montar: dados do finalizar_pedido + itens/entrega do resumo confirmado. */
+export type PedidoConfirmadoArgs = FinalizarPedidoArgs & Pick<CalcularPedidoArgs, "itens" | "tipo_entrega">;
 
 /** Erros do Zod num texto curto que o LLM consegue usar para corrigir. */
 export function descreverErrosZod(error: z.ZodError): string {

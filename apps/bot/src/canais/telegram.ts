@@ -29,9 +29,31 @@ export function criarAdaptadorTelegram(opcoes: OpcoesTelegram): ChannelAdapter {
     });
   });
 
+  // Mensagem de voz ou arquivo de áudio: baixado só quando a fila do chat chegar nele.
+  bot.on(["message:voice", "message:audio"], (ctx) => {
+    if (ctx.chat.type !== "private") return;
+    const midia = ctx.message.voice ?? ctx.message.audio!;
+    manipulador?.({
+      canal: "telegram",
+      chatId: String(ctx.chat.id),
+      clienteNome: [ctx.from.first_name, ctx.from.last_name].filter(Boolean).join(" ") || null,
+      telefone: null,
+      audio: {
+        duracaoSegundos: midia.duration || null,
+        baixar: async () => {
+          const arquivo = await bot.api.getFile(midia.file_id);
+          if (!arquivo.file_path) throw new Error("Telegram não devolveu o caminho do áudio");
+          const resposta = await fetch(`https://api.telegram.org/file/bot${opcoes.token}/${arquivo.file_path}`, { signal: AbortSignal.timeout(60_000) });
+          if (!resposta.ok) throw new Error(`Download do áudio: HTTP ${resposta.status}`);
+          return { conteudo: Buffer.from(await resposta.arrayBuffer()), mime: midia.mime_type || "audio/ogg" };
+        },
+      },
+    });
+  });
+
   bot.on("message", async (ctx) => {
     if (ctx.chat.type !== "private") return;
-    await ctx.reply("Por enquanto eu só entendo mensagens de texto 🙂 Pode escrever o que deseja?");
+    await ctx.reply("Por enquanto eu só entendo mensagens de texto e áudio 🙂 Pode escrever o que deseja?");
   });
 
   bot.catch((erro) => logger.error({ err: erro.error }, "Erro não tratado no Telegram"));

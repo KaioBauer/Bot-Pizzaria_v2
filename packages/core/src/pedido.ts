@@ -4,7 +4,7 @@ import {
   ROTULO_PAGAMENTO,
   type Canal,
   type EnderecoCliente,
-  type FinalizarPedidoArgs,
+  type PedidoConfirmadoArgs,
   type NovoPedido,
 } from "@pizzaria/shared";
 import type { Cotacao } from "./precificacao";
@@ -24,7 +24,7 @@ export type ResultadoMontagem = { ok: true; pedido: NovoPedido } | { ok: false; 
 export function montarNovoPedido(params: {
   canal: Canal;
   chatId: string;
-  args: FinalizarPedidoArgs;
+  args: PedidoConfirmadoArgs;
   cotacao: Cotacao;
 }): ResultadoMontagem {
   const { args, cotacao } = params;

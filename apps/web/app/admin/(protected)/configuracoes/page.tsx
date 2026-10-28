@@ -3,6 +3,7 @@ import { listarEntregadores, listarTamanhos, obterConfiguracaoAdmin } from "@piz
 import { CabecalhoPagina } from "../../../../components/ui";
 import { exigirAdmin } from "../../../../lib/auth";
 import { SecaoEntregadores } from "./entregadores";
+import { SecaoWhatsapp } from "./whatsapp";
 import { FormBairros, FormHorarios, FormLoja, FormTamanhos } from "./formularios";
 
 export const metadata: Metadata = { title: "Configurações" };
@@ -20,7 +21,8 @@ export default async function ConfiguracoesPage() {
 
   return (
     <main className="mx-auto max-w-6xl space-y-10 p-4 sm:p-8">
-      <CabecalhoPagina titulo="Configurações" descricao="Como a pizzaria funciona: dados, horários, tamanhos, entrega e motoboys." />
+      <CabecalhoPagina titulo="Configurações" descricao="Como a pizzaria funciona: WhatsApp, dados, horários, tamanhos, entrega e motoboys." />
+      <SecaoWhatsapp />
       <FormLoja inicial={config} />
       <FormHorarios inicial={horarios} />
       <FormTamanhos inicial={tamanhos} />

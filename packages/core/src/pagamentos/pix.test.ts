@@ -2,7 +2,7 @@ import { createSign, generateKeyPairSync } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { criarAgente } from "../agente/agente";
 import { configDeTeste, ID, sabor, variacoesDeTeste } from "../testes/fixtures";
-import { chamar, gatewayPixFalso, llmRoteirizado, repositoriosEmMemoria, texto } from "../testes/memoria";
+import { chamar, gatewayPixFalso, llmRoteirizado, repositoriosEmMemoria, semearResumo, texto } from "../testes/memoria";
 import { criarGatewayOpenPix, validarAssinaturaOpenPix } from "./openpix";
 import { criarServicoPix, MOTIVO_PIX_EXPIRADO, MOTIVO_PIX_RECUSADO } from "./pix";
 
@@ -27,6 +27,7 @@ function montar(roteiro: Parameters<typeof llmRoteirizado>[0], agoraRef = { valo
 
 async function pedidoPixPendente() {
   const ctx = montar([chamar(["finalizar_pedido", argsPix])]);
+  await semearResumo(ctx.repos, { canal: "telegram", chatId: "1" }, argsPix);
   const r = await ctx.agente.processarMensagem({ canal: "telegram", chatId: "1", texto: "sim" });
   return { ...ctx, resposta: r, provedorId: ctx.pagamentos[0]!.provedorId };
 }
@@ -57,6 +58,7 @@ describe("Pix no agente", () => {
   it("se o gateway falhar, descarta o pedido e devolve o erro ao modelo", async () => {
     const ctx = montar([chamar(["finalizar_pedido", argsPix]), texto("O Pix falhou, quer pagar no cartão?")]);
     ctx.falharAoCriar(true);
+    await semearResumo(ctx.repos, { canal: "telegram", chatId: "1" }, argsPix);
     const r = await ctx.agente.processarMensagem({ canal: "telegram", chatId: "1", texto: "sim" });
     expect(ctx.pedidos).toHaveLength(0);
     expect(r.pedido).toBeUndefined();

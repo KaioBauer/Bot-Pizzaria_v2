@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { configDeTeste, ID, sabor, variacoesDeTeste } from "../testes/fixtures";
-import { chamar, llmRoteirizado, repositoriosEmMemoria, texto } from "../testes/memoria";
+import { chamar, llmRoteirizado, repositoriosEmMemoria, semearResumo, texto } from "../testes/memoria";
 import { criarAgente } from "./agente";
 import { mensagemBoasVindas, reconhecerComando } from "./comandos";
 
@@ -61,10 +61,10 @@ describe("/reiniciar no agente", () => {
 
   it("não afeta pedido já feito", async () => {
     const memoria = repositoriosEmMemoria({ variacoes: variacoesDeTeste(), config: configDeTeste() });
-    const { llm } = llmRoteirizado([
-      chamar(["finalizar_pedido", { itens: [{ sabores: [sabor(ID.calabresa, ID.calabresaGrande)], quantidade: 1 }], tipo_entrega: "retirada", forma_pagamento: "cartao", cliente_nome: "Maria", cliente_telefone: "11987654321" }]),
-    ]);
+    const args = { itens: [{ sabores: [sabor(ID.calabresa, ID.calabresaGrande)], quantidade: 1 }], tipo_entrega: "retirada", forma_pagamento: "cartao", cliente_nome: "Maria", cliente_telefone: "11987654321" };
+    const { llm } = llmRoteirizado([chamar(["finalizar_pedido", args])]);
     const agente = criarAgente({ repos: memoria.repos, llm, agora: () => ABERTO });
+    await semearResumo(memoria.repos, { canal: "telegram", chatId: "1" }, args);
     await agente.processarMensagem({ canal: "telegram", chatId: "1", texto: "pode fechar" });
     await agente.processarMensagem({ canal: "telegram", chatId: "1", texto: "/reiniciar" });
     expect(memoria.pedidos).toHaveLength(1);

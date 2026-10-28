@@ -78,10 +78,13 @@ A assinatura `x-webhook-signature` (RSA-SHA256) é validada com as chaves públi
 ## 6. WhatsApp (Evolution API)
 
 1. `docker compose --profile whatsapp up -d`
-2. Túnel para o gerenciador (não exposto na internet): `ssh -L 8080:127.0.0.1:8080 usuario@vps`
-3. Abra http://localhost:8080/manager, entre com o `EVOLUTION_API_KEY`, crie a instância **`vianna`** (o mesmo `EVOLUTION_INSTANCIA`) e leia o QR Code com o celular do número da pizzaria.
-4. O webhook já vem configurado para o bot pela rede interna do Docker. Mande um "oi" para o número.
-5. No painel → Configurações, preencha o **WhatsApp do bot** para o botão do cardápio público.
+2. No painel → **Configurações → WhatsApp**, toque em **Conectar WhatsApp** e leia o QR Code com o celular do número da pizzaria (WhatsApp → Aparelhos conectados). Se o painel estiver aberto no próprio celular, use **Conectar com código**. O bot cria a instância `EVOLUTION_INSTANCIA` sozinho; o painel mostra o status e verifica a conexão periodicamente (e permite desconectar/trocar o número).
+3. O webhook já vem configurado para o bot pela rede interna do Docker. Mande um "oi" (ou um áudio) para o número.
+4. Ainda em Configurações, preencha o **WhatsApp do bot** para o botão do cardápio público.
+
+O painel fala com o bot por `BOT_URL` (no compose: `http://bot:3001`); o bot confere o token do admin logado e só ele conhece a chave da Evolution. O gerenciador da Evolution (`/manager`, só por túnel SSH: `ssh -L 8080:127.0.0.1:8080 usuario@vps`) fica para diagnóstico.
+
+**Pedido por áudio:** mensagens de voz (WhatsApp e Telegram) são transcritas com a mesma chave da OpenAI (`TRANSCRICAO_AUDIO`, `OPENAI_TRANSCRICAO_MODELO=whisper-1`, limite `AUDIO_DURACAO_MAXIMA_SEGUNDOS`).
 
 > Use um número dedicado à pizzaria. A Evolution usa o WhatsApp Web (Baileys), não a API oficial da Meta.
 

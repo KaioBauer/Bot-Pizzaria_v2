@@ -7,7 +7,17 @@ export interface OpcoesEnvio {
   botao?: { texto: string; url: string };
 }
 
-export type ManipuladorMensagem = (mensagem: MensagemEntrada) => void;
+/** Mensagem de voz/áudio: baixada e transcrita só na hora de processar (na ordem do chat). */
+export interface AudioRecebido {
+  duracaoSegundos: number | null;
+  baixar(): Promise<{ conteudo: Buffer; mime: string }>;
+}
+
+/** O que o canal entrega: texto, ou áudio ainda não transcrito. */
+export type MensagemCanal = Omit<MensagemEntrada, "texto"> &
+  ({ texto: string; audio?: undefined } | { texto?: undefined; audio: AudioRecebido });
+
+export type ManipuladorMensagem = (mensagem: MensagemCanal) => void;
 
 export interface Imagem {
   conteudo: Buffer;

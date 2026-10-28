@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { MensagemConversa } from "@pizzaria/shared";
 import { configDeTeste, ID, sabor, variacoesDeTeste } from "../testes/fixtures";
-import { chamar, llmRoteirizado, repositoriosEmMemoria, texto } from "../testes/memoria";
+import { chamar, llmRoteirizado, repositoriosEmMemoria, semearResumo, texto } from "../testes/memoria";
 import { afirmaPedidoFeito, criarAgente, MENSAGEM_ERRO, recortarHistorico } from "./agente";
 
 // Sexta 2026-10-02, 20:00 em São Paulo: dentro do horário de teste (18:00–23:30).
@@ -52,7 +52,8 @@ describe("agente", () => {
   });
 
   it("finaliza com preços do servidor, ignorando valores do modelo", async () => {
-    const { agente, pedidos, conversas } = montar([chamar(["finalizar_pedido", argsFinalizar])]);
+    const { agente, pedidos, conversas, repos } = montar([chamar(["finalizar_pedido", argsFinalizar])]);
+    await semearResumo(repos, entrada(""), argsFinalizar);
     const r = await agente.processarMensagem(entrada("pode fechar"));
 
     expect(pedidos).toHaveLength(1);
@@ -79,17 +80,19 @@ describe("agente", () => {
   });
 
   it("depois de finalizar, a próxima mensagem começa conversa nova", async () => {
-    const { agente, requisicoes } = montar([chamar(["finalizar_pedido", argsFinalizar]), texto("Oi de novo!")]);
+    const { agente, requisicoes, repos } = montar([chamar(["finalizar_pedido", argsFinalizar]), texto("Oi de novo!")]);
+    await semearResumo(repos, entrada(""), argsFinalizar);
     await agente.processarMensagem(entrada("pode fechar"));
     await agente.processarMensagem(entrada("oi"));
     expect(requisicoes[1]?.mensagens).toEqual([{ papel: "user", conteudo: "oi" }]);
   });
 
   it("devolve erros de validação ao modelo para corrigir com o cliente", async () => {
-    const { agente, pedidos, requisicoes } = montar([
+    const { agente, pedidos, requisicoes, repos } = montar([
       chamar(["finalizar_pedido", { ...argsFinalizar, endereco: null }]),
       texto("Preciso do seu endereço completo."),
     ]);
+    await semearResumo(repos, entrada(""), argsFinalizar);
     const r = await agente.processarMensagem(entrada("pode fechar"));
     expect(pedidos).toHaveLength(0);
     expect(r.texto).toBe("Preciso do seu endereço completo.");
@@ -220,7 +223,8 @@ describe("confirmação falsa (modelo diz que confirmou sem finalizar_pedido)", 
   });
 
   it("pede correção ao modelo, que então finaliza de verdade", async () => {
-    const { agente, pedidos, requisicoes } = montar([texto("Perfeito. Seu pedido foi confirmado ✅"), chamar(["finalizar_pedido", argsFinalizar])]);
+    const { agente, pedidos, requisicoes, repos } = montar([texto("Perfeito. Seu pedido foi confirmado ✅"), chamar(["finalizar_pedido", argsFinalizar])]);
+    await semearResumo(repos, entrada(""), argsFinalizar);
     const r = await agente.processarMensagem(entrada("👍🏻"));
     expect(pedidos).toHaveLength(1);
     expect(r.texto).toContain("Pedido *#1* confirmado");

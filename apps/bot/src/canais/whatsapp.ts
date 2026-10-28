@@ -3,6 +3,9 @@ import { timingSafeEqual } from "node:crypto";
 import type { Logger } from "pino";
 import { dividirTexto, type ChannelAdapter, type ManipuladorMensagem } from "./tipos";
 
+/** Resposta quando chega mídia que o bot não entende (imagem sem legenda, figurinha...). */
+export const MENSAGEM_SO_TEXTO = "Por enquanto eu só entendo mensagens de texto e áudio 🙂 Pode escrever o que deseja?";
+
 /**
  * Adaptador WhatsApp via Evolution API (v2): recebe pelo webhook
  * `messages.upsert` e envia pela API REST da instância.
@@ -14,6 +17,7 @@ const IDADE_MAXIMA_MS = 3 * 60_000;
 
 export type ResultadoExtracao =
   | { tipo: "mensagem"; id: string; chatId: string; telefone: string | null; nome: string | null; texto: string }
+  | { tipo: "audio"; id: string; chatId: string; telefone: string | null; nome: string | null; duracaoSegundos: number | null; mime: string }
   | { tipo: "sem_texto"; chatId: string }
   | { tipo: "ignorar"; motivo: string };
 
@@ -33,6 +37,9 @@ interface DadosMensagem {
     videoMessage?: { caption?: string };
     buttonsResponseMessage?: { selectedDisplayText?: string };
     listResponseMessage?: { title?: string };
+    audioMessage?: { mimetype?: string; seconds?: number; ptt?: boolean };
+    /** Mídia em base64 quando o webhook da Evolution está com "base64" ligado. */
+    base64?: string;
   } | null;
 }
 
@@ -58,6 +65,19 @@ export function extrairMensagem(dados: DadosMensagem, agora = Date.now()): Resul
   const chatId = telefone ?? jid;
 
   const m = dados.message ?? {};
+  const nome = dados.pushName?.trim() || null;
+  if (m.audioMessage) {
+    const segundos = Number(m.audioMessage.seconds);
+    return {
+      tipo: "audio",
+      id: chave.id,
+      chatId,
+      telefone,
+      nome,
+      duracaoSegundos: Number.isFinite(segundos) && segundos > 0 ? segundos : null,
+      mime: m.audioMessage.mimetype || "audio/ogg",
+    };
+  }
   const texto =
     m.conversation ??
     m.extendedTextMessage?.text ??
@@ -67,7 +87,7 @@ export function extrairMensagem(dados: DadosMensagem, agora = Date.now()): Resul
     m.videoMessage?.caption;
   if (!texto?.trim()) return { tipo: "sem_texto", chatId };
 
-  return { tipo: "mensagem", id: chave.id, chatId, telefone, nome: dados.pushName?.trim() || null, texto };
+  return { tipo: "mensagem", id: chave.id, chatId, telefone, nome, texto };
 }
 
 export function eventoDeMensagem(corpo: EventoEvolution): DadosMensagem[] {
@@ -107,16 +127,30 @@ export function criarAdaptadorWhatsapp(opcoes: OpcoesWhatsapp): ChannelAdapter {
     return true;
   }
 
-  async function chamar(caminho: string, corpo: unknown) {
+  async function chamar(caminho: string, corpo: unknown, tempoMs = 20_000): Promise<unknown> {
     const resposta = await http(`${base}${caminho}`, {
       method: "POST",
       headers: { apikey: opcoes.apiKey, "Content-Type": "application/json" },
       body: JSON.stringify(corpo),
-      signal: AbortSignal.timeout(20_000),
+      signal: AbortSignal.timeout(tempoMs),
     });
     if (!resposta.ok) {
       throw new Error(`Evolution ${caminho}: HTTP ${resposta.status} ${(await resposta.text()).slice(0, 300)}`);
     }
+    return resposta.json().catch(() => null);
+  }
+
+  /** Áudio recebido: usa o base64 do webhook se veio; senão pede à Evolution. */
+  async function baixarAudio(dados: DadosMensagem, mime: string): Promise<{ conteudo: Buffer; mime: string }> {
+    const embutido = dados.message?.base64;
+    if (embutido) return { conteudo: Buffer.from(embutido, "base64"), mime };
+    const r = (await chamar(
+      `/chat/getBase64FromMediaMessage/${instancia}`,
+      { message: { key: dados.key, message: dados.message }, convertToMp4: false },
+      60_000
+    )) as { base64?: string; mimetype?: string } | null;
+    if (!r?.base64) throw new Error("Evolution não devolveu o áudio");
+    return { conteudo: Buffer.from(r.base64, "base64"), mime: r.mimetype || mime };
   }
 
   const adaptador: ChannelAdapter = {
@@ -161,9 +195,17 @@ export function criarAdaptadorWhatsapp(opcoes: OpcoesWhatsapp): ChannelAdapter {
           if (r.tipo === "ignorar") {
             logger.debug({ motivo: r.motivo }, "Mensagem do WhatsApp ignorada");
           } else if (r.tipo === "sem_texto") {
-            void adaptador
-              .sendMessage(r.chatId, "Por enquanto eu só entendo mensagens de texto 🙂 Pode escrever o que deseja?")
-              .catch((err: unknown) => logger.error({ err }, "Falha ao responder mídia"));
+            void adaptador.sendMessage(r.chatId, MENSAGEM_SO_TEXTO).catch((err: unknown) => logger.error({ err }, "Falha ao responder mídia"));
+          } else if (r.tipo === "audio") {
+            if (lembrar(r.id)) {
+              manipulador?.({
+                canal: "whatsapp",
+                chatId: r.chatId,
+                clienteNome: r.nome,
+                telefone: r.telefone,
+                audio: { duracaoSegundos: r.duracaoSegundos, baixar: () => baixarAudio(dados, r.mime) },
+              });
+            }
           } else if (lembrar(r.id)) {
             manipulador?.({ canal: "whatsapp", chatId: r.chatId, clienteNome: r.nome, telefone: r.telefone, texto: r.texto });
           }
