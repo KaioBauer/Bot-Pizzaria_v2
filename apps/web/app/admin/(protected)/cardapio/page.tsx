@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ChevronRight, ExternalLink, EyeOff, Pizza, Plus } from "lucide-react";
+import { ChevronRight, ExternalLink, EyeOff, Layers, Pizza, Plus } from "lucide-react";
 import {
   listarCardapioAdmin,
   listarTamanhos,
@@ -84,6 +84,9 @@ export default async function CardapioAdminPage({
           <>
             <BotaoLink href="/cardapio" target="_blank" variante="secundario">
               <ExternalLink className="size-4" /> Ver cardápio público
+            </BotaoLink>
+            <BotaoLink href="/admin/cardapio/ingredientes" variante="secundario">
+              <Layers className="size-4" /> Ingredientes e camadas
             </BotaoLink>
             <BotaoLink href="/admin/cardapio/produto/novo">
               <Plus className="size-4" /> Novo produto
@@ -265,6 +268,11 @@ export default async function CardapioAdminPage({
                           )}
                         >
                           {produto.nome}
+                          {produto.montagemLivre && (
+                            <Selo tom="violeta" className="ml-2 align-middle">
+                              Pedido pelo link
+                            </Selo>
+                          )}
                         </p>
                         <p className="truncate text-sm text-stone-500">
                           {tabelado

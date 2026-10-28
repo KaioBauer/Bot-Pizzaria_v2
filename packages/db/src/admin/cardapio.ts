@@ -18,6 +18,10 @@ export interface ProdutoAdmin {
   nome: string;
   descricao: string | null;
   imagemUrl: string | null;
+  /** Camada do sabor na montagem visual (vista de cima, fundo transparente). */
+  imagemCamadaUrl: string | null;
+  /** Produto de sistema "Monte a sua": não pode ser excluído pelo painel. */
+  montagemLivre: boolean;
   ativo: boolean;
   ordem: number;
   variacoes: VariacaoAdmin[];
@@ -43,7 +47,7 @@ export async function listarCardapioAdmin(db: Db): Promise<CategoriaAdmin[]> {
     await db
       .from("categorias")
       .select(
-        "id, nome, ordem, ativo, produtos(id, categoria_id, nome, descricao, imagem_url, ativo, ordem, variacoes_produto(id, nome, tipo, preco, ativo, ordem))"
+        "id, nome, ordem, ativo, produtos(id, categoria_id, nome, descricao, imagem_url, imagem_camada_url, montagem_livre, ativo, ordem, variacoes_produto(id, nome, tipo, preco, ativo, ordem))"
       )
       .order("ordem"),
     "Erro ao carregar cardápio"
@@ -60,6 +64,8 @@ export async function listarCardapioAdmin(db: Db): Promise<CategoriaAdmin[]> {
         nome: p.nome,
         descricao: p.descricao,
         imagemUrl: p.imagem_url,
+        imagemCamadaUrl: p.imagem_camada_url,
+        montagemLivre: p.montagem_livre,
         ativo: p.ativo,
         ordem: p.ordem,
         variacoes: p.variacoes_produto
@@ -180,6 +186,11 @@ export async function salvarProduto(db: Db, dados: DadosProduto): Promise<{ id: 
 
 /** Exclui o produto; se já foi vendido, só desativa (preserva o histórico). */
 export async function excluirProduto(db: Db, id: string): Promise<"excluido" | "desativado"> {
+  const { data: sistema, error: erroLeitura } = await db.from("produtos").select("montagem_livre").eq("id", id).maybeSingle();
+  if (erroLeitura) throw new ErroBanco(`Erro ao carregar produto: ${erroLeitura.message}`, erroLeitura.code);
+  if (sistema?.montagem_livre) {
+    throw new ErroBanco("O \"Monte a sua\" é usado pelo pedido por link e não pode ser excluído. Desative-o se não quiser oferecê-lo.");
+  }
   const { error } = await db.from("produtos").delete().eq("id", id);
   if (!error) return "excluido";
   if (error.code === VIOLACAO_FK) {
@@ -195,6 +206,13 @@ export async function alternarAtivoProduto(db: Db, id: string, ativo: boolean): 
 
 export async function definirImagemProduto(db: Db, id: string, imagemUrl: string | null): Promise<void> {
   exigir(await db.from("produtos").update({ imagem_url: imagemUrl }).eq("id", id).select("id"), "Erro ao salvar foto");
+}
+
+export async function definirImagemCamadaProduto(db: Db, id: string, imagemCamadaUrl: string | null): Promise<void> {
+  exigir(
+    await db.from("produtos").update({ imagem_camada_url: imagemCamadaUrl }).eq("id", id).select("id"),
+    "Erro ao salvar camada"
+  );
 }
 
 /**

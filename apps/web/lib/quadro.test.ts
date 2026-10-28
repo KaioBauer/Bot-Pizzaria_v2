@@ -1,8 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { STATUS_PEDIDO } from "@pizzaria/shared";
-import { acaoPrincipal, colunaDoStatus, impressaoPendente, minutosDesde, nivelAtraso } from "./quadro";
+import { acaoPrincipal, colunaDoStatus, impressaoPendente, minutosDesde, nivelAtraso, rotuloCanal } from "./quadro";
 
 describe("quadro de pedidos", () => {
+  it("rótulo do canal de origem, inclusive o pedido pelo link", () => {
+    expect(rotuloCanal("whatsapp")).toBe("WhatsApp");
+    expect(rotuloCanal("telegram")).toBe("Telegram");
+    expect(rotuloCanal("link")).toBe("Link");
+    expect(rotuloCanal("outro")).toBe("outro");
+  });
+
   it("todo status tem coluna", () => {
     for (const s of STATUS_PEDIDO) expect(colunaDoStatus(s)).toBeTruthy();
     expect(colunaDoStatus("saiu_para_entrega")).toBe("saida");

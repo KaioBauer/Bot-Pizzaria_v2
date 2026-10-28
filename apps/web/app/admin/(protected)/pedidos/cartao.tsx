@@ -1,10 +1,10 @@
 "use client";
 
-import { ArrowRight, Banknote, Bike, Clock, CreditCard, Printer, QrCode, Store } from "lucide-react";
+import { ArrowRight, Banknote, Bike, Clock, CreditCard, Link2, Printer, QrCode, Store } from "lucide-react";
 import type { PedidoPainel } from "@pizzaria/db";
 import { formatarReais, ROTULO_STATUS, type StatusPedido } from "@pizzaria/shared";
 import { cn, Selo } from "../../../../components/ui";
-import { acaoPrincipal, impressaoPendente, minutosDesde, nivelAtraso } from "../../../../lib/quadro";
+import { acaoPrincipal, impressaoPendente, minutosDesde, nivelAtraso, rotuloCanal } from "../../../../lib/quadro";
 
 const ESTILO_ATRASO = {
   ok: "bg-stone-100 text-stone-600",
@@ -51,6 +51,11 @@ export function CartaoPedido(props: {
       >
         <span className="font-display text-lg font-semibold tabular">#{pedido.numero}</span>
         <span className="min-w-0 flex-1 truncate text-sm text-stone-600">{pedido.clienteNome}</span>
+        {pedido.canal === "link" && (
+          <Selo tom="violeta" title="Pedido feito pelo link">
+            <Link2 className="size-3.5" /> {rotuloCanal(pedido.canal)}
+          </Selo>
+        )}
         <Selo tom={pedido.status === "cancelado" ? "perigo" : "sucesso"}>{ROTULO_STATUS[pedido.status]}</Selo>
       </button>
     );
@@ -83,6 +88,11 @@ export function CartaoPedido(props: {
           <Selo>
             <pagamento.Icone className="size-3.5" /> {pagamento.rotulo}
           </Selo>
+          {pedido.canal === "link" && (
+            <Selo tom="violeta" title="Pedido feito pelo link (sem conversa com o bot)">
+              <Link2 className="size-3.5" /> {rotuloCanal(pedido.canal)}
+            </Selo>
+          )}
           {pedido.status === "saiu_para_entrega" && <Selo tom="sucesso">A caminho</Selo>}
           {pedido.status === "pronto_para_retirada" && <Selo tom="sucesso">Pronto</Selo>}
           {semImpressao && (

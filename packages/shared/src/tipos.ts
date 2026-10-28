@@ -5,7 +5,10 @@ import type { StatusPedido } from "./status";
  * (sufixo `Centavos`). IDs são UUID.
  */
 
+/** Canais de conversa (bot). */
 export type Canal = "telegram" | "whatsapp";
+/** Origem do pedido: um canal de conversa ou o link de pedido direto (/pedir). */
+export type CanalPedido = Canal | "link";
 export type TipoVariacao = "tamanho" | "borda" | "adicional" | "padrao";
 export type TipoEntrega = "entrega" | "retirada";
 export type FormaPagamento = "pix" | "dinheiro" | "cartao";
@@ -50,6 +53,20 @@ export interface VariacaoParaPreco {
   produtoId: string;
   produtoNome: string;
   produtoAtivo: boolean;
+  /** Sabor "Monte a sua": só vale com ingredientes. */
+  montagemLivre?: boolean;
+}
+
+/**
+ * Ingrediente do catálogo único: adicional da pizza inteira ou base da
+ * montagem livre. Preço por tamanho (nome do tamanho em tamanhos_pizza);
+ * sem preço num tamanho = não oferecido nele.
+ */
+export interface IngredienteParaPreco {
+  id: string;
+  nome: string;
+  ativo: boolean;
+  precosCentavos: Record<string, number>;
 }
 
 // Loja -------------------------------------------------------------------------
@@ -88,6 +105,10 @@ export interface ConfiguracaoLoja {
   pedidoMinimoCentavos: number;
   aceitandoPedidos: boolean;
   pixExpiracaoMinutos: number;
+  /** Pedido direto pelo link /pedir. */
+  pedidoLinkAtivo: boolean;
+  /** Máximo de ingredientes numa pizza (adicionais + montagem livre). */
+  maxIngredientes: number;
   horarios: TurnoFuncionamento[];
   bairros: BairroEntrega[];
   tamanhos: TamanhoPizza[];
@@ -110,14 +131,23 @@ export interface ClienteConhecido {
   ultimoEndereco: EnderecoCliente | null;
 }
 
-export interface ComponenteItem {
-  tipo: "sabor" | "adicional";
-  produtoId: string;
-  variacaoId: string;
-  produtoNome: string;
-  variacaoNome: string;
-  precoCentavos: number;
-}
+export type ComponenteItem =
+  | {
+      tipo: "sabor" | "adicional";
+      produtoId: string;
+      variacaoId: string;
+      produtoNome: string;
+      variacaoNome: string;
+      precoCentavos: number;
+    }
+  | {
+      tipo: "ingrediente";
+      ingredienteId: string;
+      /** Nome do ingrediente e do tamanho em que foi cobrado. */
+      produtoNome: string;
+      variacaoNome: string;
+      precoCentavos: number;
+    };
 
 export interface ItemPrecificado {
   quantidade: number;
@@ -130,7 +160,7 @@ export interface ItemPrecificado {
 }
 
 export interface NovoPedido {
-  canal: Canal;
+  canal: CanalPedido;
   chatId: string;
   clienteNome: string;
   clienteTelefone: string | null;
@@ -145,6 +175,8 @@ export interface NovoPedido {
   totalCentavos: number;
   observacoes: string | null;
   itens: ItemPrecificado[];
+  /** Repetir a mesma chave devolve o pedido já criado (duplo clique no link). */
+  chaveIdempotencia?: string;
 }
 
 export interface ResumoPedido {

@@ -14,6 +14,12 @@ export interface ConfiguracaoAdmin {
   pixExpiracaoMinutos: number;
 }
 
+/** Pedido direto por link (/pedir). */
+export interface ConfiguracaoPedidoLink {
+  pedidoLinkAtivo: boolean;
+  maxIngredientes: number;
+}
+
 export interface BairroAdmin {
   id?: string;
   nome: string;
@@ -41,6 +47,10 @@ export async function obterConfiguracaoAdmin(db: Db) {
       aceitandoPedidos: c.aceitando_pedidos,
       pixExpiracaoMinutos: c.pix_expiracao_minutos,
     } satisfies ConfiguracaoAdmin,
+    pedidoLink: {
+      pedidoLinkAtivo: c.pedido_link_ativo,
+      maxIngredientes: c.max_ingredientes,
+    } satisfies ConfiguracaoPedidoLink,
     horarios: exigir(horarios, "Erro ao carregar horários").map(
       (h): TurnoFuncionamento => ({ diaSemana: h.dia_semana, abre: h.abre.slice(0, 5), fecha: h.fecha.slice(0, 5) })
     ),
@@ -69,6 +79,17 @@ export async function salvarConfiguracao(db: Db, c: ConfiguracaoAdmin): Promise<
       .eq("id", true)
       .select("id"),
     "Erro ao salvar configurações"
+  );
+}
+
+export async function salvarConfiguracaoPedidoLink(db: Db, c: ConfiguracaoPedidoLink): Promise<void> {
+  exigir(
+    await db
+      .from("configuracoes")
+      .update({ pedido_link_ativo: c.pedidoLinkAtivo, max_ingredientes: c.maxIngredientes })
+      .eq("id", true)
+      .select("id"),
+    "Erro ao salvar pedido pelo link"
   );
 }
 

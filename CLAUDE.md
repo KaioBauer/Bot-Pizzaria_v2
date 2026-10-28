@@ -56,6 +56,25 @@ por injeção — por isso é testado com implementações em memória (`core/sr
   (`agente/carrinho-web.ts`): consome, reprecifica, responde o resumo e grava no histórico a
   mensagem do cliente com os itens em JSON (IDs) para o modelo seguir do passo 2. Loja fechada
   não consome o carrinho. Requer `configuracoes.telegram_usuario`.
+- **Pedido pelo link (`/pedir`):** cliente monta a pizza visualmente (`components/pizza-builder`:
+  camadas massa/molho/sabor por fatia/ingredientes/borda, Framer Motion `motion`, posições por semente)
+  e finaliza no navegador. Server action → bot `POST /pedido-link` (rede interna, nunca no Nginx;
+  honeypot `site`, limite por IP e por telefone em memória) → `finalizarPedidoLink` (core: mesmo
+  `cotarPedido`/`montarNovoPedido`) → `criar_pedido` com `chave_idempotencia` (repetir devolve o mesmo
+  pedido). Canal `link`, `chat_id` = telefone com DDI; avisos de status vão pelo WhatsApp com o link
+  `/pedir/acompanhar/<token_acompanhamento>` (página anônima via RPC `acompanhar_pedido`, consulta a
+  cada 5 s). Liga/desliga em `configuracoes.pedido_link_ativo`.
+- **Ingredientes:** catálogo único (`ingredientes` + `ingrediente_precos` por tamanho), cobrados uma
+  vez para a pizza inteira; componente tipo `ingrediente`. "Monte a sua" = produto com
+  `montagem_livre` (preço base de cada tamanho, exige ingrediente, sabor único), fora do cardápio do
+  bot e do `/cardapio`. Só o `/pedir` usa ingredientes (o schema das tools não tem o campo).
+  Imagens de camada: `produtos.imagem_camada_url`, `ingredientes.imagem_camada_url`, `camadas_borda`
+  (bucket `camadas`, PNG/WebP ≤ 1 MB).
+- **Camadas ilustradas:** `apps/web/public/pedir/camadas/*.webp` (massa, molho, queijo, ~40 ingredientes)
+  geradas por `node apps/web/scripts/camadas/gerar.mjs` (SVG com textura -> WebP via sharp do Next;
+  determinístico). `components/pizza-builder/biblioteca.ts` liga termos da descrição do sabor a camadas
+  ("Mussarela, bacon e milho" -> queijo + pedaços) e dá quantidade/tamanho dos pedaços; imagem enviada
+  pelo painel tem prioridade. `ingredientes.camada_tipo`: `cobertura` (cobre a pizza) ou `pedacos`.
 - **Atendimento humano:** `atendimentos` (por canal+chat, sobrevive à expiração da conversa)
   guarda `ia_pausada` e o aviso `precisa_atencao`. A IA chama `chamar_atendente` (cliente pede
   pessoa, reclamação, não sabe resolver); com a IA pausada o agente só grava a mensagem e liga o

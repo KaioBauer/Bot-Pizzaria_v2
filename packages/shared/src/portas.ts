@@ -3,6 +3,7 @@ import type {
   CategoriaCardapio,
   ClienteConhecido,
   ConfiguracaoLoja,
+  IngredienteParaPreco,
   NovoPedido,
   PagamentoRegistro,
   ResumoPedido,
@@ -35,6 +36,7 @@ export interface ChamadaTool {
 export interface CardapioRepo {
   ativo(): Promise<CategoriaCardapio[]>;
   variacoesPorIds(ids: string[]): Promise<VariacaoParaPreco[]>;
+  ingredientesPorIds(ids: string[]): Promise<IngredienteParaPreco[]>;
 }
 
 export interface LojaRepo {
@@ -45,8 +47,17 @@ export interface ClientesRepo {
   buscar(canal: Canal, chatId: string): Promise<ClienteConhecido | null>;
 }
 
+export interface PedidoCriado {
+  id: string;
+  numero: number;
+  /** Link único de acompanhamento (/pedir/acompanhar/<token>). */
+  token: string;
+  existente: boolean;
+}
+
 export interface PedidosRepo {
-  criar(pedido: NovoPedido): Promise<{ id: string; numero: number }>;
+  /** `existente`: a chave de idempotência já tinha gerado este pedido. */
+  criar(pedido: NovoPedido): Promise<PedidoCriado>;
   recentesDoChat(canal: Canal, chatId: string, desde: Date): Promise<ResumoPedido[]>;
   /** aguardando_pagamento -> novo. false se o pedido não estava aguardando. */
   confirmarPagamento(pedidoId: string): Promise<boolean>;

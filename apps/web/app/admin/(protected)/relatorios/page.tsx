@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Ban, ChartColumn, Receipt, ShoppingBag, TrendingUp } from "lucide-react";
 import { relatorioPeriodo } from "@pizzaria/db";
-import { formatarReais } from "@pizzaria/shared";
+import { formatarReais, type CanalPedido } from "@pizzaria/shared";
 import { CabecalhoCartao, CabecalhoPagina, Cartao, cn, Vazio } from "../../../../components/ui";
 import { exigirAdmin } from "../../../../lib/auth";
 
@@ -12,6 +12,32 @@ export const dynamic = "force-dynamic";
 const FUSO = "America/Sao_Paulo";
 const PERIODOS = { hoje: "Hoje", "7d": "7 dias", "30d": "30 dias", mes: "Este mês" } as const;
 type Periodo = keyof typeof PERIODOS;
+const CANAIS = { todos: "Todos", telegram: "Telegram", whatsapp: "WhatsApp", link: "Link" } as const satisfies Record<"todos" | CanalPedido, string>;
+type FiltroCanal = keyof typeof CANAIS;
+
+/** Monta a URL mantendo o outro filtro (período ou canal). */
+function urlRelatorio(periodo: Periodo, canal: FiltroCanal): string {
+  const busca = new URLSearchParams({ periodo });
+  if (canal !== "todos") busca.set("canal", canal);
+  return `/admin/relatorios?${busca}`;
+}
+
+function Filtro<T extends string>({ rotulo, opcoes, atual, href }: { rotulo: string; opcoes: Record<T, string>; atual: T; href: (id: T) => string }) {
+  return (
+    <nav className="flex rounded-xl bg-white p-1 shadow-suave ring-1 ring-stone-900/5" aria-label={rotulo}>
+      {(Object.entries(opcoes) as Array<[T, string]>).map(([id, texto]) => (
+        <Link
+          key={id}
+          href={href(id)}
+          aria-current={id === atual ? "page" : undefined}
+          className={cn("rounded-lg px-3.5 py-1.5 text-sm font-semibold transition-colors", id === atual ? "bg-stone-900 text-white" : "text-stone-500 hover:text-stone-900")}
+        >
+          {texto}
+        </Link>
+      ))}
+    </nav>
+  );
+}
 
 function diaLocal(data: Date): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: FUSO, year: "numeric", month: "2-digit", day: "2-digit" }).format(data);
@@ -52,10 +78,11 @@ function Indicador({ titulo, valor, detalhe, Icone, destaque }: { titulo: string
 
 export default async function RelatoriosPage({ searchParams }: PageProps<"/admin/relatorios">) {
   const { supabase } = await exigirAdmin();
-  const { periodo: bruto } = await searchParams;
+  const { periodo: bruto, canal: canalBruto } = await searchParams;
   const periodo: Periodo = typeof bruto === "string" && bruto in PERIODOS ? (bruto as Periodo) : "7d";
+  const canal: FiltroCanal = typeof canalBruto === "string" && canalBruto in CANAIS ? (canalBruto as FiltroCanal) : "todos";
   const { de, ate } = intervalo(periodo);
-  const { dias, totais, produtos } = await relatorioPeriodo(supabase, de, ate);
+  const { dias, totais, produtos } = await relatorioPeriodo(supabase, de, ate, canal === "todos" ? undefined : canal);
 
   const porDia = new Map(dias.map((d) => [d.dia, d]));
   const serie = diasDoIntervalo(de, ate).map((dia) => ({ dia, valor: porDia.get(dia)?.faturamentoCentavos ?? 0, pedidos: porDia.get(dia)?.pedidos ?? 0 }));
@@ -69,20 +96,12 @@ export default async function RelatoriosPage({ searchParams }: PageProps<"/admin
     <main className="mx-auto max-w-6xl space-y-6 p-4 sm:p-8">
       <CabecalhoPagina
         titulo="Relatórios"
-        descricao={`${rotuloDia(de)} a ${rotuloDia(ate)}`}
+        descricao={`${rotuloDia(de)} a ${rotuloDia(ate)}${canal === "todos" ? "" : ` · pedidos pelo ${CANAIS[canal]}`}`}
         acoes={
-          <nav className="flex rounded-xl bg-white p-1 shadow-suave ring-1 ring-stone-900/5" aria-label="Período">
-            {Object.entries(PERIODOS).map(([id, rotulo]) => (
-              <Link
-                key={id}
-                href={`/admin/relatorios?periodo=${id}`}
-                aria-current={id === periodo ? "page" : undefined}
-                className={cn("rounded-lg px-3.5 py-1.5 text-sm font-semibold transition-colors", id === periodo ? "bg-stone-900 text-white" : "text-stone-500 hover:text-stone-900")}
-              >
-                {rotulo}
-              </Link>
-            ))}
-          </nav>
+          <>
+            <Filtro rotulo="Canal" opcoes={CANAIS} atual={canal} href={(id) => urlRelatorio(periodo, id)} />
+            <Filtro rotulo="Período" opcoes={PERIODOS} atual={periodo} href={(id) => urlRelatorio(id, canal)} />
+          </>
         }
       />
 

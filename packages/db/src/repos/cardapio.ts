@@ -17,14 +17,15 @@ export function criarCardapioRepo(db: Db): CardapioRepo {
   return {
     /**
      * Cardápio vendável numa única consulta (embed). Produto sem nenhuma
-     * variação vendável (tamanho/padrão) ativa fica de fora.
+     * variação vendável (tamanho/padrão) ativa fica de fora, e o "Monte a sua"
+     * (montagem livre, só no pedido por link) também.
      */
     async ativo() {
       const categorias = exigir(
         await db
           .from("categorias")
           .select(
-            "id, nome, ordem, ativo, produtos(id, nome, descricao, imagem_url, ativo, ordem, variacoes_produto(id, nome, tipo, preco, ativo, ordem))"
+            "id, nome, ordem, ativo, produtos(id, nome, descricao, imagem_url, ativo, montagem_livre, ordem, variacoes_produto(id, nome, tipo, preco, ativo, ordem))"
           )
           .order("ordem"),
         "Erro ao carregar cardápio"
@@ -38,7 +39,7 @@ export function criarCardapioRepo(db: Db): CardapioRepo {
             nome: categoria.nome,
             ordem: categoria.ordem,
             produtos: categoria.produtos
-              .filter((produto) => produto.ativo)
+              .filter((produto) => produto.ativo && !produto.montagem_livre)
               .map((produto) => ({
                 ordem: produto.ordem,
                 id: produto.id,
@@ -75,7 +76,7 @@ export function criarCardapioRepo(db: Db): CardapioRepo {
       const variacoes = exigir(
         await db
           .from("variacoes_produto")
-          .select("id, nome, tipo, preco, ativo, produto:produtos(id, nome, ativo)")
+          .select("id, nome, tipo, preco, ativo, produto:produtos(id, nome, ativo, montagem_livre)")
           .in("id", ids),
         "Erro ao revalidar itens"
       );
@@ -88,6 +89,24 @@ export function criarCardapioRepo(db: Db): CardapioRepo {
         produtoId: v.produto.id,
         produtoNome: v.produto.nome,
         produtoAtivo: v.produto.ativo,
+        montagemLivre: v.produto.montagem_livre,
+      }));
+    },
+
+    async ingredientesPorIds(ids) {
+      if (ids.length === 0) return [];
+      const ingredientes = exigir(
+        await db
+          .from("ingredientes")
+          .select("id, nome, ativo, ingrediente_precos(preco, tamanho:tamanhos_pizza(nome))")
+          .in("id", ids),
+        "Erro ao revalidar ingredientes"
+      );
+      return ingredientes.map((i) => ({
+        id: i.id,
+        nome: i.nome,
+        ativo: i.ativo,
+        precosCentavos: Object.fromEntries(i.ingrediente_precos.map((p) => [p.tamanho.nome, paraCentavos(p.preco)])),
       }));
     },
   };

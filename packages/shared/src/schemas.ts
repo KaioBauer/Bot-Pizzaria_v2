@@ -92,7 +92,39 @@ export const finalizarPedidoArgsSchema = z
     }
   });
 
-export type ItemPedidoArgs = z.output<typeof itemPedidoSchema>;
+// Pedido direto pelo link (/pedir) ------------------------------------------------
+// Não passa pelo LLM: o navegador envia só IDs e quantidades, como as tools. O
+// campo `ingredientes` só existe aqui (o bot e o /cardapio não o oferecem).
+
+export const itemPedidoLinkSchema = itemPedidoSchema.extend({
+  ingredientes: z.array(id).max(20).default([]),
+});
+
+export const pedidoLinkSchema = z
+  .object({
+    itens: z.array(itemPedidoLinkSchema).min(1, "O carrinho está vazio").max(30),
+    tipo_entrega: z.enum(["entrega", "retirada"]),
+    endereco: enderecoSchema.nullish(),
+    forma_pagamento: z.enum(["pix", "dinheiro", "cartao"]),
+    troco_para: z.number().positive().max(10_000).nullish(),
+    cliente_nome: z.string().trim().min(2, "Informe seu nome").max(80),
+    cliente_telefone: telefoneSchema,
+    observacoes: textoOpcional(300),
+    /** Gerada no navegador a cada carrinho: reenviar devolve o mesmo pedido. */
+    chave_idempotencia: z.string().uuid(),
+  })
+  .superRefine((pedido, ctx) => {
+    if (pedido.tipo_entrega === "entrega" && !pedido.endereco) {
+      ctx.addIssue({ code: "custom", path: ["endereco"], message: "Informe o endereço de entrega" });
+    }
+    if (pedido.troco_para != null && pedido.forma_pagamento !== "dinheiro") {
+      ctx.addIssue({ code: "custom", path: ["troco_para"], message: "Troco só se aplica a pagamento em dinheiro" });
+    }
+  });
+
+export type ItemPedidoArgs = z.output<typeof itemPedidoSchema> & { ingredientes?: string[] };
+export type ItemPedidoLinkArgs = z.output<typeof itemPedidoLinkSchema>;
+export type PedidoLinkArgs = z.output<typeof pedidoLinkSchema>;
 export type EnderecoArgs = z.output<typeof enderecoSchema>;
 export type CalcularPedidoArgs = z.output<typeof calcularPedidoArgsSchema>;
 export type FinalizarPedidoArgs = z.output<typeof finalizarPedidoArgsSchema>;

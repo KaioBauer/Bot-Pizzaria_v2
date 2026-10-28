@@ -1,11 +1,11 @@
 "use client";
 
-import { Copy, Plus, Trash2 } from "lucide-react";
+import { Check, Copy, Download, ExternalLink, Plus, Trash2 } from "lucide-react";
 import { useState, useTransition } from "react";
-import type { BairroAdmin, ConfiguracaoAdmin, TamanhoAdmin } from "@pizzaria/db";
+import type { BairroAdmin, ConfiguracaoAdmin, ConfiguracaoPedidoLink, TamanhoAdmin } from "@pizzaria/db";
 import { centavosParaCampo, lerReais, type TurnoFuncionamento } from "@pizzaria/shared";
 import { Botao, Campo, Cartao, cn, estiloEntrada, Interruptor } from "../../../../components/ui";
-import { salvarBairrosAction, salvarConfiguracaoAction, salvarHorariosAction, salvarTamanhosAction, type Resultado } from "./actions";
+import { salvarBairrosAction, salvarConfiguracaoAction, salvarHorariosAction, salvarPedidoLinkAction, salvarTamanhosAction, type Resultado } from "./actions";
 
 const DIAS = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
 
@@ -100,6 +100,81 @@ export function FormLoja({ inicial }: { inicial: ConfiguracaoAdmin }) {
         <Campo rotulo="Prazo para pagar o Pix" dica="Minutos até a cobrança expirar e o pedido ser cancelado">
           <input type="number" min={5} max={1440} value={c.pixExpiracaoMinutos} onChange={(e) => setC({ ...c, pixExpiracaoMinutos: Number(e.target.value) })} className={cn(estiloEntrada, "tabular")} />
         </Campo>
+      </div>
+    </Secao>
+  );
+}
+
+export function FormPedidoLink({ inicial, link, qrDataUrl }: { inicial: ConfiguracaoPedidoLink; link: string; qrDataUrl: string }) {
+  const [ativo, setAtivo] = useState(inicial.pedidoLinkAtivo);
+  const [maximo, setMaximo] = useState(String(inicial.maxIngredientes));
+  const [copiado, setCopiado] = useState(false);
+  const { salvando, mensagem, setMensagem, salvar } = useSalvar();
+
+  async function copiar() {
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopiado(true);
+      setTimeout(() => setCopiado(false), 2000);
+    } catch {
+      setMensagem({ ok: false, texto: "Não deu para copiar. Selecione o link e copie manualmente." });
+    }
+  }
+
+  return (
+    <Secao
+      titulo="Pedido pelo link"
+      descricao="O cliente monta a pizza na tela e finaliza sem conversar com o bot. Divulgue o link ou o QR Code (Instagram, panfleto, mesa). Respeita o horário e a pausa de pedidos."
+      rodape={
+        <Rodape
+          salvando={salvando}
+          mensagem={mensagem}
+          rotulo="Salvar"
+          aoSalvar={() => {
+            const n = Number(maximo);
+            if (!Number.isInteger(n) || n < 1 || n > 20) return setMensagem({ ok: false, texto: "Máximo de ingredientes: de 1 a 20" });
+            salvar(() => salvarPedidoLinkAction({ pedidoLinkAtivo: ativo, maxIngredientes: n }));
+          }}
+        />
+      }
+    >
+      <div className="rounded-xl bg-stone-50 p-4 ring-1 ring-stone-200">
+        <Interruptor
+          checked={ativo}
+          onChange={(e) => setAtivo(e.target.checked)}
+          rotulo="Pedidos pelo link"
+          descricao="Desligado, a página mostra que os pedidos pelo link estão indisponíveis."
+        />
+      </div>
+      <Campo rotulo="Máximo de ingredientes por pizza" dica="Ingredientes extras que o cliente pode escolher em uma pizza (1 a 20)." className="sm:max-w-xs">
+        <input type="number" min={1} max={20} value={maximo} onChange={(e) => setMaximo(e.target.value)} className={cn(estiloEntrada, "tabular")} />
+      </Campo>
+      <div className="grid gap-5 sm:grid-cols-[1fr_11rem] sm:items-start">
+        <div className="space-y-2">
+          <span className="block text-sm font-medium text-stone-700">Link público</span>
+          <div className="flex gap-2">
+            <input readOnly value={link} onFocus={(e) => e.target.select()} className={cn(estiloEntrada, "min-w-0 flex-1 bg-stone-50 font-mono text-sm")} aria-label="Link do pedido" />
+            <Botao variante="secundario" onClick={copiar} aria-label="Copiar link">
+              {copiado ? <Check className="size-4 text-manjericao-600" /> : <Copy className="size-4" />}
+              <span className="hidden sm:inline">{copiado ? "Copiado" : "Copiar"}</span>
+            </Botao>
+          </div>
+          <a href={link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm font-medium text-marca-700 hover:underline">
+            <ExternalLink className="size-4" /> Abrir a página
+          </a>
+          {!ativo && <p className="text-sm text-amber-800">O link só recebe pedidos depois de ligar e salvar.</p>}
+        </div>
+        <div className="space-y-2 text-center">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={qrDataUrl} alt={`QR Code para ${link}`} className="mx-auto aspect-square w-44 rounded-xl ring-1 ring-stone-200" />
+          <a
+            href={qrDataUrl}
+            download="qr-pedido-pelo-link.png"
+            className="inline-flex items-center gap-1.5 text-sm font-semibold text-stone-700 hover:text-stone-900"
+          >
+            <Download className="size-4" /> Baixar PNG
+          </a>
+        </div>
       </div>
     </Secao>
   );

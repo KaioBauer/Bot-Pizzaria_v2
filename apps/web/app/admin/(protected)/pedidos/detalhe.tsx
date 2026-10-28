@@ -1,11 +1,11 @@
 "use client";
 
-import { ArrowRight, Ban, Banknote, Bike, CreditCard, MapPin, MessageCircle, Phone, Printer, QrCode, Store, X } from "lucide-react";
+import { ArrowRight, Ban, Banknote, Bike, CreditCard, Link2, MapPin, MessageCircle, Phone, Printer, QrCode, Store, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { entregaDoPedido, historicoStatusPedido, type EntregaDoPedido, type PedidoPainel } from "@pizzaria/db";
 import { formatarReais, formatarTelefone, ROTULO_PAGAMENTO, ROTULO_STATUS, statusFinal, type StatusPedido } from "@pizzaria/shared";
 import { Botao, cn, estiloEntrada, Selo } from "../../../../components/ui";
-import { acaoPrincipal } from "../../../../lib/quadro";
+import { acaoPrincipal, rotuloCanal } from "../../../../lib/quadro";
 import { clienteNavegador } from "../../../../lib/supabase/navegador";
 
 const MOTIVOS = ["Cliente desistiu", "Endereço fora da área de entrega", "Item em falta", "Pagamento não confirmado", "Pedido duplicado"];
@@ -68,9 +68,14 @@ export function DetalhePedido(props: {
               <Selo tom={pedido.status === "cancelado" ? "perigo" : statusFinal(pedido.status) ? "sucesso" : "marca"}>
                 {ROTULO_STATUS[pedido.status]}
               </Selo>
+              {pedido.canal === "link" && (
+                <Selo tom="violeta">
+                  <Link2 className="size-3.5" /> {rotuloCanal(pedido.canal)}
+                </Selo>
+              )}
             </div>
             <p className="mt-1 text-sm text-stone-500">
-              Feito às {hora(pedido.criadoEm)} pelo {pedido.canal === "whatsapp" ? "WhatsApp" : "Telegram"}
+              Feito às {hora(pedido.criadoEm)} {pedido.canal === "link" ? "pelo link (cliente montou na página)" : `pelo ${rotuloCanal(pedido.canal)}`}
             </p>
           </div>
           <button onClick={props.aoFechar} aria-label="Fechar" className="rounded-xl p-2 text-stone-500 hover:bg-stone-100">

@@ -2,7 +2,15 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { definirAceitandoPedidos, definirEntregadorAtivo, salvarBairros, salvarConfiguracao, salvarHorarios, salvarTamanhos } from "@pizzaria/db";
+import {
+  definirAceitandoPedidos,
+  definirEntregadorAtivo,
+  salvarBairros,
+  salvarConfiguracao,
+  salvarConfiguracaoPedidoLink,
+  salvarHorarios,
+  salvarTamanhos,
+} from "@pizzaria/db";
 import { exigirAdmin } from "../../../../lib/auth";
 
 export type Resultado = { ok: true } | { ok: false; erro: string };
@@ -38,6 +46,15 @@ const configSchema = z.object({
   pedidoMinimoCentavos: z.number().int().min(0).max(100_000),
   aceitandoPedidos: z.boolean(),
   pixExpiracaoMinutos: z.number().int().min(5, "Pix: mínimo 5 minutos").max(1440),
+});
+
+const pedidoLinkSchema = z.object({
+  pedidoLinkAtivo: z.boolean(),
+  maxIngredientes: z
+    .number({ message: "Informe o máximo de ingredientes" })
+    .int("Máximo de ingredientes: número inteiro")
+    .min(1, "Máximo de ingredientes: mínimo 1")
+    .max(20, "Máximo de ingredientes: até 20"),
 });
 
 const hora = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Horário inválido (use HH:MM)");
@@ -79,12 +96,18 @@ async function executar<T>(schema: z.ZodType<T>, entrada: unknown, salvar: (dado
   }
   revalidatePath("/admin", "layout");
   revalidatePath("/cardapio");
+  revalidatePath("/pedir");
   return { ok: true };
 }
 
 export async function salvarConfiguracaoAction(entrada: z.input<typeof configSchema>) {
   const { supabase } = await exigirAdmin();
   return executar(configSchema, entrada, (d) => salvarConfiguracao(supabase, d));
+}
+
+export async function salvarPedidoLinkAction(entrada: z.input<typeof pedidoLinkSchema>) {
+  const { supabase } = await exigirAdmin();
+  return executar(pedidoLinkSchema, entrada, (d) => salvarConfiguracaoPedidoLink(supabase, d));
 }
 
 export async function salvarHorariosAction(entrada: z.input<typeof horariosSchema>) {

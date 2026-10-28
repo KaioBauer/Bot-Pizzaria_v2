@@ -23,6 +23,8 @@ export function criarLojaRepo(db: Db): LojaRepo {
         pedidoMinimoCentavos: paraCentavos(c.pedido_minimo),
         aceitandoPedidos: c.aceitando_pedidos,
         pixExpiracaoMinutos: c.pix_expiracao_minutos,
+        pedidoLinkAtivo: c.pedido_link_ativo,
+        maxIngredientes: c.max_ingredientes,
         horarios: exigir(horarios, "Erro ao carregar horários").map((h) => ({
           diaSemana: h.dia_semana,
           abre: h.abre.slice(0, 5),

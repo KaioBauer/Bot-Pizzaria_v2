@@ -2,6 +2,7 @@ import {
   formatarReais,
   type BairroEntrega,
   type ComponenteItem,
+  type IngredienteParaPreco,
   type ItemPedidoArgs,
   type ItemPrecificado,
   type TamanhoPizza,
@@ -20,8 +21,17 @@ import {
  *   ex.: Grande R$ 60 com 1 Gourmet (+15) e 1 Salgada = R$ 75. Tamanho sem
  *   cadastro em tamanhos_pizza: vale o sabor mais caro (até 2 sabores);
  * - adicionais: variações ativas `borda`/`adicional` de um dos sabores,
- *   no máximo uma borda; somam ao preço base.
+ *   no máximo uma borda; somam ao preço base;
+ * - ingredientes (só no pedido por link): catálogo único, valem para a pizza
+ *   inteira e custam o preço do tamanho da pizza; até `maxIngredientes`;
+ * - montagem livre ("Monte a sua"): sabor único com o preço base do tamanho,
+ *   exige ao menos um ingrediente.
  */
+
+export interface OpcoesPrecificacao {
+  ingredientes?: ReadonlyMap<string, IngredienteParaPreco>;
+  maxIngredientes?: number;
+}
 
 export type ResultadoPrecificacao =
   | { ok: true; itens: ItemPrecificado[]; subtotalCentavos: number }
@@ -48,7 +58,7 @@ function nomeSabor(v: VariacaoParaPreco): string {
   return `${v.produtoNome} (${v.nome})`;
 }
 
-function componente(tipo: ComponenteItem["tipo"], v: VariacaoParaPreco): ComponenteItem {
+function componente(tipo: "sabor" | "adicional", v: VariacaoParaPreco): ComponenteItem {
   return {
     tipo,
     produtoId: v.produtoId,
@@ -62,7 +72,8 @@ function componente(tipo: ComponenteItem["tipo"], v: VariacaoParaPreco): Compone
 export function precificarItens(
   itens: ItemPedidoArgs[],
   variacoes: ReadonlyMap<string, VariacaoParaPreco>,
-  tamanhos: TamanhoPizza[] = []
+  tamanhos: TamanhoPizza[] = [],
+  opcoes: OpcoesPrecificacao = {}
 ): ResultadoPrecificacao {
   const tamanhoPorNome = new Map(tamanhos.map((t) => [normalizar(t.nome), t]));
   const erros: string[] = [];
@@ -131,6 +142,33 @@ export function precificarItens(
       erro("só é possível uma borda por pizza");
     }
 
+    // Ingredientes: preço do tamanho da pizza, cobrados uma vez (pizza inteira).
+    const ingredientes: { ingrediente: IngredienteParaPreco; precoCentavos: number }[] = [];
+    const idsIngredientes = item.ingredientes ?? [];
+    if (idsIngredientes.length > 0) {
+      const max = opcoes.maxIngredientes ?? Infinity;
+      if (!primeiro || primeiro.tipo !== "tamanho" || !tamanho) {
+        erro("ingredientes só podem ser adicionados a pizzas");
+      } else if (new Set(idsIngredientes).size !== idsIngredientes.length) {
+        erro("o mesmo ingrediente foi informado mais de uma vez");
+      } else if (idsIngredientes.length > max) {
+        erro(`no máximo ${max} ingredientes por pizza`);
+      } else {
+        for (const ingredienteId of idsIngredientes) {
+          const ingrediente = opcoes.ingredientes?.get(ingredienteId);
+          const preco = ingrediente?.precosCentavos[tamanho.nome];
+          if (!ingrediente) erro(`o ingrediente ${ingredienteId} não existe`);
+          else if (!ingrediente.ativo) erro(`"${ingrediente.nome}" não está disponível no momento`);
+          else if (preco === undefined) erro(`"${ingrediente.nome}" não é oferecido na ${tamanho.nome}`);
+          else ingredientes.push({ ingrediente, precoCentavos: preco });
+        }
+      }
+    }
+    if (sabores.some((s) => s.montagemLivre)) {
+      if (sabores.length > 1) erro("a pizza montada não pode ser dividida com outros sabores");
+      else if (idsIngredientes.length === 0) erro("escolha ao menos um ingrediente para montar a sua pizza");
+    }
+
     if (errosDoItem.length > 0 || !primeiro) {
       erros.push(...errosDoItem);
       return;
@@ -141,14 +179,21 @@ export function precificarItens(
     const precoBase = tamanho
       ? tamanho.precoBaseCentavos + sabores.reduce((soma, s) => soma + Math.max(0, s.precoCentavos - tamanho.precoBaseCentavos), 0)
       : Math.max(...sabores.map((s) => s.precoCentavos));
-    const precoUnitario = precoBase + adicionais.reduce((soma, a) => soma + a.precoCentavos, 0);
+    const precoUnitario =
+      precoBase +
+      adicionais.reduce((soma, a) => soma + a.precoCentavos, 0) +
+      ingredientes.reduce((soma, i) => soma + i.precoCentavos, 0);
 
     const nomesSabores = sabores.map((s) => s.produtoNome).join(" / ");
     const descricaoSabores =
       sabores.length === 1
         ? nomeSabor(primeiro)
         : `${sabores.length === 2 ? "Meio a meio" : `${sabores.length} sabores`} ${nomesSabores} (${primeiro.nome})`;
-    const descricao = [descricaoSabores, ...adicionais.map((a) => a.nome)].join(" + ");
+    const descricao = [
+      descricaoSabores,
+      ...adicionais.map((a) => a.nome),
+      ...ingredientes.map((i) => i.ingrediente.nome),
+    ].join(" + ");
 
     precificados.push({
       quantidade: item.quantidade,
@@ -159,6 +204,15 @@ export function precificarItens(
       componentes: [
         ...sabores.map((s) => componente("sabor", s)),
         ...adicionais.map((a) => componente("adicional", a)),
+        ...ingredientes.map(
+          (i): ComponenteItem => ({
+            tipo: "ingrediente",
+            ingredienteId: i.ingrediente.id,
+            produtoNome: i.ingrediente.nome,
+            variacaoNome: tamanho!.nome,
+            precoCentavos: i.precoCentavos,
+          })
+        ),
       ],
     });
   });
@@ -190,8 +244,11 @@ export function cotarPedido(params: {
   bairros: BairroEntrega[];
   pedidoMinimoCentavos: number;
   tamanhos?: TamanhoPizza[];
-}): ResultadoCotacao {
-  const precificacao = precificarItens(params.itens, params.variacoes, params.tamanhos ?? []);
+} & OpcoesPrecificacao): ResultadoCotacao {
+  const precificacao = precificarItens(params.itens, params.variacoes, params.tamanhos ?? [], {
+    ingredientes: params.ingredientes,
+    maxIngredientes: params.maxIngredientes,
+  });
   const erros = precificacao.ok ? [] : [...precificacao.erros];
 
   let bairro: BairroEntrega | null = null;
@@ -230,4 +287,9 @@ export function idsDeVariacao(itens: ItemPedidoArgs[]): string[] {
   return [
     ...new Set(itens.flatMap((i) => [...i.sabores.map((s) => s.variacao_id), ...i.adicionais])),
   ];
+}
+
+/** IDs de ingrediente referenciados pelos itens. */
+export function idsDeIngrediente(itens: ItemPedidoArgs[]): string[] {
+  return [...new Set(itens.flatMap((i) => i.ingredientes ?? []))];
 }

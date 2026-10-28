@@ -19,6 +19,7 @@ import { carregarConfig } from "./config";
 import { criarConexaoWhatsapp } from "./whatsapp-conexao";
 import { criarEnvioAtendente } from "./atendente";
 import { criarNotificador } from "./notificador";
+import { registrarPedidoLink } from "./pedido-link";
 import { registrarPix } from "./pix";
 import { criarProcessadorPorChat } from "./processador";
 
@@ -157,7 +158,17 @@ registrarAdminWhatsapp({
 
 for (const canal of canais.values()) canal.onMessage((mensagem) => processador.receber(mensagem));
 
-const notificador = criarNotificador({ db, canais, logger: logger.child({ modulo: "notificacoes" }) });
+const urlPedir = config.PEDIR_URL ?? (config.CARDAPIO_URL ? config.CARDAPIO_URL.replace(/\/cardapio\/?$/, "/pedir") : null);
+const pedidoLink = registrarPedidoLink({
+  servidor,
+  repos,
+  pix: pix ?? null,
+  whatsapp: canais.get("whatsapp") ?? null,
+  urlPedir,
+  logger: logger.child({ modulo: "pedido-link" }),
+});
+
+const notificador = criarNotificador({ db, canais, urlPedir, logger: logger.child({ modulo: "notificacoes" }) });
 const envioAtendente = criarEnvioAtendente({
   db,
   repos,
@@ -180,6 +191,7 @@ const pagamentos = pix
 async function desligar(sinal: string) {
   logger.info({ sinal }, "Desligando...");
   await pagamentos?.parar();
+  pedidoLink.parar();
   await notificador.parar();
   await envioAtendente.parar();
   await Promise.allSettled([...canais.values()].map((c) => c.parar()));

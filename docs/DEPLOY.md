@@ -88,6 +88,18 @@ O painel fala com o bot por `BOT_URL` (no compose: `http://bot:3001`); o bot con
 
 > Use um número dedicado à pizzaria. A Evolution usa o WhatsApp Web (Baileys), não a API oficial da Meta.
 
+## 6.1 Pedido pelo link (/pedir)
+
+O cliente monta a pizza em `https://painel.SEU-DOMINIO/pedir` e finaliza no navegador. O painel repassa o pedido ao bot por `BOT_URL` (rede interna); o bot reprecifica, grava, gera o Pix e avisa no WhatsApp.
+
+1. Painel → **Configurações → Pedido pelo link**: ligue, ajuste o máximo de ingredientes e baixe o QR Code para divulgar.
+2. Painel → **Cardápio → Ingredientes e camadas**: cadastre ingredientes (preço por tamanho) e envie as imagens de camada (PNG/WebP com fundo transparente, até 1 MB). Troque também `apps/web/public/pedir/massa-crua.svg`, `molho.svg` e `massa-assada.svg` pelas fotos reais (mesmo nome ou ajuste `BASE_PADRAO` em `components/pizza-builder/pizza.tsx`).
+3. Variáveis novas (opcionais):
+   - bot: `PEDIR_URL=https://painel.SEU-DOMINIO/pedir` — vai no link de acompanhamento enviado no WhatsApp (sem ela, é derivada de `CARDAPIO_URL`);
+   - web: `NEXT_PUBLIC_SITE_URL=https://painel.SEU-DOMINIO` — origem do link/QR em Configurações (sem ela, vem dos cabeçalhos da requisição).
+
+> **Não exponha `/pedido-link` do bot no Nginx.** O bot confia no IP do cliente que o painel repassa (`x-cliente-ip`) para o limite por IP; a rota só deve ser alcançável pela rede interna. O `vianna.conf` atual já só libera os webhooks e `/health`.
+
 ## 7. Supabase
 
 - Authentication → URL Configuration → **Site URL** = `https://painel.SEU-DOMINIO`.

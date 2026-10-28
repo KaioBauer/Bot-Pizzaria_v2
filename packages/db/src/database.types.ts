@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.15"
   }
   public: {
     Tables: {
@@ -83,6 +83,24 @@ export type Database = {
           id?: string
           nome?: string
           taxa?: number
+        }
+        Relationships: []
+      }
+      camadas_borda: {
+        Row: {
+          imagem_url: string
+          nome: string
+          updated_at: string
+        }
+        Insert: {
+          imagem_url: string
+          nome: string
+          updated_at?: string
+        }
+        Update: {
+          imagem_url?: string
+          nome?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -171,7 +189,9 @@ export type Database = {
           fuso_horario: string
           id: boolean
           instagram: string | null
+          max_ingredientes: number
           nome_pizzaria: string
+          pedido_link_ativo: boolean
           pedido_minimo: number
           pix_expiracao_minutos: number
           telefone: string | null
@@ -185,7 +205,9 @@ export type Database = {
           fuso_horario?: string
           id?: boolean
           instagram?: string | null
+          max_ingredientes?: number
           nome_pizzaria?: string
+          pedido_link_ativo?: boolean
           pedido_minimo?: number
           pix_expiracao_minutos?: number
           telefone?: string | null
@@ -199,7 +221,9 @@ export type Database = {
           fuso_horario?: string
           id?: boolean
           instagram?: string | null
+          max_ingredientes?: number
           nome_pizzaria?: string
+          pedido_link_ativo?: boolean
           pedido_minimo?: number
           pix_expiracao_minutos?: number
           telefone?: string | null
@@ -390,6 +414,72 @@ export type Database = {
         }
         Relationships: []
       }
+      ingrediente_precos: {
+        Row: {
+          ingrediente_id: string
+          preco: number
+          tamanho_id: string
+        }
+        Insert: {
+          ingrediente_id: string
+          preco: number
+          tamanho_id: string
+        }
+        Update: {
+          ingrediente_id?: string
+          preco?: number
+          tamanho_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ingrediente_precos_ingrediente_id_fkey"
+            columns: ["ingrediente_id"]
+            isOneToOne: false
+            referencedRelation: "ingredientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ingrediente_precos_tamanho_id_fkey"
+            columns: ["tamanho_id"]
+            isOneToOne: false
+            referencedRelation: "tamanhos_pizza"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ingredientes: {
+        Row: {
+          ativo: boolean
+          camada_tipo: string
+          created_at: string
+          id: string
+          imagem_camada_url: string | null
+          nome: string
+          ordem: number
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          camada_tipo?: string
+          created_at?: string
+          id?: string
+          imagem_camada_url?: string | null
+          nome: string
+          ordem?: number
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          camada_tipo?: string
+          created_at?: string
+          id?: string
+          imagem_camada_url?: string | null
+          nome?: string
+          ordem?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       itens_pedido: {
         Row: {
           created_at: string
@@ -455,37 +545,47 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          ingrediente_id: string | null
           item_id: string
           preco: number
-          produto_id: string
+          produto_id: string | null
           produto_nome: string
           tipo: string
-          variacao_id: string
+          variacao_id: string | null
           variacao_nome: string
         }
         Insert: {
           created_at?: string
           id?: string
+          ingrediente_id?: string | null
           item_id: string
           preco: number
-          produto_id: string
+          produto_id?: string | null
           produto_nome: string
           tipo: string
-          variacao_id: string
+          variacao_id?: string | null
           variacao_nome: string
         }
         Update: {
           created_at?: string
           id?: string
+          ingrediente_id?: string | null
           item_id?: string
           preco?: number
-          produto_id?: string
+          produto_id?: string | null
           produto_nome?: string
           tipo?: string
-          variacao_id?: string
+          variacao_id?: string | null
           variacao_nome?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "itens_pedido_componentes_ingrediente_id_fkey"
+            columns: ["ingrediente_id"]
+            isOneToOne: false
+            referencedRelation: "ingredientes"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "itens_pedido_componentes_item_id_fkey"
             columns: ["item_id"]
@@ -690,6 +790,7 @@ export type Database = {
         Row: {
           canal: string
           chat_id: string
+          chave_idempotencia: string | null
           cliente_id: string
           cliente_nome: string
           cliente_telefone: string | null
@@ -717,6 +818,7 @@ export type Database = {
           subtotal: number
           taxa_entrega: number
           tipo_entrega: string
+          token_acompanhamento: string
           troco_para: number | null
           updated_at: string
           valor_recebido: number | null
@@ -725,6 +827,7 @@ export type Database = {
         Insert: {
           canal: string
           chat_id: string
+          chave_idempotencia?: string | null
           cliente_id: string
           cliente_nome: string
           cliente_telefone?: string | null
@@ -752,6 +855,7 @@ export type Database = {
           subtotal: number
           taxa_entrega?: number
           tipo_entrega: string
+          token_acompanhamento?: string
           troco_para?: number | null
           updated_at?: string
           valor_recebido?: number | null
@@ -760,6 +864,7 @@ export type Database = {
         Update: {
           canal?: string
           chat_id?: string
+          chave_idempotencia?: string | null
           cliente_id?: string
           cliente_nome?: string
           cliente_telefone?: string | null
@@ -787,6 +892,7 @@ export type Database = {
           subtotal?: number
           taxa_entrega?: number
           tipo_entrega?: string
+          token_acompanhamento?: string
           troco_para?: number | null
           updated_at?: string
           valor_recebido?: number | null
@@ -823,7 +929,9 @@ export type Database = {
           created_at: string
           descricao: string | null
           id: string
+          imagem_camada_url: string | null
           imagem_url: string | null
+          montagem_livre: boolean
           nome: string
           ordem: number
           updated_at: string
@@ -834,7 +942,9 @@ export type Database = {
           created_at?: string
           descricao?: string | null
           id?: string
+          imagem_camada_url?: string | null
           imagem_url?: string | null
+          montagem_livre?: boolean
           nome: string
           ordem?: number
           updated_at?: string
@@ -845,7 +955,9 @@ export type Database = {
           created_at?: string
           descricao?: string | null
           id?: string
+          imagem_camada_url?: string | null
           imagem_url?: string | null
+          montagem_livre?: boolean
           nome?: string
           ordem?: number
           updated_at?: string
@@ -962,6 +1074,7 @@ export type Database = {
     Views: {
       relatorio_produtos_vendidos: {
         Row: {
+          canal: string | null
           dia: string | null
           faturamento: number | null
           produto_id: string | null
@@ -980,6 +1093,7 @@ export type Database = {
       }
       relatorio_vendas_diarias: {
         Row: {
+          canal: string | null
           cancelados: number | null
           dia: string | null
           entregas: number | null
@@ -992,6 +1106,7 @@ export type Database = {
       }
     }
     Functions: {
+      acompanhar_pedido: { Args: { p_token: string }; Returns: Json }
       concluir_entrega: {
         Args: {
           p_foto: string

@@ -67,3 +67,17 @@ export function impressaoPendente(
   if (pedido.reimpressaoSolicitadaEm) return agora - new Date(pedido.reimpressaoSolicitadaEm).getTime() > esperaMs;
   return pedido.impressoEm === null && agora - new Date(pedido.criadoEm).getTime() > esperaMs;
 }
+
+/** Nome do canal de origem para exibição ("pelo WhatsApp", selo "Link"...). */
+export function rotuloCanal(canal: string): string {
+  switch (canal) {
+    case "whatsapp":
+      return "WhatsApp";
+    case "telegram":
+      return "Telegram";
+    case "link":
+      return "Link";
+    default:
+      return canal;
+  }
+}

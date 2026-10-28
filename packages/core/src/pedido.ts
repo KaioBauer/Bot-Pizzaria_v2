@@ -2,7 +2,7 @@ import {
   formatarReais,
   paraCentavos,
   ROTULO_PAGAMENTO,
-  type Canal,
+  type CanalPedido,
   type EnderecoCliente,
   type PedidoConfirmadoArgs,
   type NovoPedido,
@@ -22,7 +22,7 @@ export type ResultadoMontagem = { ok: true; pedido: NovoPedido } | { ok: false; 
 
 /** Junta os argumentos validados com a cotação oficial do servidor. */
 export function montarNovoPedido(params: {
-  canal: Canal;
+  canal: CanalPedido;
   chatId: string;
   args: PedidoConfirmadoArgs;
   cotacao: Cotacao;

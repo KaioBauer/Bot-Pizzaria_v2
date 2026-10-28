@@ -1,6 +1,7 @@
 import type {
   CategoriaCardapio,
   ConfiguracaoLoja,
+  IngredienteParaPreco,
   MensagemConversa,
   NovoPedido,
   Repositorios,
@@ -15,6 +16,7 @@ export function repositoriosEmMemoria(params: {
   variacoes: Map<string, VariacaoParaPreco>;
   config: ConfiguracaoLoja;
   cardapio?: CategoriaCardapio[];
+  ingredientes?: Map<string, IngredienteParaPreco>;
 }) {
   const pedidos: Array<Omit<NovoPedido, "status"> & { id: string; numero: number; status: StatusPedido; motivo?: string }> = [];
   const pagamentos: Array<Omit<PagamentoRegistro, "pedidoNumero" | "pedidoStatus">> = [];
@@ -32,14 +34,17 @@ export function repositoriosEmMemoria(params: {
     cardapio: {
       ativo: async () => params.cardapio ?? [],
       variacoesPorIds: async (ids) => ids.flatMap((id) => params.variacoes.get(id) ?? []),
+      ingredientesPorIds: async (ids) => ids.flatMap((id) => params.ingredientes?.get(id) ?? []),
     },
     loja: { configuracao: async () => params.config },
     clientes: { buscar: async () => null },
     pedidos: {
       criar: async (pedido) => {
+        const repetido = pedido.chaveIdempotencia && pedidos.find((p) => p.chaveIdempotencia === pedido.chaveIdempotencia);
+        if (repetido) return { id: repetido.id, numero: repetido.numero, token: `token-${repetido.id}`, existente: true };
         const criado = { ...pedido, id: `pedido-${pedidos.length + 1}`, numero: pedidos.length + 1 };
         pedidos.push(criado);
-        return { id: criado.id, numero: criado.numero };
+        return { id: criado.id, numero: criado.numero, token: `token-${criado.id}`, existente: false };
       },
       recentesDoChat: async () =>
         pedidos.map((p) => ({

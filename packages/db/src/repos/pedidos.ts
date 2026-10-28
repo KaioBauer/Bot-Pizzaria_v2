@@ -33,9 +33,10 @@ export function criarPedidosRepo(db: Db): PedidosRepo {
         taxa_entrega: paraReais(pedido.taxaEntregaCentavos),
         valor_total: paraReais(pedido.totalCentavos),
         observacoes: pedido.observacoes,
+        chave_idempotencia: pedido.chaveIdempotencia ?? null,
         itens: pedido.itens.map((item) => {
-          const primeiroSabor = item.componentes.find((c) => c.tipo === "sabor");
-          if (!primeiroSabor) throw new ErroBanco("Item sem sabor");
+          const primeiroSabor = item.componentes.find((c) => c.tipo === "sabor" && "produtoId" in c);
+          if (!primeiroSabor || primeiroSabor.tipo === "ingrediente") throw new ErroBanco("Item sem sabor");
           return {
             produto_id: primeiroSabor.produtoId,
             variacao_id: primeiroSabor.variacaoId,
@@ -46,8 +47,9 @@ export function criarPedidosRepo(db: Db): PedidosRepo {
             observacoes: item.observacao,
             componentes: item.componentes.map((c) => ({
               tipo: c.tipo,
-              produto_id: c.produtoId,
-              variacao_id: c.variacaoId,
+              produto_id: c.tipo === "ingrediente" ? null : c.produtoId,
+              variacao_id: c.tipo === "ingrediente" ? null : c.variacaoId,
+              ingrediente_id: c.tipo === "ingrediente" ? c.ingredienteId : null,
               produto_nome: c.produtoNome,
               variacao_nome: c.variacaoNome,
               preco: paraReais(c.precoCentavos),
@@ -59,8 +61,8 @@ export function criarPedidosRepo(db: Db): PedidosRepo {
       const resultado = exigir(
         await db.rpc("criar_pedido", { p_pedido: payload }),
         "Erro ao gravar pedido"
-      ) as { id: string; numero: number };
-      return { id: resultado.id, numero: resultado.numero };
+      ) as { id: string; numero: number; token: string; existente: boolean };
+      return { id: resultado.id, numero: resultado.numero, token: resultado.token, existente: resultado.existente };
     },
 
     async recentesDoChat(canal, chatId, desde) {

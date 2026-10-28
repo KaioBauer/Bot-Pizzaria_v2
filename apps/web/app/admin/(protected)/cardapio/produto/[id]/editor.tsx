@@ -5,9 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
 import type { ProdutoAdmin } from "@pizzaria/db";
-import { centavosParaCampo, lerReais, type TipoVariacao } from "@pizzaria/shared";
+import { centavosParaCampo, formatarReais, lerReais, type TipoVariacao } from "@pizzaria/shared";
 import { Aviso, Botao, CabecalhoCartao, Campo, Cartao, cn, estiloEntrada, Interruptor, MiniaturaProduto } from "../../../../../../components/ui";
-import { enviarFotoAction, excluirProdutoAction, removerFotoAction, salvarProdutoAction } from "../../actions";
+import { enviarCamadaProdutoAction, enviarFotoAction, excluirProdutoAction, removerCamadaProdutoAction, removerFotoAction, salvarProdutoAction } from "../../actions";
+import { EditorCamada } from "../../camada";
 
 interface LinhaVariacao {
   chave: string;
@@ -35,6 +36,7 @@ export function EditorProduto(props: {
 }) {
   const router = useRouter();
   const { produto } = props;
+  const sistema = produto?.montagemLivre ?? false;
   const [categoriaId, setCategoriaId] = useState(produto?.categoriaId ?? props.categoriaInicial);
   const [nome, setNome] = useState(produto?.nome ?? "");
   const [descricao, setDescricao] = useState(produto?.descricao ?? "");
@@ -110,6 +112,13 @@ export function EditorProduto(props: {
         <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight">{produto ? nome || "Produto" : "Novo produto"}</h1>
       </div>
 
+      {sistema && (
+        <Aviso tom="info">
+          Este é o <b>Monte a sua</b> do pedido por link: o cliente escolhe os ingredientes e o preço de cada tamanho é o preço base
+          (Configurações → Tamanhos) + os ingredientes. Dá para mudar nome, descrição, foto, camada e disponibilidade; ele não pode ser excluído.
+        </Aviso>
+      )}
+
       <div className="grid gap-6 lg:grid-cols-[1fr_18rem]">
         <Cartao>
           <CabecalhoCartao titulo="Informações" descricao="Como o produto aparece no cardápio e para o bot." />
@@ -168,6 +177,42 @@ export function EditorProduto(props: {
 
       <Cartao>
         <CabecalhoCartao
+          titulo="Camada da montagem visual"
+          descricao="Usada no pedido pelo link para desenhar a pizza. Foto do sabor vista de cima, recortada em círculo, com fundo transparente (PNG ou WebP, até 1 MB). Diferente da foto do cardápio."
+        />
+        <div className="grid gap-5 p-5 sm:grid-cols-[14rem_1fr] sm:p-6">
+          <EditorCamada
+            id={produto?.id ?? null}
+            nome={nome || "Produto"}
+            url={produto?.imagemCamadaUrl ?? null}
+            enviar={enviarCamadaProdutoAction}
+            remover={removerCamadaProdutoAction}
+            semId="Salve o produto para enviar a camada."
+          />
+          <ul className="space-y-1.5 text-sm text-stone-600">
+            <li>• O quadriculado indica as áreas transparentes: só a pizza deve aparecer, sem prato ou mesa.</li>
+            <li>• Centralize a pizza e deixe-a ocupar o círculo tracejado.</li>
+            <li>• Quadrada, de preferência 800×800 px. Exporte em WebP para ficar leve.</li>
+            <li>• Sem camada, o pedido pelo link usa uma ilustração genérica para este sabor.</li>
+          </ul>
+        </div>
+      </Cartao>
+
+      {sistema ? (
+        <Cartao>
+          <CabecalhoCartao titulo="Tamanhos e preços" descricao="Seguem o preço base de cada tamanho (Configurações → Tamanhos de pizza). Os ingredientes têm preço próprio em Cardápio → Ingredientes e camadas." />
+          <ul className="divide-y divide-stone-100 px-5 sm:px-6">
+            {produto?.variacoes.filter((v) => v.tipo === "tamanho").map((v) => (
+              <li key={v.id} className={cn("flex justify-between py-2.5 text-sm", !v.ativo && "text-stone-400")}>
+                <span className="font-medium">{v.nome}</span>
+                <span className="tabular">{formatarReais(v.precoCentavos)}</span>
+              </li>
+            ))}
+          </ul>
+        </Cartao>
+      ) : (
+      <Cartao>
+        <CabecalhoCartao
           titulo="Tamanhos, bordas e preços"
           descricao="Pizzas: um tamanho por linha, com o mesmo nome em todos os sabores (é assim que o meio a meio casa os tamanhos). Bebidas: uma variação única. Bordas e adicionais somam ao preço."
         />
@@ -207,6 +252,7 @@ export function EditorProduto(props: {
           </div>
         </div>
       </Cartao>
+      )}
 
       <div className="fixed inset-x-0 bottom-16 z-20 border-t border-stone-200 bg-white/90 backdrop-blur md:bottom-0 md:left-20 lg:left-64">
         <div className="mx-auto flex max-w-4xl flex-wrap items-center gap-3 px-4 py-3 sm:px-8">
@@ -215,7 +261,7 @@ export function EditorProduto(props: {
           ) : (
             <span className="flex-1 text-sm text-stone-500">{produto ? "Alterações só valem depois de salvar." : "Preencha e salve para criar o produto."}</span>
           )}
-          {produto && (
+          {produto && !sistema && (
             <Botao variante="perigo" disabled={salvando} onClick={excluir}>
               <Trash2 className="size-4" /> Excluir
             </Botao>

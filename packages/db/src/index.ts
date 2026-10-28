@@ -5,6 +5,8 @@ export { concluirEventoWebhook, registrarEventoWebhook } from "./repos/pagamento
 export * from "./admin/atendimento";
 export * from "./admin/cardapio";
 export * from "./admin/entregas";
+export * from "./admin/ingredientes";
 export * from "./admin/loja";
 export * from "./admin/pedidos";
 export * from "./admin/relatorios";
+export * from "./publico/pedir";

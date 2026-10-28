@@ -31,6 +31,11 @@ const esquema = z
 
     /** Link do cardápio público enviado pelo bot. Ex.: https://painel.dominio/cardapio */
     CARDAPIO_URL: z.url().optional(),
+    /**
+     * Página de pedido por link. Ex.: https://painel.dominio/pedir — vai no aviso do
+     * WhatsApp (link de acompanhamento). Sem ela, deriva do CARDAPIO_URL.
+     */
+    PEDIR_URL: z.url().optional(),
 
     CONVERSA_EXPIRACAO_MINUTOS: z.coerce.number().int().positive().default(180),
     HISTORICO_LIMITE: z.coerce.number().int().min(10).default(40),

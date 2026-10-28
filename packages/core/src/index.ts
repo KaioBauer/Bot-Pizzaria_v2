@@ -13,3 +13,4 @@ export * from "./pagamentos/openpix";
 export * from "./pagamentos/pix";
 export * from "./pedido";
 export * from "./precificacao";
+export * from "./pedido-link";
