@@ -1,8 +1,8 @@
 "use client";
 
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { useMemo } from "react";
-import { CAMADAS_BASE, type TipoCamada } from "./biblioteca";
+import { useId, useMemo } from "react";
+import { BASE_SALGADA, CAMADAS_BASE, coresDaBorda, type BaseSabor, type CoresBorda, type TipoCamada } from "./biblioteca";
 import { corDoNome, divisorias, espalhar, recorteDoSetor, setorDaFatia, type Setor } from "./geometria";
 
 /**
@@ -49,19 +49,63 @@ interface Item {
   setor: Setor;
 }
 
-function Cobertura({ item, assada, reduzido }: { item: Item; assada: boolean; reduzido: boolean }) {
+/** Fiapos que caem enquanto a cobertura aparece (queijo sendo ralado por cima). */
+function Chuva({ semente, setor, cor }: { semente: string; setor: Setor; cor: string }) {
+  const fiapos = useMemo(() => espalhar(`${semente}:chuva`, 16, setor, 36), [semente, setor]);
+  return (
+    <div className="pointer-events-none absolute inset-0" aria-hidden>
+      {fiapos.map((p, i) => (
+        <motion.span
+          key={i}
+          className="absolute block h-[1.1%] w-[4.5%] rounded-full"
+          style={{ left: `${p.x}%`, top: `${p.y}%`, background: cor, rotate: p.rotacao }}
+          initial={{ y: "-2600%", opacity: 0 }}
+          animate={{ y: ["-2600%", "0%"], opacity: [0, 1, 0] }}
+          transition={{ duration: 0.55, delay: p.atraso * 1.4, ease: "easeIn", times: [0, 0.85, 1] }}
+        />
+      ))}
+    </div>
+  );
+}
+
+const COR_DA_CHUVA: Record<string, string> = {
+  mussarela: "#fbf3d6",
+  "mussarela-extra": "#fbf3d6",
+  "base-queijo": "#fbf3d6",
+  parmesao: "#f6ebc8",
+  "coco-ralado": "#ffffff",
+  oregano: "#4f6a28",
+  "chocolate-preto": "#5b2e14",
+  "chocolate-branco": "#fbf4e2",
+  "doce-de-leite": "#c98a3e",
+  "leite-condensado": "#fffdf6",
+};
+
+function Cobertura({ item, assada, reduzido, semEntrada }: { item: Item; assada: boolean; reduzido: boolean; semEntrada: boolean }) {
   const recorte = recorteDoSetor(item.setor);
   const { visual } = item;
+  const animar = !reduzido && !semEntrada;
   return (
     <motion.div
       className="pointer-events-none absolute inset-0"
       style={{ clipPath: recorte, WebkitClipPath: recorte }}
-      // "Chuva" de queijo: desce de leve, assenta e aparece.
-      initial={reduzido ? { opacity: 0 } : { opacity: 0, y: "-6%", scale: 1.06 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, scale: reduzido ? 1 : 1.04, transition: { duration: 0.25 } }}
-      transition={reduzido ? { duration: 0.15 } : { duration: 0.55, ease: [0.2, 0.8, 0.3, 1] }}
+      initial={semEntrada ? false : { opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0, transition: { duration: 0.25 } }}
+      transition={{ duration: reduzido ? 0.15 : 0.2 }}
     >
+      {animar && COR_DA_CHUVA[visual.chave] && <Chuva semente={item.chave} setor={item.setor} cor={COR_DA_CHUVA[visual.chave]!} />}
+      <motion.div
+        className="absolute inset-0"
+        // Aparece do centro para fora, como se fosse espalhado por cima.
+        style={{
+          maskImage: "radial-gradient(circle, #000 var(--raio), transparent calc(var(--raio) + 9%))",
+          WebkitMaskImage: "radial-gradient(circle, #000 var(--raio), transparent calc(var(--raio) + 9%))",
+        }}
+        initial={animar ? { "--raio": "0%" } : false}
+        animate={{ "--raio": "75%" }}
+        transition={{ duration: 0.75, ease: [0.25, 0.8, 0.3, 1], delay: 0.12 }}
+      >
       {visual.url ? (
         <>
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -74,31 +118,88 @@ function Cobertura({ item, assada, reduzido }: { item: Item; assada: boolean; re
       ) : (
         <div className="absolute inset-[10%] rounded-full opacity-80" style={{ background: corDoNome(item.nome) }} />
       )}
+      </motion.div>
     </motion.div>
   );
 }
 
-function Pedacos({ item, reduzido }: { item: Item; reduzido: boolean }) {
+/** Nuvenzinha de farinha no ponto onde o pedaço bate na pizza. */
+function Farinha({ atraso }: { atraso: number }) {
+  return (
+    <>
+      {[0, 72, 144, 216, 288].map((angulo) => (
+        <motion.span
+          key={angulo}
+          className="absolute top-1/2 left-1/2 block size-[14%] rounded-full bg-[#fffaf0]"
+          initial={{ opacity: 0, x: "-50%", y: "-50%", scale: 0.4 }}
+          animate={{
+            opacity: [0, 0.9, 0],
+            x: ["-50%", `${-50 + Math.cos((angulo * Math.PI) / 180) * 420}%`],
+            y: ["-50%", `${-50 + Math.sin((angulo * Math.PI) / 180) * 420}%`],
+            scale: [0.4, 1, 0.6],
+          }}
+          transition={{ duration: 0.45, delay: atraso, ease: "easeOut" }}
+        />
+      ))}
+    </>
+  );
+}
+
+function Pedacos({ item, reduzido, semEntrada }: { item: Item; reduzido: boolean; semEntrada: boolean }) {
   const { visual, setor } = item;
   const fracao = (setor.fim - setor.inicio) / 360;
   const quantidade = Math.max(2, Math.round(visual.quantidade * fracao));
   const pedacos = useMemo(() => espalhar(item.chave, quantidade, setor, 37), [item.chave, quantidade, setor]);
+  const animar = !reduzido && !semEntrada;
+  const QUEDA = 0.62;
+  // Momento em que o pedaço toca a pizza (fração da animação).
+  const IMPACTO = 0.55;
   return (
     <div className="pointer-events-none absolute inset-0">
-      {pedacos.map((p, i) => (
-        <div
-          key={i}
-          className="absolute"
-          style={{ left: `${p.x}%`, top: `${p.y}%`, width: `${visual.tamanho * p.escala}%`, height: `${visual.tamanho * p.escala}%`, transform: "translate(-50%, -50%)" }}
-        >
-          <motion.div
-            className="size-full"
-            initial={reduzido ? { opacity: 0 } : { opacity: 0, y: "-320%", rotate: p.rotacao - 140, scale: 1.35 }}
-            // Cai, achata ao tocar a pizza e assenta.
-            animate={reduzido ? { opacity: 1, rotate: p.rotacao } : { opacity: [0, 1, 1, 1], y: ["-320%", "0%", "-14%", "0%"], rotate: p.rotacao, scale: [1.35, 0.9, 1.04, 1] }}
-            exit={reduzido ? { opacity: 0 } : { opacity: 0, y: "-220%", scale: 1.2, rotate: p.rotacao + 90, transition: { duration: 0.28, delay: (pedacos.length - i) * 0.015 } }}
-            transition={reduzido ? { duration: 0.15 } : { duration: 0.62, times: [0, 0.58, 0.8, 1], ease: "easeOut", delay: p.atraso }}
+      {pedacos.map((p, i) => {
+        // Escorregadinha depois do impacto, sempre a mesma para o pedaço.
+        const deslize = ((p.rotacao % 20) - 10) * 0.6;
+        return (
+          <div
+            key={i}
+            className="absolute"
+            style={{ left: `${p.x}%`, top: `${p.y}%`, width: `${visual.tamanho * p.escala}%`, height: `${visual.tamanho * p.escala}%`, transform: "translate(-50%, -50%)" }}
           >
+            {animar && (
+              <>
+                {/* Sombra que cresce e escurece à medida que o pedaço se aproxima. */}
+                <motion.span
+                  className="absolute inset-[8%] rounded-full bg-[#3a1d08] blur-[3px]"
+                  initial={{ opacity: 0, scale: 0.3 }}
+                  animate={{ opacity: [0, 0.45, 0], scale: [0.3, 1, 1] }}
+                  transition={{ duration: QUEDA + 0.25, times: [0, IMPACTO * 0.85, 1], delay: p.atraso }}
+                />
+                {i % 2 === 0 && <Farinha atraso={p.atraso + QUEDA * IMPACTO} />}
+              </>
+            )}
+            <motion.div
+              className="size-full"
+              initial={semEntrada ? false : reduzido ? { opacity: 0 } : { opacity: 0, y: "-380%", rotate: p.rotacao - 160, scale: 1.45 }}
+              // Cai acelerando (gravidade), achata ao tocar, quica e escorrega um tiquinho.
+              animate={
+                !animar
+                  ? { opacity: 1, rotate: p.rotacao }
+                  : {
+                      opacity: [0, 1, 1, 1, 1],
+                      y: ["-380%", "0%", "-16%", "0%", "0%"],
+                      x: ["0%", "0%", `${deslize * 0.6}%`, `${deslize}%`, `${deslize}%`],
+                      rotate: [p.rotacao - 160, p.rotacao - 8, p.rotacao + 4, p.rotacao, p.rotacao],
+                      scaleX: [1.45, 1.12, 0.96, 1.02, 1],
+                      scaleY: [1.45, 0.82, 1.06, 0.98, 1],
+                    }
+              }
+              exit={reduzido ? { opacity: 0 } : { opacity: 0, y: "-220%", scale: 1.2, rotate: p.rotacao + 90, transition: { duration: 0.28, delay: (pedacos.length - i) * 0.015 } }}
+              transition={
+                !animar
+                  ? { duration: 0.15 }
+                  : { duration: QUEDA, times: [0, IMPACTO, 0.72, 0.88, 1], ease: ["easeIn", "easeOut", "easeIn", "easeOut"], delay: p.atraso }
+              }
+            >
             {visual.url ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={visual.url} alt="" draggable={false} className="size-full object-contain" />
@@ -106,19 +207,155 @@ function Pedacos({ item, reduzido }: { item: Item; reduzido: boolean }) {
               <span className="block size-full rounded-[45%_55%_50%_50%] shadow-[inset_0_-2px_0_rgb(0_0_0/0.2)]" style={{ background: corDoNome(item.nome) }} />
             )}
           </motion.div>
-        </div>
-      ))}
+          </div>
+        );
+      })}
     </div>
   );
 }
 
+/** Caminho fechado em volta da borda, com ondulação leve e fixa (feito à mão, não um círculo perfeito). */
+function caminhoDaBorda(raio: number, ondas: { amp: number; freq: number; fase: number }[], passos = 160): string {
+  const pts: [number, number][] = [];
+  for (let i = 0; i <= passos; i++) {
+    // Começa embaixo (perto do polegar) e dá a volta no sentido horário.
+    const a = (i / passos) * Math.PI * 2 + Math.PI / 2;
+    const k = raio + ondas.reduce((soma, o) => soma + o.amp * Math.sin(a * o.freq + o.fase), 0);
+    pts.push([50 + Math.cos(a) * k, 50 + Math.sin(a) * k]);
+  }
+  return `M${pts.map(([x, y]) => `${x.toFixed(2)},${y.toFixed(2)}`).join(" L")}`;
+}
+
+// Leve irregularidade: o cordão sobe e desce um pouco, como feito à mão.
+const CORDAO = caminhoDaBorda(44.6, [
+  { amp: 0.45, freq: 3, fase: 0.4 },
+  { amp: 0.25, freq: 7, fase: 1.3 },
+  { amp: 0.12, freq: 13, fase: 2.1 },
+]);
+
+/** Saco de confeitar com bico de metal, recheio aparecendo pelo plástico e o nó torcido em cima. */
+const CORPO_SACO = "M-2.6,-5.6 C-5.2,-12 -8.5,-20 -8,-27 C-7.5,-30 -3,-31.5 0,-31.5 C3,-31.5 7.5,-30 8,-27 C8.5,-20 5.2,-12 2.6,-5.6 Z";
+
+function SacoDeConfeitar({ cores, id }: { cores: CoresBorda; id: string }) {
+  return (
+    <g transform="rotate(28) scale(1.6)">
+      <defs>
+        <linearGradient id={`plastico${id}`} x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="#ffffff" stopOpacity="0.55" />
+          <stop offset="0.35" stopColor="#ffffff" stopOpacity="0.15" />
+          <stop offset="0.75" stopColor="#ffffff" stopOpacity="0.05" />
+          <stop offset="1" stopColor="#000000" stopOpacity="0.12" />
+        </linearGradient>
+        <linearGradient id={`metal${id}`} x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="#8f969f" />
+          <stop offset="0.4" stopColor="#eef1f4" />
+          <stop offset="1" stopColor="#7b828b" />
+        </linearGradient>
+        <filter id={`sombraSaco${id}`} x="-40%" y="-20%" width="180%" height="140%">
+          <feDropShadow dx="1.2" dy="1.8" stdDeviation="1.1" floodColor="#2b1406" floodOpacity="0.35" />
+        </filter>
+      </defs>
+      {/* "Aperto": o saco pulsa de leve enquanto aplica. */}
+      <motion.g
+        filter={`url(#sombraSaco${id})`}
+        style={{ transformOrigin: "0px -16px" }}
+        animate={{ scaleX: [1, 0.94, 1, 0.95, 1] }}
+        transition={{ duration: 0.7, repeat: Infinity, ease: "easeInOut" }}
+      >
+        {/* Plástico branco do saco. */}
+        <path d={CORPO_SACO} fill="#fbfaf6" stroke="#cfc8b8" strokeWidth="0.45" />
+        {/* Recheio aparecendo pelo plástico, só na parte de baixo (perto do bico). */}
+        <clipPath id={`corpo${id}`}>
+          <path d={CORPO_SACO} />
+        </clipPath>
+        <g clipPath={`url(#corpo${id})`}>
+          <path d="M-9,-17 C-4,-15.5 4,-16.5 9,-18 L9,0 L-9,0 Z" fill={cores.base} opacity="0.92" />
+          <path d="M-9,-17 C-4,-15.5 4,-16.5 9,-18" stroke={cores.sombra} strokeOpacity="0.5" strokeWidth="0.6" fill="none" />
+        </g>
+        <path d={CORPO_SACO} fill={`url(#plastico${id})`} />
+        {/* Rugas e brilho do plástico. */}
+        <path d="M-6.6,-25 C-3,-23.4 2,-24 6.4,-26" stroke="#bdb5a3" strokeOpacity="0.6" strokeWidth="0.4" fill="none" />
+        <path d="M-5.6,-21 C-2.6,-19.8 1.8,-20.2 5.2,-21.8" stroke="#bdb5a3" strokeOpacity="0.45" strokeWidth="0.35" fill="none" />
+        <path d="M-4.8,-27.5 C-4.6,-21 -3.8,-14 -2.3,-8" stroke="#ffffff" strokeOpacity="0.95" strokeWidth="1" strokeLinecap="round" fill="none" />
+        {/* Nó torcido em cima. */}
+        <path d="M-3,-31 C-2,-33.5 2,-33.5 3,-31 L2,-35.5 C1,-37 -1,-37 -2,-35.5 Z" fill="#f2ede2" stroke="#c9c0ad" strokeWidth="0.4" />
+        <path d="M-2.2,-32.5 L2.2,-34 M-2,-34.2 L2,-35.6" stroke="#b3a993" strokeWidth="0.35" />
+        {/* Bico pitanga de metal. */}
+        <path d="M-3,-6.2 L3,-6.2 L1.1,0 L-1.1,0 Z" fill={`url(#metal${id})`} stroke="#6f7680" strokeWidth="0.3" />
+        <path d="M-1.8,-6 L-0.65,-0.3 M0,-6 L0,-0.3 M1.8,-6 L0.65,-0.3" stroke="#6f7680" strokeWidth="0.25" />
+        {/* Recheio saindo pela ponta. */}
+        <ellipse cx="0" cy="0.5" rx="1.5" ry="1" fill={cores.base} stroke={cores.sombra} strokeWidth="0.3" />
+      </motion.g>
+    </g>
+  );
+}
+
+/**
+ * Recheio da borda aplicado com bico de confeiteiro (pitanga): cordão grosso,
+ * levemente irregular, com ranhuras transversais de corda torcida, contorno,
+ * sombra e brilho. Animado, uma máscara "desenha" o cordão enquanto o saco
+ * de confeitar vai na frente. Estático serve de prévia.
+ */
+export function AnelDeRecheio({ nome, animar = true }: { nome: string; animar?: boolean }) {
+  const cores = coresDaBorda(nome);
+  const id = useId().replace(/:/g, "");
+  const DURACAO = 2.2;
+  return (
+    <svg viewBox="0 0 100 100" className="pointer-events-none absolute inset-0 size-full overflow-visible" aria-hidden>
+      <defs>
+        <filter id={`s${id}`} x="-10%" y="-10%" width="120%" height="120%">
+          <feGaussianBlur stdDeviation="0.7" />
+        </filter>
+        {animar && (
+          <mask id={`m${id}`} maskUnits="userSpaceOnUse" x="-5" y="-5" width="110" height="110">
+            <motion.path
+              d={CORDAO}
+              fill="none"
+              stroke="#fff"
+              strokeWidth="11"
+              strokeLinecap="round"
+              initial={{ pathLength: 0 }}
+              animate={{ pathLength: 1 }}
+              transition={{ duration: DURACAO, ease: "linear" }}
+            />
+          </mask>
+        )}
+      </defs>
+      <g mask={animar ? `url(#m${id})` : undefined}>
+        {/* Sombra no pão. */}
+        <path d={CORDAO} fill="none" stroke="#2e1606" strokeOpacity="0.5" strokeWidth="7" strokeLinecap="round" transform="translate(0.5 0.9)" filter={`url(#s${id})`} />
+        {/* Volume: contorno escuro e miolo na cor do recheio, puxado para a luz. */}
+        <path d={CORDAO} fill="none" stroke={cores.sombra} strokeWidth="6.6" strokeLinecap="round" />
+        <path d={CORDAO} fill="none" stroke={cores.base} strokeWidth="5.2" strokeLinecap="round" transform="translate(-0.2 -0.3)" />
+        {/* Ranhuras transversais do bico pitanga (corda torcida). */}
+        <path d={CORDAO} fill="none" stroke={cores.sombra} strokeOpacity="0.55" strokeWidth="5.4" strokeDasharray="0.9 2.3" />
+        <path d={CORDAO} fill="none" stroke={cores.brilho} strokeOpacity="0.75" strokeWidth="4" strokeDasharray="0.8 2.4" strokeDashoffset="1.5" transform="translate(-0.45 -0.6)" />
+        {/* Reflexo no alto do cordão. */}
+        <path d={CORDAO} fill="none" stroke="#ffffff" strokeOpacity="0.45" strokeWidth="0.9" strokeLinecap="round" transform="translate(-1 -1.3)" />
+      </g>
+
+      {animar && (
+        // Saco de confeitar inteiro, inclinado como na mão de quem aplica: a ponta
+        // acompanha o cordão e o saco não gira (fica sempre "segurado" do mesmo jeito).
+        <motion.g initial={{ opacity: 0 }} animate={{ opacity: [0, 1, 1, 0] }} transition={{ duration: DURACAO + 0.5, times: [0, 0.08, 0.88, 1] }}>
+          <g>
+            <animateMotion dur={`${DURACAO}s`} path={CORDAO} rotate="0" fill="freeze" />
+            <SacoDeConfeitar cores={cores} id={id} />
+          </g>
+        </motion.g>
+      )}
+    </svg>
+  );
+}
+
 function Borda({ camada, reduzido }: { camada: Camada; reduzido: boolean }) {
-  const url = camada.visuais[0]?.url;
+  const visual = camada.visuais[0];
   return (
     <motion.div className="pointer-events-none absolute inset-0" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, transition: { duration: 0.25 } }}>
-      {url ? (
+      {visual?.url && visual.tipo === "cobertura" ? (
+        // Imagem do anel inteiro enviada pelo painel.
         <motion.img
-          src={url}
+          src={visual.url}
           alt=""
           draggable={false}
           className="absolute inset-0 size-full object-contain"
@@ -128,22 +365,7 @@ function Borda({ camada, reduzido }: { camada: Camada; reduzido: boolean }) {
           transition={reduzido ? { duration: 0 } : { duration: 0.7, ease: [0.2, 0.8, 0.2, 1] }}
         />
       ) : (
-        // Recheio da borda: um cordão cremoso que "corre" em volta da pizza.
-        <svg viewBox="0 0 100 100" className="absolute inset-0 size-full -rotate-90">
-          <motion.circle
-            cx="50"
-            cy="50"
-            r="45.2"
-            fill="none"
-            stroke={camada.nome.toLowerCase().includes("chocolate") ? "#5b2e14" : camada.nome.toLowerCase().includes("cheddar") ? "#f39a1e" : "#fbf6ea"}
-            strokeWidth="3.6"
-            strokeLinecap="round"
-            style={{ filter: "drop-shadow(0 0.6px 0.6px rgb(60 30 10 / 0.45))" }}
-            initial={reduzido ? false : { pathLength: 0 }}
-            animate={{ pathLength: 1 }}
-            transition={{ duration: reduzido ? 0 : 0.9, ease: "easeInOut" }}
-          />
-        </svg>
+        <AnelDeRecheio nome={camada.nome} animar={!reduzido} />
       )}
     </motion.div>
   );
@@ -160,19 +382,29 @@ export interface PizzaProps {
   ingredientes: Camada[];
   borda: Camada | null;
   assada?: boolean;
-  /** O molho se espalha ao aparecer (abertura da página). */
-  molhoAnimado?: boolean;
+  /**
+   * Base de cada fatia (mesmo tamanho de `fatias`; pizza inteira = 1 item).
+   * Salgada: molho + muçarela; doce: só a massa. Padrão: salgada.
+   */
+  bases?: BaseSabor[];
+  /** Sem animação de entrada (cópia da pizza, ex.: a fatia puxada). */
+  semEntrada?: boolean;
   base?: BasePizza;
   className?: string;
 }
 
-export function Pizza({ escala, fatias, fatiaAtiva, aoEscolherFatia, ingredientes, borda, assada = false, molhoAnimado = false, base = BASE_PADRAO, className }: PizzaProps) {
+export function Pizza({ escala, fatias, fatiaAtiva, aoEscolherFatia, ingredientes, borda, assada = false, bases, semEntrada = false, base = BASE_PADRAO, className }: PizzaProps) {
   const reduzido = useReducedMotion() ?? false;
   const total = Math.max(1, fatias.length);
   const linhas = divisorias(total);
 
-  // Tudo numa lista só, ordenada por camada: coberturas, pedaços, salpicados.
+  // Tudo numa lista só, ordenada por camada: molho, queijo da base, coberturas, pedaços, salpicados.
   const itens: Item[] = [
+    ...Array.from({ length: total }, (_, i) =>
+      (bases?.[i] ?? "salgada") === "doce"
+        ? []
+        : BASE_SALGADA.map((visual) => ({ chave: `base:${total}:${i}:${visual.chave}`, nome: "Molho e muçarela", visual, setor: setorDaFatia(i, total) }))
+    ).flat(),
     ...fatias.flatMap((sabor, i) =>
       sabor ? sabor.visuais.map((visual) => ({ chave: `${total}:${i}:${sabor.chave}:${visual.chave}`, nome: sabor.nome, visual, setor: setorDaFatia(i, total) })) : []
     ),
@@ -195,26 +427,17 @@ export function Pizza({ escala, fatias, fatiaAtiva, aoEscolherFatia, ingrediente
       <img src={base.massaCrua} alt="" draggable={false} className="absolute inset-0 size-full transition-opacity duration-700" style={{ opacity: assada ? 0 : 1 }} />
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={base.massaAssada} alt="" draggable={false} className="absolute inset-0 size-full transition-opacity duration-700" style={{ opacity: assada ? 1 : 0 }} />
-      <motion.img
-        src={base.molho}
-        alt=""
-        draggable={false}
-        className="absolute inset-0 size-full"
-        initial={molhoAnimado && !reduzido ? { scale: 0.15, rotate: -220, opacity: 0.4 } : false}
-        animate={{ scale: 1, rotate: 0, opacity: 1 }}
-        transition={{ duration: 0.9, ease: [0.2, 0.7, 0.2, 1], delay: 0.15 }}
-      />
 
       <AnimatePresence>
         {itens.map((item) =>
           item.visual.tipo === "cobertura" ? (
-            <Cobertura key={item.chave} item={item} assada={assada} reduzido={reduzido} />
+            <Cobertura key={item.chave} item={item} assada={assada} reduzido={reduzido} semEntrada={semEntrada} />
           ) : (
-            <Pedacos key={item.chave} item={item} reduzido={reduzido} />
+            <Pedacos key={item.chave} item={item} reduzido={reduzido} semEntrada={semEntrada} />
           )
         )}
       </AnimatePresence>
-      <AnimatePresence>{borda && <Borda key={borda.chave} camada={borda} reduzido={reduzido} />}</AnimatePresence>
+      <AnimatePresence>{borda && <Borda key={borda.chave} camada={borda} reduzido={reduzido || semEntrada} />}</AnimatePresence>
 
       {/* Brilho quente de forno por cima de tudo (só opacidade). */}
       <div

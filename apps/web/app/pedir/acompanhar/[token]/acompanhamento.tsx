@@ -11,8 +11,8 @@ import { acompanharAction, type Acompanhamento as Dados } from "../../actions";
 
 const INTERVALO_MS = 5000;
 
-/** Pizza ilustrativa da cena "preparando": queijo, calabresa e orégano. */
-const PIZZA_DA_CENA: Camada[] = (["mussarela", "calabresa", "oregano"] as const).map((chave) => ({ chave, nome: chave, visuais: [VISUAIS[chave]!] }));
+/** Pizza ilustrativa da cena "preparando": calabresa e orégano (molho e queijo vêm na base). */
+const PIZZA_DA_CENA: Camada[] = (["calabresa", "oregano"] as const).map((chave) => ({ chave, nome: chave, visuais: [VISUAIS[chave]!] }));
 const FINAIS = new Set(["concluido", "cancelado"]);
 
 type Etapa = { chave: string; rotulo: string };
@@ -113,8 +113,8 @@ function Pix({ pix, total }: { pix: NonNullable<Dados["pix"]>; total: number }) 
   const [copiado, setCopiado] = useState(false);
   const validade = new Date(pix.expira_em).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
   return (
-    <div className="rounded-3xl bg-white p-5 text-center shadow-suave ring-1 ring-creme-200">
-      <p className="font-display text-xl font-semibold">Pague {formatarReais(total)} no Pix</p>
+    <div className="rounded-3xl bg-white p-5 text-center shadow-[0_1px_3px_rgb(0_0_0/0.06)]">
+      <p className="text-xl font-extrabold tracking-tight">Pague {formatarReais(total)} no Pix</p>
       <p className="text-sm text-stone-600">até as {validade}. O preparo começa assim que o pagamento cair.</p>
       {pix.qr_base64 && (
         // eslint-disable-next-line @next/next/no-img-element
@@ -167,14 +167,14 @@ export function Acompanhamento({ token, inicial }: { token: string; inicial: Dad
         : (lista[atual]?.rotulo ?? "Pedido recebido");
 
   return (
-    <div className="min-h-dvh bg-[#f8f3ea] px-4 pt-6 pb-10 text-stone-900">
+    <div className="min-h-dvh bg-[#f6f3ee] px-4 pt-6 pb-10 text-stone-900">
       <div className="mx-auto max-w-md space-y-5">
         <header className="text-center">
           <p className="text-sm font-semibold tracking-wide text-marca-700 uppercase">Pedido #{pedido.numero}</p>
           <AnimatePresence mode="wait">
             <motion.h1
               key={titulo}
-              className="font-display text-3xl font-semibold"
+              className="text-3xl font-extrabold tracking-tight"
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
@@ -197,7 +197,7 @@ export function Acompanhamento({ token, inicial }: { token: string; inicial: Dad
         )}
 
         {atual >= 0 && (
-          <ol className="space-y-0 rounded-3xl bg-white p-5 shadow-suave ring-1 ring-creme-200">
+          <ol className="space-y-0 rounded-3xl bg-white p-5 shadow-[0_1px_3px_rgb(0_0_0/0.06)]">
             {lista.map((etapa, i) => {
               // Concluído: todas as etapas, inclusive a última, aparecem feitas.
               const feita = i < atual || pedido.status === "concluido";
@@ -206,7 +206,7 @@ export function Acompanhamento({ token, inicial }: { token: string; inicial: Dad
                 <motion.span
                   className={cn(
                     "flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-bold",
-                    feita ? "bg-manjericao-500 text-white" : i === atual ? "bg-marca-600 text-white" : "bg-creme-200 text-stone-500"
+                    feita ? "bg-manjericao-500 text-white" : i === atual ? "bg-marca-600 text-white" : "bg-stone-100 text-stone-500"
                   )}
                   animate={i === atual && !feita ? { scale: [1, 1.15, 1] } : { scale: 1 }}
                   transition={i === atual && !feita ? { duration: 1.4, repeat: Infinity } : {}}
@@ -220,8 +220,8 @@ export function Acompanhamento({ token, inicial }: { token: string; inicial: Dad
           </ol>
         )}
 
-        <section className="rounded-3xl bg-white p-5 shadow-suave ring-1 ring-creme-200">
-          <h2 className="mb-2 font-display text-lg font-semibold">Seu pedido</h2>
+        <section className="rounded-3xl bg-white p-5 shadow-[0_1px_3px_rgb(0_0_0/0.06)]">
+          <h2 className="mb-2 text-lg font-extrabold tracking-tight">Seu pedido</h2>
           <ul className="space-y-1.5 text-sm">
             {pedido.itens.map((item, i) => (
               <li key={i} className="flex justify-between gap-3">
@@ -237,7 +237,7 @@ export function Acompanhamento({ token, inicial }: { token: string; inicial: Dad
                 <span className="tabular">{formatarReais(paraCentavos(pedido.taxa_entrega))}</span>
               </li>
             )}
-            <li className="flex justify-between border-t border-creme-200 pt-2 text-base font-bold">
+            <li className="flex justify-between border-t border-stone-100 pt-2 text-base font-extrabold">
               <span>Total</span>
               <span className="tabular">{formatarReais(total)}</span>
             </li>

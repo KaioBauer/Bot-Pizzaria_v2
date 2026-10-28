@@ -73,15 +73,15 @@ export function useFlutuantes() {
 
 export function Flutuantes({ itens }: { itens: Flutuante[] }) {
   return (
-    <div className="pointer-events-none absolute inset-x-0 top-1/3 flex justify-center" aria-hidden>
+    <div className="pointer-events-none absolute inset-x-0 top-[42%] z-50 flex justify-center" aria-hidden>
       <AnimatePresence>
         {itens.map((f) => (
           <motion.span
             key={f.id}
-            className="absolute rounded-full bg-manjericao-600 px-3 py-1 text-sm font-bold text-white shadow-elevada"
-            initial={{ opacity: 0, y: 10, scale: 0.8 }}
-            animate={{ opacity: 1, y: -60, scale: 1 }}
-            exit={{ opacity: 0, y: -90 }}
+            className="absolute rounded-full bg-manjericao-600 px-3.5 py-1.5 text-[15px] font-extrabold text-white shadow-[0_8px_20px_-6px_rgb(35_127_67/0.7)] ring-2 ring-white"
+            initial={{ opacity: 0, y: 16, scale: 0.6 }}
+            animate={{ opacity: 1, y: -36, scale: 1.08 }}
+            exit={{ opacity: 0, y: -56, scale: 0.9 }}
             transition={{ duration: 0.7, ease: "easeOut" }}
           >
             {f.texto}

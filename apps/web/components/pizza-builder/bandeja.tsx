@@ -38,7 +38,7 @@ export function Bandeja({
   opcoes,
   aoTocar,
   aoRemover,
-  colunas = "grid-cols-4 sm:grid-cols-5",
+  colunas = "grid-cols-3 min-[380px]:grid-cols-4",
 }: {
   opcoes: OpcaoBandeja[];
   aoTocar: (chave: string) => void;
@@ -47,7 +47,7 @@ export function Bandeja({
   colunas?: string;
 }) {
   return (
-    <ul className={`grid ${colunas} gap-x-1.5 gap-y-3`}>
+    <ul className={`grid ${colunas} gap-2`}>
       {opcoes.map((o) => (
         <li key={o.chave} className="relative">
           <motion.button
@@ -60,12 +60,10 @@ export function Bandeja({
             disabled={Boolean(o.indisponivel)}
             aria-pressed={o.selecionada}
             aria-label={`${o.nome}${o.extraCentavos ? `, mais ${formatarReais(o.extraCentavos)}` : ""}${o.selecionada ? ", na pizza" : ""}`}
-            className="flex w-full flex-col items-center gap-1 text-center disabled:opacity-40"
+            className={`flex h-full w-full flex-col items-center gap-1 rounded-2xl px-1 pt-2.5 pb-2 text-center transition-colors disabled:opacity-40 ${o.selecionada ? "bg-marca-50 ring-2 ring-marca-500" : "bg-stone-50 ring-1 ring-black/[0.04]"}`}
           >
             <motion.span
-              className={`relative block size-[60px] overflow-hidden rounded-full bg-[radial-gradient(circle_at_35%_30%,#fffaf0,#f1e4cc)] shadow-[inset_0_-3px_6px_rgb(120_80_30/0.12),0_1px_3px_rgb(60_40_20/0.12)] transition-[box-shadow] ${
-                o.selecionada ? "ring-[2.5px] ring-marca-600" : "ring-1 ring-[#eadbc0]"
-              }`}
+              className="relative block size-14 overflow-hidden rounded-full bg-[radial-gradient(circle_at_35%_30%,#fffaf0,#efe2c8)] shadow-[inset_0_-3px_6px_rgb(120_80_30/0.12)]"
               animate={o.selecionada ? { scale: [1, 1.12, 1] } : { scale: 1 }}
               transition={{ duration: 0.35 }}
             >
@@ -84,11 +82,11 @@ export function Bandeja({
                 </span>
               )}
             </motion.span>
-            <span className="line-clamp-2 text-[12.5px] leading-tight font-semibold text-stone-800">{o.nome}</span>
+            <span className="line-clamp-2 text-[12px] leading-tight font-bold text-stone-800">{o.nome}</span>
             {o.indisponivel ? (
               <span className="text-[11px] leading-tight text-stone-500">{o.indisponivel}</span>
             ) : o.extraCentavos ? (
-              <span className={`text-[11.5px] font-semibold tabular ${o.selecionada ? "text-marca-600" : "text-stone-500"}`}>+ {formatarReais(o.extraCentavos)}</span>
+              <span className={`text-[11.5px] font-bold tabular ${o.selecionada ? "text-marca-600" : "text-stone-500"}`}>+ {formatarReais(o.extraCentavos)}</span>
             ) : o.detalhe ? (
               <span className="text-[11px] leading-tight text-stone-500">{o.detalhe}</span>
             ) : null}
@@ -97,7 +95,7 @@ export function Bandeja({
             {o.selecionada && (
               <motion.span
                 key="marcado"
-                className="pointer-events-none absolute top-0 left-1/2 ml-[14px] flex size-5 items-center justify-center rounded-full bg-marca-600 text-white shadow"
+                className="pointer-events-none absolute top-1.5 right-1.5 flex size-5 items-center justify-center rounded-full bg-marca-600 text-white shadow"
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 exit={{ scale: 0 }}
@@ -114,7 +112,7 @@ export function Bandeja({
                   vibrar();
                   aoRemover(o.chave);
                 }}
-                className="absolute top-0 right-1/2 mr-[14px] flex size-6 items-center justify-center rounded-full bg-stone-900 text-white shadow"
+                className="absolute top-1.5 left-1.5 flex size-6 items-center justify-center rounded-full bg-white text-marca-600 shadow-[0_1px_4px_rgb(0_0_0/0.18)]"
                 aria-label={`Tirar ${o.nome}`}
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}

@@ -1,24 +1,28 @@
 "use client";
 
-import { Minus, Plus, Search, Sparkles } from "lucide-react";
+import { Check, Minus, Plus, Search, Sparkles } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import type { CatalogoPedir, IngredientePedir, ProdutoPedir } from "@pizzaria/db";
 import { formatarReais, type ItemPedidoLinkArgs } from "@pizzaria/shared";
 import {
+  AnelDeRecheio,
   Bandeja,
   CAMADAS_BASE,
+  ehDoce,
   escalaDoTamanho,
   Flutuantes,
+  IMAGENS_CENARIO,
   miniaturaDoSabor,
   Palco,
   TotalAnimado,
   useFlutuantes,
   usePrecarregar,
   vibrar,
-  visuaisDaDescricao,
+  visuaisDoSabor,
   visualDoNome,
   VISUAIS,
+  type BaseSabor,
   type Camada,
   type CamadaVisual,
   type OpcaoBandeja,
@@ -73,7 +77,8 @@ function camadaDoIngrediente(i: IngredientePedir): Camada {
 function camadaDoSabor(p: ProdutoPedir): Camada {
   // Imagem própria enviada pelo painel: vale como cobertura da fatia inteira.
   if (p.camadaUrl) return { chave: p.id, nome: p.nome, visuais: [{ chave: "camada", url: p.camadaUrl, tipo: "cobertura", quantidade: 1, tamanho: 100, ordem: 0 }] };
-  const visuais: CamadaVisual[] = visuaisDaDescricao(`${p.descricao ?? ""}, ${p.nome}`).map((v) => ({ ...v }));
+  // A muçarela não entra aqui: nas salgadas ela já vem na base, nas doces não vai.
+  const visuais: CamadaVisual[] = visuaisDoSabor(p.descricao, p.nome).map((v) => ({ ...v }));
   return {
     chave: p.id,
     nome: p.nome,
@@ -81,9 +86,73 @@ function camadaDoSabor(p: ProdutoPedir): Camada {
   };
 }
 
-/** Imagem da borda: a enviada pelo painel ou o recheio equivalente da biblioteca. */
-function imagemDaBorda(nome: string, camadasBorda: Record<string, string>): string | null {
-  return camadasBorda[nome] ?? visualDoNome(nome.replace(/^borda\s+/i, ""))?.url ?? null;
+/**
+ * Escolha da borda em carrossel: cada opção é uma mini pizza assada com o
+ * recheio aplicado em volta (ou a imagem do anel enviada pelo painel).
+ */
+function EscolhaBorda({
+  opcoes,
+  selecionada,
+  camadasBorda,
+  aoEscolher,
+}: {
+  opcoes: [string, number][];
+  selecionada: string | null;
+  camadasBorda: Record<string, string>;
+  aoEscolher: (nome: string | null) => void;
+}) {
+  const itens: { nome: string | null; rotulo: string; preco: number }[] = [{ nome: null, rotulo: "Tradicional", preco: 0 }, ...opcoes.map(([nome, preco]) => ({ nome, rotulo: nome.replace(/^Borda\s+/i, ""), preco }))];
+  return (
+    <div className="sem-barra -mx-4 flex snap-x snap-mandatory gap-2.5 overflow-x-auto px-4 pt-1 pb-1">
+      {itens.map((o) => {
+        const ativa = o.nome === selecionada;
+        const anel = o.nome ? camadasBorda[o.nome] : undefined;
+        return (
+          <motion.button
+            key={o.nome ?? "tradicional"}
+            type="button"
+            whileTap={{ scale: 0.95 }}
+            onClick={() => {
+              vibrar();
+              aoEscolher(o.nome);
+            }}
+            aria-pressed={ativa}
+            className={cn(
+              "relative w-[124px] shrink-0 snap-start rounded-3xl p-2.5 text-left transition-colors",
+              ativa ? "bg-marca-50 ring-2 ring-marca-500" : "bg-stone-50 ring-1 ring-black/[0.04]"
+            )}
+          >
+            <span className="relative mx-auto block aspect-square w-full">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={CAMADAS_BASE.massaAssada} alt="" className="absolute inset-0 size-full" />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={CAMADAS_BASE.molho} alt="" className="absolute inset-0 size-full" />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={VISUAIS.mussarela!.assadaUrl} alt="" className="absolute inset-0 size-full" />
+              {anel ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={anel}
+                  alt=""
+                  className="absolute inset-0 size-full object-contain"
+                  style={{ maskImage: "radial-gradient(circle, transparent 41%, #000 43%)", WebkitMaskImage: "radial-gradient(circle, transparent 41%, #000 43%)" }}
+                />
+              ) : (
+                o.nome && <AnelDeRecheio key={ativa ? "ativa" : "parada"} nome={o.nome} animar={false} />
+              )}
+            </span>
+            <span className="mt-2 block text-[13px] leading-tight font-extrabold">{o.rotulo}</span>
+            <span className={cn("block text-xs font-bold tabular", ativa ? "text-marca-600" : "text-stone-500")}>{o.preco ? `+ ${formatarReais(o.preco)}` : "Sem recheio"}</span>
+            {ativa && (
+              <span className="absolute top-2 right-2 flex size-6 items-center justify-center rounded-full bg-marca-600 text-white shadow">
+                <Check className="size-3.5" strokeWidth={3} />
+              </span>
+            )}
+          </motion.button>
+        );
+      })}
+    </div>
+  );
 }
 
 function estadoInicial(catalogo: CatalogoPedir, tamanhos: string[], modo: Modo, item?: ItemPedidoLinkArgs): Estado {
@@ -182,6 +251,8 @@ export function Montador({
   // Pré-carrega as camadas: as dos ingredientes já; as dos sabores quando o navegador estiver ocioso.
   usePrecarregar([...catalogo.ingredientes.map((i) => camadasIngredientes.get(i.id)?.visuais[0]?.url), ...Object.values(catalogo.camadasBorda)]);
   usePrecarregar(Object.values(VISUAIS).flatMap((v) => [v.url, v.assadaUrl]), true);
+  // Forno, pá e caixa: prontos antes do primeiro "Adicionar".
+  usePrecarregar(IMAGENS_CENARIO, true);
 
   /** Fatias efetivas: no modo livre, o sabor é o "Monte a sua". */
   const fatiasDoEstado = (e: Estado) => (e.modo === "livre" ? [livre?.id ?? null] : e.fatias);
@@ -273,17 +344,13 @@ export function Montador({
     for (const v of fonte.flatMap((p) => p.variacoes)) if (v.tipo === "borda" && !mapa.has(v.nome)) mapa.set(v.nome, v.precoCentavos);
     return [...mapa];
   }, [fatiasEfetivas, produtos, catalogo.pizzas]);
-  const opcoesBorda: OpcaoBandeja[] = [
-    { chave: "", nome: "Tradicional", imagemUrl: CAMADAS_BASE.massaAssada, selecionada: estado.borda === null, detalhe: "Sem recheio" },
-    ...nomesBorda.map(([nome, preco]) => {
-      const imagem = imagemDaBorda(nome, catalogo.camadasBorda);
-      return { chave: nome, nome: nome.replace(/^Borda\s+/i, ""), imagemUrl: imagem, aproximar: Boolean(imagem && URLS_COBERTURA.has(imagem)), extraCentavos: preco, selecionada: estado.borda === nome };
-    }),
-  ];
 
   // Camadas da pizza --------------------------------------------------------------------------
 
   const fatiasVisuais: (Camada | null)[] = estado.modo === "livre" ? [] : estado.fatias.map((id) => (id ? (camadasSabores.get(id) ?? null) : null));
+  // Base de cada fatia: doce só com a massa; salgada (e fatia ainda vazia) com molho e muçarela.
+  const bases: BaseSabor[] =
+    estado.modo === "livre" ? ["salgada"] : estado.fatias.map((id) => (id && ehDoce(produtos.get(id)?.categoria ?? "") ? "doce" : "salgada"));
   const ingredientesVisuais = estado.ingredientes.flatMap((id) => camadasIngredientes.get(id) ?? []);
   const borda: Camada | null = estado.borda
     ? { chave: estado.borda, nome: estado.borda, visuais: catalogo.camadasBorda[estado.borda] ? [{ chave: "b", url: catalogo.camadasBorda[estado.borda]!, tipo: "cobertura", quantidade: 1, tamanho: 100, ordem: 0 }] : [] }
@@ -348,36 +415,46 @@ export function Montador({
       ? previa.erro
       : null;
 
+  const livreModo = estado.modo === "livre";
+  const saboresFaltando = estado.fatias.filter((f) => f === null).length;
+
   return (
-    <div className="pb-32">
-      {/* Pizza fixa no topo: o cliente vê cada ingrediente cair enquanto rola a lista. */}
-      <div className="sticky top-14 z-20 -mx-4 bg-[#f8f3ea] px-4 pt-2 pb-1">
-        <div className="flex items-baseline justify-between gap-2">
-          <h1 className="font-display text-[26px] leading-none font-semibold tracking-tight">{estado.modo === "livre" ? "Monte sua pizza" : "Escolha os sabores"}</h1>
-          <span className="text-xs text-stone-500">
-            {tamanhoAtual?.fatias} fatias{maxSabores > 1 ? ` · até ${maxSabores} sabores` : ""}
-          </span>
-        </div>
-        <div className="sem-barra -mx-4 mt-2 flex gap-1.5 overflow-x-auto px-4" role="radiogroup" aria-label="Tamanho">
-          {tamanhos.map((t) => (
-            <button
-              key={t.nome}
-              type="button"
-              role="radio"
-              aria-checked={t.nome === estado.tamanho}
-              onClick={() => trocarTamanho(t.nome)}
-              className={cn(
-                "relative h-8 shrink-0 rounded-full px-3.5 text-[13px] font-bold transition",
-                t.nome === estado.tamanho ? "text-white" : "bg-white text-stone-700 ring-1 ring-[#e3d3b6]"
-              )}
-            >
-              {t.nome === estado.tamanho && <motion.span layoutId="tamanho-ativo" className="absolute inset-0 rounded-full bg-marca-600 shadow-elevada" transition={{ type: "spring", stiffness: 420, damping: 32 }} />}
-              <span className="relative">{t.nome}</span>
-            </button>
-          ))}
+    <div className="pb-36">
+      <div className="mt-5 mb-1">
+        <h1 className="text-[26px] leading-tight font-extrabold tracking-tight">{livreModo ? "Monte sua pizza" : "Sabores da casa"}</h1>
+        <p className="text-sm text-stone-500">
+          {livreModo ? "Toque nos ingredientes e veja sua pizza ganhar forma" : maxSabores > 1 ? `Até ${maxSabores} sabores na ${tamanhoAtual?.nome}` : "Escolha o sabor"}
+        </p>
+      </div>
+
+      {/* Palco fixo: o cliente vê cada ingrediente cair enquanto rola a lista. */}
+      <div className="sticky top-16 z-20 -mx-4 bg-[#f6f3ee]/95 px-4 pt-3 pb-2 backdrop-blur-xl">
+        <div
+          className="grid gap-1 rounded-2xl bg-white p-1 shadow-[0_1px_3px_rgb(0_0_0/0.06)]"
+          style={{ gridTemplateColumns: `repeat(${Math.max(1, tamanhos.length)}, minmax(0, 1fr))` }}
+          role="radiogroup"
+          aria-label="Tamanho"
+        >
+          {tamanhos.map((t) => {
+            const ativo = t.nome === estado.tamanho;
+            return (
+              <button
+                key={t.nome}
+                type="button"
+                role="radio"
+                aria-checked={ativo}
+                onClick={() => trocarTamanho(t.nome)}
+                className={cn("relative flex flex-col items-center rounded-xl py-1.5 transition-colors", ativo ? "text-white" : "text-stone-600")}
+              >
+                {ativo && <motion.span layoutId="tamanho-ativo" className="absolute inset-0 rounded-xl bg-marca-600 shadow-[0_6px_14px_-6px_rgb(201_53_26/0.8)]" transition={{ type: "spring", stiffness: 420, damping: 32 }} />}
+                <span className="relative text-[13px] leading-tight font-bold">{t.nome}</span>
+                <span className={cn("relative text-[10.5px] leading-tight", ativo ? "text-white/80" : "text-stone-400")}>{t.fatias} fatias</span>
+              </button>
+            );
+          })}
         </div>
 
-        <div className="relative mx-auto mt-1 w-[min(72vw,36dvh,330px)]">
+        <div className="relative mx-auto mt-4 mb-3 w-[min(70vw,34dvh,320px)]">
           <Palco
             escala={escalaDoTamanho(indiceTamanho, tamanhos.length)}
             fatias={fatiasVisuais}
@@ -388,7 +465,8 @@ export function Montador({
             }}
             ingredientes={ingredientesVisuais}
             borda={borda}
-            molhoAnimado
+            bases={bases}
+            fatiasCorte={tamanhoAtual?.fatias ?? 8}
             assar={assando}
             alvoId={alvoCarrinho}
             aoTerminar={aoSairDoForno}
@@ -399,110 +477,140 @@ export function Montador({
               <motion.div className="absolute inset-0 z-30 flex items-center justify-center" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                 <Confete />
                 <motion.div
-                  className="rounded-3xl bg-white px-5 py-3 text-center shadow-elevada ring-1 ring-creme-200"
+                  className="rounded-3xl bg-white px-5 py-3 text-center shadow-[0_20px_40px_-12px_rgb(0_0_0/0.3)]"
                   initial={{ scale: 0.5, y: 20 }}
                   animate={{ scale: 1, y: 0 }}
                   transition={{ type: "spring", stiffness: 320, damping: 16 }}
                   role="status"
                 >
                   <Sparkles className="mx-auto size-6 text-amber-500" />
-                  <p className="font-display text-lg font-semibold">Saiu do forno!</p>
-                  <p className="text-sm text-stone-600">Pizza no carrinho 🍕</p>
+                  <p className="text-lg font-extrabold tracking-tight">Saiu do forno!</p>
+                  <p className="text-sm text-stone-500">Pizza na sacola 🍕</p>
                 </motion.div>
               </motion.div>
             )}
           </AnimatePresence>
         </div>
-          {estado.modo === "sabores" && maxSabores > 1 && (
-            <div className="mt-1.5 flex flex-wrap justify-center gap-1.5">
-              {Array.from({ length: maxSabores }, (_, i) => i + 1).map((n) => (
+
+        {!livreModo && maxSabores > 1 && (
+          <div className="mx-auto flex w-fit gap-1 rounded-full bg-white p-1 shadow-[0_1px_3px_rgb(0_0_0/0.06)]">
+            {Array.from({ length: maxSabores }, (_, i) => i + 1).map((n) => {
+              const ativo = estado.fatias.length === n;
+              return (
                 <button
                   key={n}
                   type="button"
                   onClick={() => trocarQuantidadeSabores(n)}
-                  aria-pressed={estado.fatias.length === n}
-                  className={cn(
-                    "rounded-full px-3 py-1 text-[13px] font-semibold transition",
-                    estado.fatias.length === n ? "bg-stone-900 text-white" : "bg-white text-stone-700 ring-1 ring-[#e3d3b6]"
-                  )}
+                  aria-pressed={ativo}
+                  className={cn("relative rounded-full px-3.5 py-1.5 text-[12.5px] font-bold transition-colors", ativo ? "text-white" : "text-stone-500")}
                 >
-                  {n === 1 ? "1 sabor" : n === 2 ? "Meio a meio" : `${n} sabores`}
+                  {ativo && <motion.span layoutId="qtd-sabores" className="absolute inset-0 rounded-full bg-stone-900" transition={{ type: "spring", stiffness: 420, damping: 34 }} />}
+                  <span className="relative">{n === 1 ? "1 sabor" : n === 2 ? "Meio a meio" : `${n} sabores`}</span>
                 </button>
-              ))}
-            </div>
-          )}
-        {estado.modo === "sabores" && estado.fatias.length > 1 && (
-          <p className="mt-1 text-center text-[13px] text-stone-600">
-            Toque na pizza para trocar a fatia · escolhendo a <strong>fatia {estado.fatiaAtiva + 1}</strong>
+              );
+            })}
+          </div>
+        )}
+        {!livreModo && estado.fatias.length > 1 && (
+          <p className="mt-1.5 text-center text-xs text-stone-500">
+            Toque na pizza para trocar · escolhendo a <strong className="text-stone-800">fatia {estado.fatiaAtiva + 1}</strong>
           </p>
         )}
       </div>
 
-      {estado.modo === "sabores" && (
-        <section className="mt-3">
-          <label className="relative mb-2 block">
-            <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-stone-400" />
+      {!livreModo && (
+        <Secao
+          titulo={estado.fatias.length > 1 ? `Sabor da fatia ${estado.fatiaAtiva + 1}` : "Sabor"}
+          detalhe="Os especiais mostram o valor a mais"
+          etiqueta={saboresFaltando ? <Etiqueta tom="escuro">Obrigatório</Etiqueta> : <Etiqueta tom="ok">Pronto</Etiqueta>}
+        >
+          <label className="relative mb-3 block">
+            <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-stone-400" />
             <input
               type="search"
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
               placeholder="Buscar sabor ou ingrediente"
-              className="h-11 w-full rounded-2xl bg-white pr-3 pl-9 text-[15px] ring-1 ring-[#e3d3b6] outline-none focus:ring-2 focus:ring-marca-400"
+              className="h-11 w-full rounded-2xl bg-stone-100 pr-3 pl-10 text-[15px] outline-none placeholder:text-stone-400 focus:bg-white focus:ring-2 focus:ring-marca-400"
             />
           </label>
-          <div className="sem-barra -mx-4 mb-3 flex gap-1.5 overflow-x-auto px-4">
+          <div className="sem-barra -mx-4 mb-4 flex gap-1.5 overflow-x-auto px-4">
             {[null, ...categorias].map((c) => (
               <button
                 key={c ?? "todas"}
                 type="button"
                 onClick={() => setCategoria(c)}
-                className={cn("shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold", categoria === c ? "bg-stone-900 text-white" : "bg-white text-stone-600 ring-1 ring-[#e3d3b6]")}
+                className={cn(
+                  "shrink-0 rounded-full px-3.5 py-1.5 text-xs font-bold transition-colors",
+                  categoria === c ? "bg-stone-900 text-white" : "bg-stone-100 text-stone-600"
+                )}
               >
                 {c ?? "Todas"}
               </button>
             ))}
           </div>
           {opcoesSabores.length ? <Bandeja opcoes={opcoesSabores} aoTocar={tocarSabor} /> : <p className="py-6 text-center text-sm text-stone-500">Nenhum sabor encontrado.</p>}
-        </section>
+        </Secao>
       )}
 
-      <section className="mt-5">
-        <h2 className="mb-0.5 font-display text-lg font-semibold">{estado.modo === "livre" ? "Ingredientes" : "Turbine sua pizza"}</h2>
-        <p className="mb-3 text-[13px] text-stone-500">Toque num ingrediente para adicionar · vale para a pizza inteira</p>
+      <Secao
+        titulo={livreModo ? "Ingredientes" : "Turbine sua pizza"}
+        detalhe="Toque para adicionar · vale para a pizza inteira"
+        etiqueta={
+          livreModo && !estado.ingredientes.length ? (
+            <Etiqueta tom="escuro">Obrigatório</Etiqueta>
+          ) : (
+            <Etiqueta tom={estado.ingredientes.length ? "marca" : "claro"}>
+              {estado.ingredientes.length}/{precos.maxIngredientes}
+            </Etiqueta>
+          )
+        }
+      >
         {opcoesIngredientes.length ? (
           <Bandeja opcoes={opcoesIngredientes} aoTocar={tocarIngrediente} aoRemover={tocarIngrediente} />
         ) : (
           <p className="py-6 text-center text-sm text-stone-500">Nenhum ingrediente disponível agora.</p>
         )}
-      </section>
+      </Secao>
 
       {nomesBorda.length > 0 && (
-        <section className="mt-6">
-          <h2 className="mb-3 font-display text-lg font-semibold">Borda recheada</h2>
-          <Bandeja opcoes={opcoesBorda} aoTocar={(nome) => alterar({ ...estado, borda: nome || null })} />
-        </section>
+        <Secao titulo="Borda recheada" detalhe="Recheio cremoso em toda a volta da pizza" etiqueta={<Etiqueta tom="claro">Opcional</Etiqueta>}>
+          <EscolhaBorda opcoes={nomesBorda} selecionada={estado.borda} camadasBorda={catalogo.camadasBorda} aoEscolher={(nome) => alterar({ ...estado, borda: nome })} />
+        </Secao>
       )}
 
-      <label className="mt-6 block">
-        <span className="text-sm font-semibold text-stone-700">Alguma observação?</span>
-        <input
+      <Secao titulo="Alguma observação?" etiqueta={<Etiqueta tom="claro">Opcional</Etiqueta>}>
+        <textarea
           value={estado.observacao}
           onChange={(e) => setEstado({ ...estado, observacao: e.target.value.slice(0, 200) })}
           placeholder="Ex.: bem assada, sem cebola"
-          className="mt-1 h-11 w-full rounded-2xl bg-white px-3 text-[15px] ring-1 ring-[#e3d3b6] outline-none focus:ring-2 focus:ring-marca-400"
+          rows={2}
+          className="w-full resize-none rounded-2xl bg-stone-100 px-3.5 py-3 text-[15px] outline-none placeholder:text-stone-400 focus:bg-white focus:ring-2 focus:ring-marca-400"
         />
-      </label>
+        <p className="mt-1 text-right text-[11px] text-stone-400 tabular">{estado.observacao.length}/200</p>
+      </Secao>
 
       {/* Rodapé fixo: um polegar só */}
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-[#eadbc0] bg-[#f8f3ea]/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur">
-        <div className="mx-auto flex max-w-lg items-center gap-3">
-          <div className="flex items-center rounded-full bg-white ring-1 ring-[#e3d3b6]">
-            <button type="button" onClick={() => setEstado({ ...estado, quantidade: Math.max(1, estado.quantidade - 1) })} className="flex size-11 items-center justify-center" aria-label="Diminuir quantidade">
-              <Minus className="size-4" />
+      <div className="fixed inset-x-0 bottom-0 z-30 bg-white/95 shadow-[0_-10px_30px_-18px_rgb(0_0_0/0.35)] backdrop-blur-xl">
+        <div className="mx-auto flex max-w-lg items-center gap-3 px-4 pt-3 pb-[max(0.875rem,env(safe-area-inset-bottom))]">
+          <div className="flex h-14 items-center rounded-2xl bg-stone-100">
+            <button
+              type="button"
+              onClick={() => setEstado({ ...estado, quantidade: Math.max(1, estado.quantidade - 1) })}
+              disabled={estado.quantidade <= 1}
+              className="flex size-11 items-center justify-center text-marca-600 disabled:text-stone-300"
+              aria-label="Diminuir quantidade"
+            >
+              <Minus className="size-4" strokeWidth={2.75} />
             </button>
-            <span className="w-5 text-center font-semibold tabular">{estado.quantidade}</span>
-            <button type="button" onClick={() => setEstado({ ...estado, quantidade: Math.min(50, estado.quantidade + 1) })} className="flex size-11 items-center justify-center" aria-label="Aumentar quantidade">
-              <Plus className="size-4" />
+            <span className="w-5 text-center font-extrabold tabular">{estado.quantidade}</span>
+            <button
+              type="button"
+              onClick={() => setEstado({ ...estado, quantidade: Math.min(50, estado.quantidade + 1) })}
+              className="flex size-11 items-center justify-center text-marca-600"
+              aria-label="Aumentar quantidade"
+            >
+              <Plus className="size-4" strokeWidth={2.75} />
             </button>
           </div>
           <motion.button
@@ -510,21 +618,54 @@ export function Montador({
             whileTap={{ scale: 0.97 }}
             onClick={adicionar}
             disabled={!previa?.ok || assando}
-            className="relative flex h-13 flex-1 items-center justify-center gap-2 overflow-hidden rounded-full bg-marca-600 px-4 py-3.5 font-semibold text-white shadow-elevada transition disabled:bg-stone-400"
+            className="relative flex h-14 flex-1 items-center justify-between gap-2 overflow-hidden rounded-2xl bg-marca-600 px-5 font-bold text-white shadow-[0_12px_24px_-12px_rgb(201_53_26/0.9)] transition disabled:bg-stone-300 disabled:shadow-none"
           >
             {mensagemBotao ? (
-              <span className="truncate text-sm">
-                {mensagemBotao}
-                {estado.modo === "livre" && !completo && <span className="ml-1 opacity-80">· {formatarReais(totalCentavos)}</span>}
-              </span>
+              <>
+                <span className="truncate text-sm">{mensagemBotao}</span>
+                {livreModo && !completo && <span className="text-sm opacity-90 tabular">{formatarReais(totalCentavos)}</span>}
+              </>
             ) : (
               <>
-                {editando ? "Salvar pizza" : "Adicionar ao pedido"} <TotalAnimado centavos={totalCentavos} />
+                <span>{editando ? "Salvar" : "Adicionar"}</span>
+                <TotalAnimado centavos={totalCentavos} />
               </>
             )}
           </motion.button>
         </div>
       </div>
     </div>
+  );
+}
+
+/** Seção em cartão branco, como os grupos de opções de um app de delivery. */
+function Secao({ titulo, detalhe, etiqueta, children }: { titulo: string; detalhe?: string; etiqueta?: ReactNode; children: ReactNode }) {
+  return (
+    <section className="mt-4 rounded-3xl bg-white p-4 shadow-[0_1px_3px_rgb(0_0_0/0.06)]">
+      <div className="mb-3.5 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="text-[17px] leading-tight font-extrabold tracking-tight">{titulo}</h2>
+          {detalhe && <p className="mt-0.5 text-[12.5px] text-stone-500">{detalhe}</p>}
+        </div>
+        {etiqueta}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function Etiqueta({ tom, children }: { tom: "escuro" | "claro" | "marca" | "ok"; children: ReactNode }) {
+  return (
+    <span
+      className={cn(
+        "shrink-0 rounded-lg px-2 py-1 text-[10.5px] font-extrabold tracking-wide uppercase tabular",
+        tom === "escuro" && "bg-stone-900 text-white",
+        tom === "claro" && "bg-stone-100 text-stone-500",
+        tom === "marca" && "bg-marca-50 text-marca-700",
+        tom === "ok" && "bg-manjericao-50 text-manjericao-700"
+      )}
+    >
+      {children}
+    </span>
   );
 }

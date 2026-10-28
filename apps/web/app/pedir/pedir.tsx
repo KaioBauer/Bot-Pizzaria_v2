@@ -1,6 +1,6 @@
 "use client";
 
-import { ChefHat, Clock, CupSoda, Minus, Plus, ShoppingBag, Volume2, VolumeX, Wand2 } from "lucide-react";
+import { Bike, ChefHat, ChevronRight, CupSoda, Minus, Plus, ShoppingBag, Store, Volume2, VolumeX, Wand2 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -15,14 +15,23 @@ import { Montador } from "./montador";
 
 const ALVO_CARRINHO = "alvo-carrinho";
 
+type Aba = "livre" | "sabores" | "outros";
+
+/** Situação da loja numa linha curta, para a barra do topo. */
+function situacao(loja: InfoLoja): { texto: string; aberta: boolean } {
+  if (!loja.linkAtivo) return { texto: "Pedidos pelo site desligados", aberta: false };
+  if (loja.aberta) return { texto: "Aberto agora", aberta: true };
+  if (loja.pausada) return { texto: "Sem pedidos no momento", aberta: false };
+  return { texto: `Fechado${loja.proximaAbertura ? ` · abre ${loja.proximaAbertura}` : ""}`, aberta: false };
+}
+
 export function Pedir({ catalogo, loja }: { catalogo: CatalogoPedir; loja: InfoLoja }) {
   const router = useRouter();
   const precos = useMemo(() => montarPrecos(catalogo, loja.maxIngredientes), [catalogo, loja.maxIngredientes]);
   const [itens, setItens] = useState<ItemCarrinho[]>([]);
   const [carregado, setCarregado] = useState(false);
   const livreId = catalogo.pizzas.find((p) => p.montagemLivre)?.id;
-  // Uma barra só: montar do zero (padrão), sabores da casa ou bebidas.
-  const [aba, setAba] = useState<"livre" | "sabores" | "outros">(livreId ? "livre" : "sabores");
+  const [aba, setAba] = useState<Aba>(livreId ? "livre" : "sabores");
   const [folha, setFolha] = useState<"carrinho" | "dados" | null>(null);
   const [editando, setEditando] = useState<ItemCarrinho | null>(null);
   const [somLigado, setSomLigado] = usePreferenciaSom();
@@ -45,6 +54,8 @@ export function Pedir({ catalogo, loja }: { catalogo: CatalogoPedir; loja: InfoL
 
   const cotacao = precificar(itens.map((i) => i.item), precos);
   const quantidade = itens.reduce((s, i) => s + i.item.quantidade, 0);
+  const status = situacao(loja);
+  const taxas = loja.bairros.map((b) => b.taxaCentavos);
 
   function adicionarPizza(item: ItemPedidoLinkArgs) {
     if (editando) {
@@ -70,76 +81,102 @@ export function Pedir({ catalogo, loja }: { catalogo: CatalogoPedir; loja: InfoL
     if (delta > 0) setPulo((n) => n + 1);
   }
 
+  function trocarAba(nova: Aba) {
+    setAba(nova);
+    setEditando(null);
+  }
+
   const categoriasOutros = [...new Set(catalogo.outros.map((p) => p.categoria))];
+  const abas = [
+    ...(livreId ? [{ chave: "livre" as const, rotulo: "Do seu jeito", Icone: Wand2 }] : []),
+    { chave: "sabores" as const, rotulo: "Sabores", Icone: ChefHat },
+    ...(catalogo.outros.length ? [{ chave: "outros" as const, rotulo: "Bebidas", Icone: CupSoda }] : []),
+  ];
 
   return (
-    <div className="min-h-dvh bg-[#f8f3ea] text-stone-900">
-      <header className="sticky top-0 z-30 flex h-14 items-center gap-3 bg-[#f8f3ea]/90 px-4 backdrop-blur">
-        <Logo className="h-8 w-auto" />
-        <span className="flex-1 truncate font-display text-lg font-semibold">{loja.nome}</span>
-        <button
-          type="button"
-          onClick={() => setSomLigado(!somLigado)}
-          className="flex size-10 items-center justify-center rounded-full text-stone-600 hover:bg-white"
-          aria-label={somLigado ? "Desligar sons" : "Ligar sons"}
-          aria-pressed={somLigado}
-        >
-          {somLigado ? <Volume2 className="size-5" /> : <VolumeX className="size-5" />}
-        </button>
-        <motion.button
-          id={ALVO_CARRINHO}
-          key={pulo}
-          type="button"
-          onClick={() => setFolha("carrinho")}
-          initial={pulo ? { scale: 1.35 } : false}
-          animate={{ scale: 1 }}
-          transition={{ type: "spring", stiffness: 400, damping: 12 }}
-          className="relative flex h-10 items-center gap-1.5 rounded-full bg-stone-900 pr-3.5 pl-3 text-sm font-semibold text-white"
-          aria-label={`Carrinho, ${quantidade} ${quantidade === 1 ? "item" : "itens"}`}
-        >
-          <ShoppingBag className="size-4" />
-          {cotacao.ok && quantidade ? formatarReais(cotacao.subtotalCentavos) : "Carrinho"}
-          {quantidade > 0 && (
-            <span className="absolute -top-1.5 -right-1.5 flex size-5 items-center justify-center rounded-full bg-marca-500 text-[11px] tabular">{quantidade}</span>
-          )}
-        </motion.button>
+    <div className="min-h-dvh bg-[#f6f3ee] text-stone-900">
+      {/* Barra do app */}
+      <header className="sticky top-0 z-40 border-b border-black/[0.04] bg-white/90 backdrop-blur-xl">
+        <div className="mx-auto flex h-16 max-w-lg items-center gap-3 px-4">
+          <Logo className="size-10 shrink-0 drop-shadow-[0_4px_8px_rgb(201_53_26/0.35)]" />
+          <div className="min-w-0 flex-1 leading-tight">
+            <p className="truncate text-[15px] font-extrabold tracking-tight">{loja.nome}</p>
+            <p className={cn("flex items-center gap-1.5 truncate text-xs font-medium", status.aberta ? "text-manjericao-600" : "text-stone-500")}>
+              <span className={cn("size-1.5 shrink-0 rounded-full", status.aberta ? "bg-manjericao-500" : "bg-stone-400")} />
+              {status.texto}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSomLigado(!somLigado)}
+            className="flex size-10 items-center justify-center rounded-full text-stone-500 transition hover:bg-stone-100"
+            aria-label={somLigado ? "Desligar sons" : "Ligar sons"}
+            aria-pressed={somLigado}
+          >
+            {somLigado ? <Volume2 className="size-5" /> : <VolumeX className="size-5" />}
+          </button>
+          <motion.button
+            id={ALVO_CARRINHO}
+            key={pulo}
+            type="button"
+            onClick={() => setFolha("carrinho")}
+            initial={pulo ? { scale: 1.3 } : false}
+            animate={{ scale: 1 }}
+            transition={{ type: "spring", stiffness: 400, damping: 12 }}
+            className={cn(
+              "relative flex size-11 items-center justify-center rounded-2xl transition-colors",
+              quantidade ? "bg-marca-600 text-white shadow-[0_6px_16px_-6px_rgb(201_53_26/0.7)]" : "bg-stone-100 text-stone-700"
+            )}
+            aria-label={`Sacola, ${quantidade} ${quantidade === 1 ? "item" : "itens"}`}
+          >
+            <ShoppingBag className="size-5" />
+            {quantidade > 0 && (
+              <span className="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-stone-900 px-1 text-[11px] font-bold text-white tabular ring-2 ring-white">
+                {quantidade}
+              </span>
+            )}
+          </motion.button>
+        </div>
       </header>
 
       <main className="mx-auto max-w-lg px-4">
-        {(!loja.aberta || !loja.linkAtivo) && (
-          <p className="mt-1 flex items-center gap-2 rounded-full bg-stone-900 px-3 py-1.5 text-[12.5px] text-white">
-            <Clock className="size-3.5 shrink-0" />
-            <span className="truncate">
-              {!loja.linkAtivo
-                ? "Pedidos pelo site desligados — monte só por diversão"
-                : loja.pausada
-                  ? "Sem pedidos agora — monte só por diversão 😉"
-                  : `Fechados${loja.proximaAbertura ? ` · abrimos ${loja.proximaAbertura}` : ""} — monte por diversão`}
+        {/* Informações da loja, como no topo de um cardápio de delivery */}
+        <div className="sem-barra -mx-4 flex gap-2 overflow-x-auto px-4 pt-3">
+          {taxas.length > 0 && (
+            <span className="flex shrink-0 items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-stone-700 shadow-[0_1px_3px_rgb(0_0_0/0.06)]">
+              <Bike className="size-3.5 text-marca-600" />
+              Entrega {Math.min(...taxas) === Math.max(...taxas) ? formatarReais(taxas[0]!) : `a partir de ${formatarReais(Math.min(...taxas))}`}
             </span>
-          </p>
-        )}
+          )}
+          <span className="flex shrink-0 items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-stone-700 shadow-[0_1px_3px_rgb(0_0_0/0.06)]">
+            <Store className="size-3.5 text-marca-600" />
+            Retirada no balcão
+          </span>
+          {loja.pedidoMinimoCentavos > 0 && (
+            <span className="flex shrink-0 items-center rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-stone-700 shadow-[0_1px_3px_rgb(0_0_0/0.06)]">
+              Pedido mín. {formatarReais(loja.pedidoMinimoCentavos)}
+            </span>
+          )}
+          {loja.pix && (
+            <span className="flex shrink-0 items-center rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-stone-700 shadow-[0_1px_3px_rgb(0_0_0/0.06)]">Aceita Pix</span>
+          )}
+        </div>
 
-        <div className="mt-2 flex gap-1 rounded-2xl bg-[#efe3cf] p-1" role="tablist" aria-label="O que pedir">
-          {[
-            ...(livreId ? [{ chave: "livre" as const, rotulo: "Do seu jeito", Icone: Wand2 }] : []),
-            { chave: "sabores" as const, rotulo: "Sabores", Icone: ChefHat },
-            ...(catalogo.outros.length ? [{ chave: "outros" as const, rotulo: "Bebidas", Icone: CupSoda }] : []),
-          ].map(({ chave, rotulo, Icone }) => (
+        {/* O que pedir */}
+        <div className="mt-3 flex gap-1 rounded-2xl bg-white p-1 shadow-[0_1px_3px_rgb(0_0_0/0.06)]" role="tablist" aria-label="O que pedir">
+          {abas.map(({ chave, rotulo, Icone }) => (
             <button
               key={chave}
               type="button"
               role="tab"
               aria-selected={aba === chave}
-              onClick={() => {
-                setAba(chave);
-                setEditando(null);
-              }}
+              onClick={() => trocarAba(chave)}
               className={cn(
-                "relative flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 text-[13.5px] font-semibold transition-colors",
-                aba === chave ? "text-stone-900" : "text-stone-600"
+                "relative flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 text-[13.5px] font-bold transition-colors",
+                aba === chave ? "text-white" : "text-stone-500 hover:text-stone-800"
               )}
             >
-              {aba === chave && <motion.span layoutId="aba-ativa" className="absolute inset-0 rounded-xl bg-white shadow-suave" transition={{ type: "spring", stiffness: 420, damping: 34 }} />}
+              {aba === chave && <motion.span layoutId="aba-ativa" className="absolute inset-0 rounded-xl bg-stone-900" transition={{ type: "spring", stiffness: 420, damping: 34 }} />}
               <Icone className="relative size-4" />
               <span className="relative">{rotulo}</span>
             </button>
@@ -158,11 +195,11 @@ export function Pedir({ catalogo, loja }: { catalogo: CatalogoPedir; loja: InfoL
             tocar={tocar}
           />
         ) : (
-          <div className="pt-4 pb-28">
+          <div className="pt-5 pb-32">
             {categoriasOutros.map((categoria) => (
-              <section key={categoria} className="mb-5">
-                <h2 className="mb-2 font-display text-lg font-semibold">{categoria}</h2>
-                <ul className="divide-y divide-creme-200 rounded-2xl bg-white px-3 shadow-suave ring-1 ring-creme-200">
+              <section key={categoria} className="mb-6">
+                <h2 className="mb-3 text-lg font-extrabold tracking-tight">{categoria}</h2>
+                <ul className="space-y-2.5">
                   {catalogo.outros
                     .filter((p) => p.categoria === categoria)
                     .map((p) => {
@@ -170,63 +207,105 @@ export function Pedir({ catalogo, loja }: { catalogo: CatalogoPedir; loja: InfoL
                       if (!v) return null;
                       const qtd = itens.find((i) => i.item.sabores[0]?.variacao_id === v.id)?.item.quantidade ?? 0;
                       return (
-                        <li key={p.id} className="flex items-center gap-3 py-3">
+                        <li key={p.id} className="flex items-center gap-3 rounded-3xl bg-white p-3 shadow-[0_1px_3px_rgb(0_0_0/0.06)]">
                           {p.imagemUrl ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={p.imagemUrl} alt="" loading="lazy" className="size-12 rounded-xl object-cover" />
+                            <img src={p.imagemUrl} alt="" loading="lazy" className="size-16 rounded-2xl object-cover" />
                           ) : (
-                            <span className="size-12 rounded-xl bg-creme-100" />
+                            <span className="flex size-16 items-center justify-center rounded-2xl bg-[#f6f1e8]">
+                              <CupSoda className="size-7 text-marca-600/70" />
+                            </span>
                           )}
                           <div className="min-w-0 flex-1">
-                            <p className="font-semibold">{p.nome}</p>
-                            <p className="text-sm text-stone-600 tabular">{formatarReais(v.precoCentavos)}</p>
+                            <p className="font-bold">{p.nome}</p>
+                            {p.descricao && <p className="truncate text-xs text-stone-500">{p.descricao}</p>}
+                            <p className="mt-0.5 text-sm font-bold text-stone-900 tabular">{formatarReais(v.precoCentavos)}</p>
                           </div>
-                          {qtd > 0 && (
-                            <button type="button" onClick={() => quantidadeOutro(p.id, v.id, -1)} className="flex size-10 items-center justify-center rounded-full ring-1 ring-creme-300" aria-label={`Tirar ${p.nome}`}>
-                              <Minus className="size-4" />
+                          <div className={cn("flex items-center rounded-full", qtd > 0 && "bg-stone-100")}>
+                            {qtd > 0 && (
+                              <>
+                                <button type="button" onClick={() => quantidadeOutro(p.id, v.id, -1)} className="flex size-9 items-center justify-center rounded-full text-marca-600" aria-label={`Tirar ${p.nome}`}>
+                                  <Minus className="size-4" strokeWidth={2.5} />
+                                </button>
+                                <span className="w-5 text-center text-sm font-bold tabular">{qtd}</span>
+                              </>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => quantidadeOutro(p.id, v.id, 1)}
+                              className="flex size-9 items-center justify-center rounded-full bg-marca-600 text-white shadow-[0_4px_10px_-4px_rgb(201_53_26/0.8)]"
+                              aria-label={`Adicionar ${p.nome}`}
+                            >
+                              <Plus className="size-4" strokeWidth={2.5} />
                             </button>
-                          )}
-                          {qtd > 0 && <span className="w-5 text-center font-semibold tabular">{qtd}</span>}
-                          <button type="button" onClick={() => quantidadeOutro(p.id, v.id, 1)} className="flex size-10 items-center justify-center rounded-full bg-marca-600 text-white" aria-label={`Adicionar ${p.nome}`}>
-                            <Plus className="size-4" />
-                          </button>
+                          </div>
                         </li>
                       );
                     })}
                 </ul>
               </section>
             ))}
-            {quantidade > 0 && (
-              <div className="fixed inset-x-0 bottom-0 z-30 border-t border-creme-200 bg-[#f8f3ea]/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur">
-                <button type="button" onClick={() => setFolha("carrinho")} className="mx-auto flex h-12 w-full max-w-lg items-center justify-center rounded-full bg-marca-600 font-semibold text-white shadow-elevada">
-                  Ver carrinho · {cotacao.ok ? formatarReais(cotacao.subtotalCentavos) : ""}
-                </button>
-              </div>
-            )}
           </div>
         )}
       </main>
+
+      {/* Sacola flutuante (nas bebidas, onde não há botão de adicionar no rodapé) */}
+      <AnimatePresence>
+        {aba === "outros" && quantidade > 0 && (
+          <motion.div
+            className="fixed inset-x-0 bottom-0 z-30 px-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
+            initial={{ y: 100 }}
+            animate={{ y: 0 }}
+            exit={{ y: 100 }}
+            transition={{ type: "spring", stiffness: 380, damping: 32 }}
+          >
+            <button
+              type="button"
+              onClick={() => setFolha("carrinho")}
+              className="mx-auto flex h-14 w-full max-w-lg items-center gap-3 rounded-2xl bg-marca-600 px-4 font-bold text-white shadow-[0_12px_28px_-10px_rgb(201_53_26/0.8)]"
+            >
+              <span className="flex h-7 min-w-7 items-center justify-center rounded-lg bg-white/20 px-1.5 text-sm tabular">{quantidade}</span>
+              <span className="flex-1 text-left">Ver sacola</span>
+              <span className="tabular">{cotacao.ok ? formatarReais(cotacao.subtotalCentavos) : ""}</span>
+              <ChevronRight className="size-5" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {folha === "carrinho" && (
           <Folha
             key="carrinho"
-            titulo="Seu pedido"
+            titulo="Sua sacola"
             aoFechar={() => setFolha(null)}
             rodape={
               itens.length > 0 && (
-                <div className="flex gap-2">
-                  <button type="button" onClick={() => { setAba(livreId ? "livre" : "sabores"); setFolha(null); }} className="h-12 rounded-full px-4 font-semibold ring-1 ring-creme-300">
-                    + Pizza
-                  </button>
-                  <button
-                    type="button"
-                    disabled={!cotacao.ok}
-                    onClick={() => setFolha("dados")}
-                    className="h-12 flex-1 rounded-full bg-marca-600 font-semibold text-white shadow-elevada disabled:bg-stone-400"
-                  >
-                    Continuar · {cotacao.ok ? formatarReais(cotacao.subtotalCentavos) : "revise os itens"}
-                  </button>
+                <div className="space-y-3">
+                  <div className="flex items-baseline justify-between text-sm">
+                    <span className="text-stone-500">Subtotal</span>
+                    <span className="text-lg font-extrabold tabular">{cotacao.ok ? formatarReais(cotacao.subtotalCentavos) : "—"}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        trocarAba(livreId ? "livre" : "sabores");
+                        setFolha(null);
+                      }}
+                      className="h-13 rounded-2xl bg-stone-100 px-4 text-sm font-bold text-stone-800"
+                    >
+                      + Pizza
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!cotacao.ok}
+                      onClick={() => setFolha("dados")}
+                      className="flex h-13 flex-1 items-center justify-center gap-1 rounded-2xl bg-marca-600 font-bold text-white shadow-[0_10px_24px_-10px_rgb(201_53_26/0.8)] disabled:bg-stone-300 disabled:shadow-none"
+                    >
+                      {cotacao.ok ? "Continuar" : "Revise os itens"} <ChevronRight className="size-5" />
+                    </button>
+                  </div>
                 </div>
               )
             }
@@ -234,6 +313,7 @@ export function Pedir({ catalogo, loja }: { catalogo: CatalogoPedir; loja: InfoL
             <ListaCarrinho
               itens={itens}
               precos={precos}
+              catalogo={catalogo}
               aoAlterar={setItens}
               aoEditar={(id) => {
                 const alvo = itens.find((i) => i.id === id) ?? null;
@@ -246,7 +326,7 @@ export function Pedir({ catalogo, loja }: { catalogo: CatalogoPedir; loja: InfoL
           </Folha>
         )}
         {folha === "dados" && (
-          <Folha key="dados" titulo="Seus dados" aoFechar={() => setFolha("carrinho")}>
+          <Folha key="dados" titulo="Finalizar pedido" aoFechar={() => setFolha("carrinho")}>
             <FormularioPedido
               itens={itens}
               precos={precos}

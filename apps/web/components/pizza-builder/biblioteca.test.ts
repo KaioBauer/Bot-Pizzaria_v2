@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { CAMADAS_BASE, miniaturaDoSabor, visuaisDaDescricao, visualDoNome, VISUAIS } from "./biblioteca";
+import { BASE_SALGADA, CAMADAS_BASE, ehDoce, miniaturaDoSabor, visuaisDaDescricao, visuaisDoSabor, visualDoNome, VISUAIS } from "./biblioteca";
 
 const chaves = (d: string) => visuaisDaDescricao(d).map((v) => v.chave);
 
@@ -31,8 +31,32 @@ describe("biblioteca de camadas", () => {
   });
 
   it("acha o visual pelo nome do ingrediente cadastrado", () => {
-    expect(visualDoNome("Muçarela extra")?.chave).toBe("mussarela");
+    expect(visualDoNome("Calabresa")?.chave).toBe("calabresa");
     expect(visualDoNome("Pimentão")?.chave).toBe("pimentao");
+  });
+
+  it("muçarela extra tem camada própria (senão não aparece sobre a da base)", () => {
+    expect(visualDoNome("Muçarela extra")?.chave).toBe("mussarela-extra");
+    expect(visualDoNome("Muçarela extra")?.assadaUrl).toMatch(/gratinada/);
+  });
+
+  it("sabor não repete a muçarela (salgada já tem na base; doce não leva)", () => {
+    expect(visuaisDoSabor("Mussarela, calabresa e orégano", "Calabresa").map((v) => v.chave)).toEqual(["calabresa", "oregano"]);
+    expect(visuaisDoSabor("Mussarela, leite condensado e chocolate preto", "Brigadeiro").map((v) => v.chave)).toEqual([
+      "chocolate-preto",
+      "leite-condensado",
+    ]);
+  });
+
+  it("base salgada = molho + muçarela, por baixo de tudo", () => {
+    expect(BASE_SALGADA.map((v) => v.chave)).toEqual(["base-molho", "base-queijo"]);
+    expect(BASE_SALGADA.every((v) => v.ordem < 0)).toBe(true);
+  });
+
+  it("reconhece doce pela categoria", () => {
+    expect(ehDoce("Doces")).toBe(true);
+    expect(ehDoce("Pizzas Doces")).toBe(true);
+    expect(ehDoce("Salgadas")).toBe(false);
   });
 
   it("miniatura do sabor é o recheio principal", () => {
