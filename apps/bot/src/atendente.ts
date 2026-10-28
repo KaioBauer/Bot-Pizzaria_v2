@@ -6,7 +6,7 @@ import type { ChannelAdapter } from "./canais/tipos";
 const MAX_TENTATIVAS = 5;
 /** Conversa parada há mais que isso recomeça (mesma regra do agente). */
 const EXPIRACAO_CONVERSA_MS = 180 * 60_000;
-const ehCanal = (c: string): c is Canal => c === "telegram" || c === "whatsapp";
+const ehCanal = (c: string): c is Canal => c === "whatsapp";
 
 /**
  * Envia ao cliente as respostas escritas pelo atendente no painel

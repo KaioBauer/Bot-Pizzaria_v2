@@ -3,8 +3,8 @@ import type { SituacaoLoja } from "../horario";
 
 /**
  * Comandos de chat tratados sem passar pelo LLM (resposta imediata e sem
- * custo). Funcionam em qualquer canal: no Telegram aparecem no menu.
- *   /start      primeira abertura do bot (ou link "Pedir no Telegram")
+ * custo).
+ *   /start      boas-vindas
  *   /reiniciar  o cliente quer começar o atendimento do zero
  */
 export type ComandoChat = "start" | "reiniciar";

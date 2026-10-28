@@ -9,7 +9,7 @@ const ABERTO = new Date("2026-10-02T20:00:00-03:00");
 const FECHADO = new Date("2026-10-02T10:00:00-03:00");
 
 const entrada = (textoCliente: string) => ({
-  canal: "telegram" as const,
+  canal: "whatsapp" as const,
   chatId: "123",
   clienteNome: "Maria",
   texto: textoCliente,
@@ -49,6 +49,30 @@ describe("agente", () => {
     await agente.processarMensagem(entrada("quero o cardápio"));
     expect(requisicoes[0]?.sistema).toContain("Cardápio completo com fotos e preços: https://painel.exemplo/cardapio");
     expect(requisicoes[0]?.sistema).toContain("envie o link do cardápio");
+  });
+
+  it("oferece pedir pela conversa ou pelo link só com o pedido pelo link ligado", async () => {
+    const opcoes = { urlCardapio: "https://painel.exemplo/cardapio", urlPedir: "https://painel.exemplo/pedir" };
+    const promptCom = async (config: Parameters<typeof configDeTeste>[0], agora = ABERTO) => {
+      const memoria = repositoriosEmMemoria({ variacoes: variacoesDeTeste(), config: configDeTeste(config) });
+      const { llm, requisicoes } = llmRoteirizado([texto("Oi!")]);
+      await criarAgente({ repos: memoria.repos, llm, agora: () => agora, opcoes }).processarMensagem({ ...entrada("boa noite"), canal: "whatsapp" });
+      return requisicoes[0]!.sistema;
+    };
+    expect(await promptCom({ pedidoLinkAtivo: true })).toContain("Pedido pelo link (o cliente monta a pizza e finaliza por lá): https://painel.exemplo/pedir");
+    expect(await promptCom({ pedidoLinkAtivo: false })).not.toContain("https://painel.exemplo/pedir");
+    // Loja fechada: o link também não aceita pedidos, então não é oferecido.
+    expect(await promptCom({ pedidoLinkAtivo: true }, FECHADO)).not.toContain("https://painel.exemplo/pedir");
+  });
+
+  it("o link do pedido pelo link passa pela trava de links quando ligado", async () => {
+    const memoria = repositoriosEmMemoria({ variacoes: variacoesDeTeste(), config: configDeTeste({ pedidoLinkAtivo: true }) });
+    const resposta = "Pode pedir aqui comigo ou montar a sua pizza pelo link: https://painel.exemplo/pedir. Como prefere?";
+    const { llm, requisicoes } = llmRoteirizado([texto(resposta)]);
+    const agente = criarAgente({ repos: memoria.repos, llm, agora: () => ABERTO, opcoes: { urlPedir: "https://painel.exemplo/pedir" } });
+    const r = await agente.processarMensagem({ ...entrada("boa noite"), canal: "whatsapp" });
+    expect(r.texto).toBe(resposta);
+    expect(requisicoes).toHaveLength(1); // sem pedido de correção
   });
 
   it("finaliza com preços do servidor, ignorando valores do modelo", async () => {

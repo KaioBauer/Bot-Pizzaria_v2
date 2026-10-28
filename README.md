@@ -1,6 +1,6 @@
 # Vianna Pizzaria — sistema de pedidos com IA
 
-Chatbot que atende e fecha pedidos no **Telegram** e no **WhatsApp**, painel da pizzaria em
+Chatbot que atende e fecha pedidos no **WhatsApp**, painel da pizzaria em
 tempo real, **impressão automática** em impressora térmica, **cardápio web** e **Pix** integrado.
 Decisões de arquitetura e convenções: [`CLAUDE.md`](CLAUDE.md). Deploy: [`docs/DEPLOY.md`](docs/DEPLOY.md).
 
@@ -10,16 +10,16 @@ Decisões de arquitetura e convenções: [`CLAUDE.md`](CLAUDE.md). Deploy: [`doc
 | 2 | Painel com pedidos em tempo real + notificação do cliente | ✅ |
 | 3 | `print-agent` (impressora térmica) | ✅ |
 | 4 | Cardápio público, CRUD de cardápio e configurações | ✅ |
-| 5 | Pix (OpenPix / Woovi) | ✅ (liga com o AppID) |
+| 5 | Pix simulado (BR Code real, Banco simulado no painel) | ✅ (liga com `PIX_SIMULADO`) |
 | 6 | WhatsApp (Evolution API) | ✅ (liga com `WHATSAPP_ENABLED`) |
 | 7 | Relatórios, Docker e deploy | ✅ |
 
 ## Como funciona
 
 ```
-Cliente ── Telegram / WhatsApp ──► apps/bot ──► packages/core (agente LLM + regras) ──► Supabase
+Cliente ── WhatsApp ──► apps/bot ──► packages/core (agente LLM + regras) ──► Supabase
                                      │   ▲                                               │  │
-                      OpenPix ───┘   └── notificações de status (outbox) ◄───────────┘  │ Realtime
+                 Pix simulado ───┘   └── notificações de status (outbox) ◄───────────┘  │ Realtime
                                                                                             ▼
                                        apps/web (painel /admin + cardápio /cardapio)   apps/print-agent (PC da loja)
 ```
@@ -28,7 +28,7 @@ Cliente ── Telegram / WhatsApp ──► apps/bot ──► packages/core (a
 
 - Node.js 22+ e pnpm 11 (`corepack enable`)
 - Projeto Supabase com as migrations de `supabase/migrations` aplicadas
-- Chave da OpenAI e um bot do Telegram criado no [@BotFather](https://t.me/BotFather)
+- Chave da OpenAI e a Evolution API (WhatsApp); o painel conecta o número em *Configurações → WhatsApp*
 
 ## Setup
 
@@ -65,13 +65,13 @@ ajustes do dia a dia ficam no painel: preço base, fatias e sabores de cada tama
 *Cardápio → Editar*.
 
 No cardápio público o cliente monta o pedido (tamanho, sabores, borda, bebidas) e toca em
-*Enviar pelo Telegram*: o bot recebe o carrinho, confere os preços e segue com entrega ou
-retirada e pagamento. Precisa do usuário do bot em *Configurações → Telegram*.
+*Pedir no WhatsApp*: o bot recebe o carrinho, confere os preços e segue com entrega ou
+retirada e pagamento. Precisa do número do bot em *Configurações → Loja*.
 
 ## Rodando em desenvolvimento
 
 ```bash
-pnpm dev       # bot (Telegram) + painel/cardápio, juntos, num terminal só
+pnpm dev       # bot (WhatsApp) + painel/cardápio, juntos, num terminal só
 ```
 
 No Windows, dá para ligar com dois cliques em **`Iniciar.cmd`** (abre o painel no navegador).
@@ -118,15 +118,13 @@ spooler — não precisa compartilhar. Rede: `tcp://IP:9100`.
 | `CARDAPIO_URL` | | | Link do cardápio público que o bot envia |
 | `CONVERSA_EXPIRACAO_MINUTOS` | | `180` | Conversa parada por mais tempo recomeça |
 | `HISTORICO_LIMITE` | | `40` | Mensagens do histórico enviadas ao modelo |
-| `TELEGRAM_ENABLED` | | `true` | Liga/desliga o canal |
-| `TELEGRAM_BOT_TOKEN` | se habilitado | | Token do BotFather |
-| `TELEGRAM_MODE` | | `polling` | `polling` (dev) ou `webhook` (produção) |
-| `TELEGRAM_WEBHOOK_SECRET` | com webhook | | Segredo validado em cada chamada |
-| `OPENPIX_APP_ID` | | | Liga o Pix (OpenPix/Woovi) |
-| `OPENPIX_AMBIENTE` | | `sandbox` | `sandbox` ou `producao` |
-| `OPENPIX_WEBHOOK_AUTORIZACAO` | | | Valor de "Authorization" cadastrado no webhook (opcional) |
+| `PIX_SIMULADO` | | `false` | Liga o Pix simulado (sem dinheiro de verdade) |
+| `PIX_SIMULADO_CIDADE` | | `SAO PAULO` | Cidade do recebedor no BR Code |
+| `PIX_SIMULADO_CHAVE` | | chave fictícia | Chave aleatória (EVP) dentro do BR Code |
+| `PIX_SIMULADO_SEGREDO` | | aleatório | Segredo do HMAC dos webhooks |
+| `PIX_SIMULADO_PERDA_WEBHOOK` | | `0` | Fração de webhooks descartados (teste da conferência) |
 | `PIX_CONFERENCIA_SEGUNDOS` | | `60` | Conferência periódica dos Pix pendentes |
-| `WHATSAPP_ENABLED` | | `false` | Liga o WhatsApp |
+| `WHATSAPP_ENABLED` | | `true` | Canal de conversa (desligar só para rodar sem a Evolution) |
 | `EVOLUTION_URL` | c/ WhatsApp | | URL da Evolution API (`http://evolution:8080` no compose) |
 | `EVOLUTION_API_KEY` | c/ WhatsApp | | Chave da Evolution |
 | `EVOLUTION_INSTANCIA` | | `vianna` | Nome da instância |

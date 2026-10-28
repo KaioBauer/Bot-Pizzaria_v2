@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import QRCode from "qrcode";
 import { listarEntregadores, listarTamanhos, obterConfiguracaoAdmin } from "@pizzaria/db";
-import { CabecalhoPagina } from "../../../../components/ui";
+import { Landmark } from "lucide-react";
+import { BotaoLink, CabecalhoPagina } from "../../../../components/ui";
 import { exigirAdmin } from "../../../../lib/auth";
 import { SecaoEntregadores } from "./entregadores";
 import { SecaoWhatsapp } from "./whatsapp";
@@ -36,7 +37,15 @@ export default async function ConfiguracoesPage() {
 
   return (
     <main className="mx-auto max-w-6xl space-y-8 p-4 sm:p-8">
-      <CabecalhoPagina titulo="Configurações" descricao="Como a pizzaria funciona: WhatsApp, dados, pedido pelo link, horários, tamanhos, entrega e motoboys." />
+      <CabecalhoPagina
+        titulo="Configurações"
+        descricao="Como a pizzaria funciona: WhatsApp, dados, pedido pelo link, horários, tamanhos, entrega e motoboys."
+        acoes={
+          <BotaoLink href="/admin/pix" variante="secundario" tamanho="sm">
+            <Landmark className="size-3.5" /> Banco simulado (Pix)
+          </BotaoLink>
+        }
+      />
       <SecaoWhatsapp />
       <FormLoja inicial={config} />
       <FormPedidoLink inicial={pedidoLink} link={linkPedido} qrDataUrl={qrPedido} />

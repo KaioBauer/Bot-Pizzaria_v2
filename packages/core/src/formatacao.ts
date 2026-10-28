@@ -1,7 +1,6 @@
 /**
- * Normaliza a marcação gerada pelo LLM para o subconjunto que Telegram
- * (Markdown legado) e WhatsApp entendem igual: *negrito* e _itálico_.
- * Modelos insistem em **negrito duplo** e títulos com #, que nesses canais
+ * Normaliza a marcação gerada pelo LLM para o que o WhatsApp entende:
+ * *negrito* e _itálico_. Modelos insistem em **negrito duplo** e títulos com #, que no WhatsApp
  * aparecem como símbolos soltos.
  */
 export function normalizarFormatacao(texto: string): string {

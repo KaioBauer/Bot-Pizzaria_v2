@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, ChevronRight, CupSoda, MessageCircle, Minus, Plus, Search, Send, ShoppingBag, Trash2, X } from "lucide-react";
+import { Check, ChevronRight, CupSoda, MessageCircle, Minus, Plus, Search, ShoppingBag, Trash2, X } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { createContext, use, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { precificarItens } from "@pizzaria/core/precificacao";
@@ -19,15 +19,13 @@ import { Folha } from "../pedir/folha";
 import { enviarCarrinhoAction } from "./actions";
 
 /**
- * Montar o pedido no cardápio e enviar ao bot do Telegram. O preço mostrado
+ * Montar o pedido no cardápio e enviar ao bot do WhatsApp. O preço mostrado
  * aqui usa a mesma precificação do servidor (core/precificacao), mas é só
  * prévia: o bot reprecifica tudo a partir dos IDs.
  */
 
 const CHAVE_ARMAZENAMENTO = "vianna:carrinho:v1";
-const rotuloCanal: Record<Canal, string> = { telegram: "Telegram", whatsapp: "WhatsApp" };
 const estiloCanal: Record<Canal, string> = {
-  telegram: "bg-[#229ED9] shadow-[0_10px_24px_-10px_rgb(34_158_217/0.8)]",
   whatsapp: "bg-[#25D366] shadow-[0_10px_24px_-10px_rgb(37_211_102/0.8)]",
 };
 const SOMBRA_MARCA = "shadow-[0_10px_24px_-10px_rgb(201_53_26/0.8)]";
@@ -520,7 +518,6 @@ export function Carrinho({
   aberta,
   canais,
   linkWhatsapp,
-  linkTelegram,
   nomeLoja,
   status,
   children,
@@ -528,11 +525,10 @@ export function Carrinho({
   categorias: CategoriaCardapio[];
   tamanhos: TamanhoPizza[];
   aberta: boolean;
-  /** Canais para onde o carrinho pode ser enviado (Telegram/WhatsApp configurados). */
+  /** Canais para onde o carrinho pode ser enviado (WhatsApp, quando configurado). */
   canais: Canal[];
   /** Botões de chat mostrados com o carrinho vazio. */
   linkWhatsapp: string | null;
-  linkTelegram: string | null;
   nomeLoja: string;
   /** Situação da loja numa linha curta, para a barra do topo. */
   status: { texto: string; tom: "aberta" | "pausada" | "fechada" };
@@ -682,7 +678,7 @@ export function Carrinho({
             </button>
           </motion.div>
         ) : (
-          (linkWhatsapp || linkTelegram) && (
+          linkWhatsapp && (
             <motion.div
               key="chat"
               className="fixed inset-x-0 bottom-0 z-30 bg-gradient-to-t from-[#f6f3ee] via-[#f6f3ee]/90 to-transparent px-4 pt-6 pb-[max(1rem,env(safe-area-inset-bottom))]"
@@ -690,16 +686,9 @@ export function Carrinho({
               transition={{ type: "spring", stiffness: 380, damping: 32 }}
             >
               <div className="mx-auto flex max-w-lg gap-2">
-                {linkWhatsapp && (
-                  <a href={linkWhatsapp} className={cn(estiloCanal.whatsapp, "flex h-14 flex-1 items-center justify-center gap-2 rounded-2xl font-bold text-white transition hover:brightness-95 active:scale-[0.98]")}>
-                    <MessageCircle className="size-5" /> {linkTelegram ? "WhatsApp" : "Pedir no WhatsApp"}
-                  </a>
-                )}
-                {linkTelegram && (
-                  <a href={linkTelegram} className={cn(estiloCanal.telegram, "flex h-14 flex-1 items-center justify-center gap-2 rounded-2xl font-bold text-white transition hover:brightness-95 active:scale-[0.98]")}>
-                    <Send className="size-5" /> {linkWhatsapp ? "Telegram" : "Pedir no Telegram"}
-                  </a>
-                )}
+                <a href={linkWhatsapp} className={cn(estiloCanal.whatsapp, "flex h-14 flex-1 items-center justify-center gap-2 rounded-2xl font-bold text-white transition hover:brightness-95 active:scale-[0.98]")}>
+                  <MessageCircle className="size-5" /> Pedir no WhatsApp
+                </a>
               </div>
             </motion.div>
           )
@@ -742,7 +731,7 @@ export function Carrinho({
             rodape={
               enviado ? (
                 <a href={enviado.link} className={cn(estiloCanal[enviado.canal], "flex h-14 w-full items-center justify-center gap-2 rounded-2xl font-bold text-white transition hover:brightness-95")}>
-                  {enviado.canal === "whatsapp" ? <MessageCircle className="size-5" /> : <Send className="size-5" />} Abrir o {rotuloCanal[enviado.canal]}
+                  <MessageCircle className="size-5" /> Abrir o WhatsApp
                 </a>
               ) : (
                 itens.length > 0 && (
@@ -766,8 +755,8 @@ export function Carrinho({
                           disabled={enviando || !aberta || itens.length === 0}
                           className={cn(estiloCanal[canal], "flex h-14 flex-1 items-center justify-center gap-2 rounded-2xl font-bold text-white transition hover:brightness-95 disabled:bg-stone-300 disabled:shadow-none")}
                         >
-                          {canal === "whatsapp" ? <MessageCircle className="size-5" /> : <Send className="size-5" />}
-                          {enviando ? "Enviando..." : canais.length > 1 ? rotuloCanal[canal] : `Enviar pelo ${rotuloCanal[canal]}`}
+                          <MessageCircle className="size-5" />
+                          {enviando ? "Enviando..." : "Pedir no WhatsApp"}
                         </motion.button>
                       ))}
                     </div>
@@ -793,7 +782,7 @@ export function Carrinho({
                 </motion.span>
                 <p className="mt-4 text-xl font-extrabold tracking-tight">Pedido enviado!</p>
                 <p className="mx-auto mt-1 max-w-xs text-sm text-stone-600">
-                  {enviado.canal === "whatsapp" ? "No WhatsApp, toque em enviar na mensagem pronta e siga a conversa" : "Continue no Telegram"}: confirme entrega ou retirada e a forma de
+                  No WhatsApp, toque em enviar na mensagem pronta e siga a conversa: confirme entrega ou retirada e a forma de
                   pagamento. Se não abriu, toque no botão abaixo.
                 </p>
               </div>

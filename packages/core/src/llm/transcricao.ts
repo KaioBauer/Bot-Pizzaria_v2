@@ -7,7 +7,7 @@ import type { CategoriaCardapio } from "@pizzaria/shared";
  */
 export interface AudioParaTranscrever {
   conteudo: Buffer;
-  /** Ex.: "audio/ogg; codecs=opus" (WhatsApp/Telegram). */
+  /** Ex.: "audio/ogg; codecs=opus" (WhatsApp). */
   mime: string;
 }
 

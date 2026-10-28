@@ -72,6 +72,8 @@ export interface FontesOficiais {
   /** Histórico + mensagens desta rodada (resultados de ferramentas e falas do cliente). */
   mensagens: MensagemConversa[];
   urlCardapio: string | null;
+  /** Link do pedido pelo link (/pedir), quando ligado. */
+  urlPedir?: string | null;
   telefoneCanal: string | null;
   cliente: ClienteConhecido | null;
 }
@@ -142,8 +144,9 @@ export function verificarResposta(texto: string, fontes: FontesOficiais): Proble
   const valores = [...new Set(valoresCitados(texto).filter((v) => !conhecidos.has(v)))];
   if (valores.length) problemas.push({ tipo: "valor", valores });
 
-  const permitido = fontes.urlCardapio?.replace(/^https?:\/\//, "").replace(/\/+$/, "");
-  const links = linksCitados(texto).filter((l) => !permitido || !l.replace(/^https?:\/\//, "").startsWith(permitido));
+  const semProtocolo = (u: string) => u.replace(/^https?:\/\//, "").replace(/\/+$/, "");
+  const permitidos = [fontes.urlCardapio, fontes.urlPedir].flatMap((u) => (u ? [semProtocolo(u)] : []));
+  const links = linksCitados(texto).filter((l) => !permitidos.some((p) => semProtocolo(l).startsWith(p)));
   if (links.length) problemas.push({ tipo: "link", links });
 
   const telefones = telefonesCitados(texto).filter((t) => !telefoneConhecido(t, fontes));

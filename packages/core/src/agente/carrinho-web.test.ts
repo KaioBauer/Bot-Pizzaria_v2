@@ -13,7 +13,7 @@ const carrinho = [
   { sabores: [sabor(ID.coca, ID.cocaUnica)], adicionais: [], quantidade: 2, observacao: null },
 ];
 
-const entrada = (texto: string) => ({ canal: "telegram" as const, chatId: "123", clienteNome: "Maria", texto });
+const entrada = (texto: string) => ({ canal: "whatsapp" as const, chatId: "123", clienteNome: "Maria", texto });
 
 function montar(agora = ABERTO, itens: unknown = carrinho) {
   const memoria = repositoriosEmMemoria({ variacoes: variacoesDeTeste(), config: configDeTeste() });
@@ -25,11 +25,11 @@ function montar(agora = ABERTO, itens: unknown = carrinho) {
 
 describe("codigoCarrinhoWeb", () => {
   it.each([
-    [`/start c_${CODIGO}`, CODIGO],
-    [`/start@ViannaBot c_${CODIGO.toUpperCase()}`, CODIGO],
-    [`oi\n/start c_${CODIGO}`, CODIGO],
+    [`Código: c_${CODIGO}`, CODIGO],
+    [`Código: C_${CODIGO.toUpperCase()}`, CODIGO],
+    [`oi\nCódigo: c_${CODIGO}`, CODIGO],
     ["/start", null],
-    ["/start cardapio", null],
+    ["c_cardapio", null],
     ["/start c_xyz", null],
     [`Olá! Quero enviar o pedido que montei no cardápio 🍕
 Código: c_${CODIGO}`, CODIGO],
@@ -44,7 +44,7 @@ Código: c_${CODIGO}`, CODIGO],
 describe("carrinho do cardápio no agente", () => {
   it("reprecifica no servidor, responde sem o LLM e deixa os IDs no histórico", async () => {
     const { agente, requisicoes, conversas, carrinhos } = montar();
-    const r = await agente.processarMensagem(entrada(`/start c_${CODIGO}`));
+    const r = await agente.processarMensagem(entrada(`Código: c_${CODIGO}`));
 
     expect(requisicoes).toHaveLength(0);
     // Grande sem tamanhos cadastrados: vale o sabor mais caro (59,00) + borda 8,00
@@ -67,22 +67,22 @@ describe("carrinho do cardápio no agente", () => {
 
   it("carrinho usado, vencido ou inexistente", async () => {
     const { agente } = montar();
-    await agente.processarMensagem(entrada(`/start c_${CODIGO}`));
-    const r = await agente.processarMensagem(entrada(`/start c_${CODIGO}`));
+    await agente.processarMensagem(entrada(`Código: c_${CODIGO}`));
+    const r = await agente.processarMensagem(entrada(`Código: c_${CODIGO}`));
     expect(r.texto).toContain("Não encontrei esse pedido do cardápio");
     expect(r.texto).toContain("https://loja/cardapio");
   });
 
   it("carrinho com formato inválido é tratado como inexistente", async () => {
     const { agente } = montar(ABERTO, [{ sabores: [] }]);
-    expect((await agente.processarMensagem(entrada(`/start c_${CODIGO}`))).texto).toContain("Não encontrei");
+    expect((await agente.processarMensagem(entrada(`Código: c_${CODIGO}`))).texto).toContain("Não encontrei");
   });
 
   it("item indisponível: avisa e não inventa preço", async () => {
     const memoria = repositoriosEmMemoria({ variacoes: variacoesDeTeste({ [ID.cocaUnica]: { ativa: false } }), config: configDeTeste() });
     memoria.carrinhos.set(CODIGO, carrinho);
     const agente = criarAgente({ repos: memoria.repos, llm: llmRoteirizado([]).llm, agora: () => ABERTO });
-    const r = await agente.processarMensagem(entrada(`/start c_${CODIGO}`));
+    const r = await agente.processarMensagem(entrada(`Código: c_${CODIGO}`));
     expect(r.texto).toContain("tem um detalhe");
     expect(r.texto).not.toContain("Subtotal");
   });
@@ -96,9 +96,9 @@ describe("carrinho do cardápio no agente", () => {
 
   it("loja fechada: avisa e não consome o carrinho", async () => {
     const { agente, carrinhos } = montar(FECHADO);
-    const r = await agente.processarMensagem(entrada(`/start c_${CODIGO}`));
+    const r = await agente.processarMensagem(entrada(`Código: c_${CODIGO}`));
     expect(r.texto).toContain("fechados");
-    expect(r.texto).toContain("Enviar pelo Telegram");
+    expect(r.texto).toContain("Pedir no WhatsApp");
     expect(carrinhos.has(CODIGO)).toBe(true);
   });
 });

@@ -38,7 +38,7 @@ export interface ChannelAdapter {
   onMessage(manipulador: ManipuladorMensagem): void;
   /**
    * `literal`: envia sem interpretar formatação (ex.: código Pix copia e cola, que contém "*").
-   * `botao`: link em destaque (Telegram: botão abaixo da mensagem; WhatsApp: prévia do link).
+   * `botao`: link em destaque (no WhatsApp vira a prévia do link).
    */
   sendMessage(chatId: string, texto: string, opcoes?: OpcoesEnvio): Promise<void>;
   sendImage?(chatId: string, imagem: Imagem): Promise<void>;

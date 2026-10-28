@@ -48,7 +48,7 @@ describe("/reiniciar no agente", () => {
     const memoria = repositoriosEmMemoria({ variacoes: variacoesDeTeste(), config: configDeTeste() });
     const { llm, requisicoes } = llmRoteirizado([texto("Anotado: calabresa grande."), texto("Olá de novo!")]);
     const agente = criarAgente({ repos: memoria.repos, llm, agora: () => ABERTO });
-    const entrada = (t: string) => ({ canal: "telegram" as const, chatId: "1", clienteNome: "Maria", texto: t });
+    const entrada = (t: string) => ({ canal: "whatsapp" as const, chatId: "1", clienteNome: "Maria", texto: t });
 
     await agente.processarMensagem(entrada("quero uma calabresa grande"));
     const r = await agente.processarMensagem(entrada("/reiniciar"));
@@ -64,9 +64,9 @@ describe("/reiniciar no agente", () => {
     const args = { itens: [{ sabores: [sabor(ID.calabresa, ID.calabresaGrande)], quantidade: 1 }], tipo_entrega: "retirada", forma_pagamento: "cartao", cliente_nome: "Maria", cliente_telefone: "11987654321" };
     const { llm } = llmRoteirizado([chamar(["finalizar_pedido", args])]);
     const agente = criarAgente({ repos: memoria.repos, llm, agora: () => ABERTO });
-    await semearResumo(memoria.repos, { canal: "telegram", chatId: "1" }, args);
-    await agente.processarMensagem({ canal: "telegram", chatId: "1", texto: "pode fechar" });
-    await agente.processarMensagem({ canal: "telegram", chatId: "1", texto: "/reiniciar" });
+    await semearResumo(memoria.repos, { canal: "whatsapp", chatId: "1" }, args);
+    await agente.processarMensagem({ canal: "whatsapp", chatId: "1", texto: "pode fechar" });
+    await agente.processarMensagem({ canal: "whatsapp", chatId: "1", texto: "/reiniciar" });
     expect(memoria.pedidos).toHaveLength(1);
     expect(memoria.pedidos[0]?.status).toBe("novo");
   });

@@ -76,7 +76,6 @@ export function configDeTeste(extra: Partial<ConfiguracaoLoja> = {}): Configurac
     telefone: null,
     endereco: null,
     whatsappNumero: null,
-    telegramUsuario: null,
     instagram: null,
     fusoHorario: "America/Sao_Paulo",
     pedidoMinimoCentavos: 0,

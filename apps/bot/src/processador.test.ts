@@ -3,7 +3,7 @@ import type { MensagemEntrada } from "@pizzaria/core";
 import { dividirTexto } from "./canais/tipos";
 import { criarProcessadorPorChat } from "./processador";
 
-const msg = (chatId: string, texto: string): MensagemEntrada => ({ canal: "telegram", chatId, texto });
+const msg = (chatId: string, texto: string): MensagemEntrada => ({ canal: "whatsapp", chatId, texto });
 
 describe("criarProcessadorPorChat", () => {
   it("junta mensagens que chegam durante o processamento e mantém a ordem", async () => {

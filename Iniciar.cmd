@@ -2,7 +2,7 @@
 title Vianna Pizzaria - servidor local
 cd /d "%~dp0"
 echo.
-echo   Vianna Pizzaria - ligando bot (Telegram) e painel...
+echo   Vianna Pizzaria - ligando bot (WhatsApp) e painel...
 echo   Painel:   http://localhost:3000/admin
 echo   Cardapio: http://localhost:3000/cardapio
 echo   Para desligar: feche esta janela ou aperte Ctrl+C

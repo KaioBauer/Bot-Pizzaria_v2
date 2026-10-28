@@ -79,6 +79,12 @@ describe("verificarResposta", () => {
     expect(verificarResposta("Peça em https://ifood.com.br/vianna", fontes())).toEqual([{ tipo: "link", links: ["https://ifood.com.br/vianna"] }]);
   });
 
+  it("aceita o link do pedido pelo link só quando ele é fonte oficial", () => {
+    const texto = "Monte a sua pizza em https://painel.exemplo/pedir";
+    expect(verificarResposta(texto, fontes([], { urlPedir: "https://painel.exemplo/pedir" }))).toEqual([]);
+    expect(verificarResposta(texto, fontes())).toEqual([{ tipo: "link", links: ["https://painel.exemplo/pedir"] }]);
+  });
+
   it("aponta telefone inventado e aceita o da loja e o do cliente", () => {
     const cliente: MensagemConversa = { papel: "user", conteudo: "meu número é 11 98765-4321" };
     expect(verificarResposta("Ligue (47) 3333-4444. Seu telefone: (11) 98765-4321", fontes([cliente]))).toEqual([]);
@@ -201,7 +207,7 @@ describe("travas no agente", () => {
     const agente = criarAgente({ repos: memoria.repos, llm, agora: () => ABERTO });
     return { agente, requisicoes, ...memoria };
   }
-  const entrada = (t: string) => ({ canal: "telegram" as const, chatId: "9", clienteNome: "Maria", texto: t });
+  const entrada = (t: string) => ({ canal: "whatsapp" as const, chatId: "9", clienteNome: "Maria", texto: t });
   const args = {
     itens: [{ sabores: [sabor(ID.calabresa, ID.calabresaGrande)], quantidade: 1 }],
     tipo_entrega: "retirada",

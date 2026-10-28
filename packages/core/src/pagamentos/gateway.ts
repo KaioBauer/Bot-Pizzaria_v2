@@ -1,4 +1,4 @@
-/** Contrato do provedor de Pix (OpenPix/Woovi hoje; trocável). */
+/** Contrato do provedor de Pix (hoje o Pix simulado; trocável por um PSP real). */
 
 export type StatusCobranca = "pendente" | "aprovado" | "recusado" | "cancelado" | "estornado";
 

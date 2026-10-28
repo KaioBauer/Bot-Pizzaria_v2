@@ -31,12 +31,6 @@ const configSchema = z.object({
     .transform((v) => v.replace(/\D/g, ""))
     .refine((v) => v === "" || (v.length >= 12 && v.length <= 13), "WhatsApp: use DDI + DDD + número, ex.: 5511987654321")
     .transform((v) => v || null),
-  telegramUsuario: z
-    .string()
-    .trim()
-    .transform((v) => v.replace(/^@/, "").replace(/^https?:\/\/t\.me\//, ""))
-    .refine((v) => v === "" || /^[A-Za-z0-9_]{5,32}$/.test(v), "Usuário do Telegram inválido (ex.: ViannaPizzariaBot)")
-    .transform((v) => v || null),
   instagram: z
     .string()
     .trim()

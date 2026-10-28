@@ -17,7 +17,6 @@ export function criarLojaRepo(db: Db): LojaRepo {
         telefone: c.telefone,
         endereco: c.endereco,
         whatsappNumero: c.whatsapp_numero,
-        telegramUsuario: c.telegram_usuario,
         instagram: c.instagram,
         fusoHorario: c.fuso_horario,
         pedidoMinimoCentavos: paraCentavos(c.pedido_minimo),

@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 const FUSO = "America/Sao_Paulo";
 const PERIODOS = { hoje: "Hoje", "7d": "7 dias", "30d": "30 dias", mes: "Este mês" } as const;
 type Periodo = keyof typeof PERIODOS;
-const CANAIS = { todos: "Todos", telegram: "Telegram", whatsapp: "WhatsApp", link: "Link" } as const satisfies Record<"todos" | CanalPedido, string>;
+const CANAIS = { todos: "Todos", whatsapp: "WhatsApp", link: "Link" } as const satisfies Record<"todos" | CanalPedido, string>;
 type FiltroCanal = keyof typeof CANAIS;
 
 /** Monta a URL mantendo o outro filtro (período ou canal). */

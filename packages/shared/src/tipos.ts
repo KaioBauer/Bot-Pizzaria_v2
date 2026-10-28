@@ -6,8 +6,11 @@ import type { StatusPedido } from "./status";
  */
 
 /** Canais de conversa (bot). */
-export type Canal = "telegram" | "whatsapp";
-/** Origem do pedido: um canal de conversa ou o link de pedido direto (/pedir). */
+export type Canal = "whatsapp";
+/**
+ * Origem do pedido: um canal de conversa ou o link de pedido direto (/pedir).
+ * Pedidos antigos podem ter "telegram" no banco (canal desativado); só aparecem no histórico.
+ */
 export type CanalPedido = Canal | "link";
 export type TipoVariacao = "tamanho" | "borda" | "adicional" | "padrao";
 export type TipoEntrega = "entrega" | "retirada";
@@ -99,7 +102,6 @@ export interface ConfiguracaoLoja {
   telefone: string | null;
   endereco: string | null;
   whatsappNumero: string | null;
-  telegramUsuario: string | null;
   instagram: string | null;
   fusoHorario: string;
   pedidoMinimoCentavos: number;

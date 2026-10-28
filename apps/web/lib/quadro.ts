@@ -74,7 +74,7 @@ export function rotuloCanal(canal: string): string {
     case "whatsapp":
       return "WhatsApp";
     case "telegram":
-      return "Telegram";
+      return "Telegram"; // pedidos antigos, de antes de ser só WhatsApp
     case "link":
       return "Link";
     default:

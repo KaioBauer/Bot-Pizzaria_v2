@@ -2,15 +2,14 @@ import Fastify, { type FastifyBaseLogger } from "fastify";
 import pino from "pino";
 import {
   criarAgente,
-  criarCacheChavesOpenPix,
-  criarGatewayOpenPix,
+  criarPixSimulado,
   criarProvedorOpenAi,
   criarServicoPix,
   criarTranscritorOpenAi,
   type RespostaAgente,
 } from "@pizzaria/core";
-import { criarClienteServico, criarRepositorios } from "@pizzaria/db";
-import { criarAdaptadorTelegram } from "./canais/telegram";
+import { randomBytes } from "node:crypto";
+import { criarClienteServico, criarCobrancasSimuladasRepo, criarRepositorios } from "@pizzaria/db";
 import type { ChannelAdapter } from "./canais/tipos";
 import { criarAdaptadorWhatsapp } from "./canais/whatsapp";
 import { registrarAdminWhatsapp, validarAdminSupabase } from "./admin-whatsapp";
@@ -20,7 +19,8 @@ import { criarConexaoWhatsapp } from "./whatsapp-conexao";
 import { criarEnvioAtendente } from "./atendente";
 import { criarNotificador } from "./notificador";
 import { registrarPedidoLink } from "./pedido-link";
-import { registrarPix } from "./pix";
+import { registrarPix, ROTA_WEBHOOK_PIX } from "./pix";
+import { criarEmissorWebhookPix, registrarBancoPixSimulado } from "./pix-simulado";
 import { criarProcessadorPorChat } from "./processador";
 
 const config = carregarConfig();
@@ -35,13 +35,31 @@ const logger = pino({
 const db = criarClienteServico(config.SUPABASE_URL, config.SUPABASE_SERVICE_ROLE_KEY);
 const repos = criarRepositorios(db);
 
-const pix = config.OPENPIX_APP_ID
-  ? criarServicoPix({
-      gateway: criarGatewayOpenPix({ appId: config.OPENPIX_APP_ID, ambiente: config.OPENPIX_AMBIENTE }),
-      repos,
-      logger: logger.child({ modulo: "pix" }),
+// Pix simulado: o bot faz o papel do banco e avisa a si mesmo por webhook assinado.
+const segredoWebhookPix = config.PIX_SIMULADO_SEGREDO ?? randomBytes(32).toString("hex");
+const emissorWebhookPix = config.PIX_SIMULADO
+  ? criarEmissorWebhookPix({
+      url: `http://127.0.0.1:${config.PORT}${ROTA_WEBHOOK_PIX}`,
+      segredo: segredoWebhookPix,
+      perda: config.PIX_SIMULADO_PERDA_WEBHOOK,
+      logger: logger.child({ modulo: "pix-simulado" }),
     })
-  : undefined;
+  : null;
+const pixSimulado = emissorWebhookPix
+  ? criarPixSimulado({
+      cobrancas: criarCobrancasSimuladasRepo(db),
+      chave: config.PIX_SIMULADO_CHAVE,
+      recebedor: async () => ({ nome: (await repos.loja.configuracao()).nomePizzaria, cidade: config.PIX_SIMULADO_CIDADE }),
+      aoMudar: (evento) => emissorWebhookPix.emitir(evento),
+    })
+  : null;
+const pix = pixSimulado ? criarServicoPix({ gateway: pixSimulado.gateway, repos, logger: logger.child({ modulo: "pix" }) }) : undefined;
+if (pix && config.NODE_ENV === "production") {
+  logger.warn("Pix SIMULADO em produção: o cliente vê um Pix, mas nenhum dinheiro entra. Pedidos Pix só são confirmados pelo Banco simulado do painel.");
+}
+
+// Página do pedido pelo link (/pedir): link no aviso do WhatsApp e opção oferecida pelo agente.
+const urlPedir = config.PEDIR_URL ?? (config.CARDAPIO_URL ? config.CARDAPIO_URL.replace(/\/cardapio\/?$/, "/pedir") : null);
 
 const agente = criarAgente({
   repos,
@@ -56,6 +74,7 @@ const agente = criarAgente({
     expiracaoConversaMinutos: config.CONVERSA_EXPIRACAO_MINUTOS,
     limiteHistorico: config.HISTORICO_LIMITE,
     ...(config.CARDAPIO_URL ? { urlCardapio: config.CARDAPIO_URL } : {}),
+    ...(urlPedir ? { urlPedir } : {}),
   },
 });
 
@@ -67,18 +86,6 @@ const servidor = Fastify({
 servidor.get("/health", async () => ({ ok: true }));
 
 const canais = new Map<string, ChannelAdapter>();
-if (config.TELEGRAM_ENABLED) {
-  canais.set(
-    "telegram",
-    criarAdaptadorTelegram({
-      token: config.TELEGRAM_BOT_TOKEN!,
-      modo: config.TELEGRAM_MODE,
-      urlPublica: config.PUBLIC_URL,
-      segredoWebhook: config.TELEGRAM_WEBHOOK_SECRET,
-      logger: logger.child({ modulo: "telegram" }),
-    })
-  );
-}
 if (config.WHATSAPP_ENABLED) {
   canais.set(
     "whatsapp",
@@ -91,7 +98,7 @@ if (config.WHATSAPP_ENABLED) {
     })
   );
 }
-if (canais.size === 0) logger.warn("Nenhum canal habilitado");
+if (canais.size === 0) logger.warn("WhatsApp desligado (WHATSAPP_ENABLED=false): o bot não recebe mensagens");
 
 async function entregar(canal: ChannelAdapter, chatId: string, resposta: RespostaAgente) {
   if (!resposta.texto && !resposta.anexos?.length) return; // IA pausada: quem responde é o atendente
@@ -156,9 +163,15 @@ registrarAdminWhatsapp({
   logger: logger.child({ modulo: "whatsapp-admin" }),
 });
 
+registrarBancoPixSimulado({
+  servidor,
+  banco: pixSimulado?.banco ?? null,
+  validarAdmin: validarAdminSupabase(db),
+  logger: logger.child({ modulo: "pix-simulado" }),
+});
+
 for (const canal of canais.values()) canal.onMessage((mensagem) => processador.receber(mensagem));
 
-const urlPedir = config.PEDIR_URL ?? (config.CARDAPIO_URL ? config.CARDAPIO_URL.replace(/\/cardapio\/?$/, "/pedir") : null);
 const pedidoLink = registrarPedidoLink({
   servidor,
   repos,
@@ -182,14 +195,14 @@ const pagamentos = pix
       db,
       pix,
       logger: logger.child({ modulo: "pix" }),
-      chavesPublicas: criarCacheChavesOpenPix(config.OPENPIX_AMBIENTE),
-      ...(config.OPENPIX_WEBHOOK_AUTORIZACAO ? { autorizacaoWebhook: config.OPENPIX_WEBHOOK_AUTORIZACAO } : {}),
+      segredoWebhook: segredoWebhookPix,
       conferenciaMs: config.PIX_CONFERENCIA_SEGUNDOS * 1000,
     })
   : null;
 
 async function desligar(sinal: string) {
   logger.info({ sinal }, "Desligando...");
+  await emissorWebhookPix?.parar();
   await pagamentos?.parar();
   pedidoLink.parar();
   await notificador.parar();
@@ -211,7 +224,7 @@ logger.info(
   {
     porta: config.PORT,
     canais: [...canais.keys()],
-    pix: pix ? `openpix (${config.OPENPIX_AMBIENTE})` : false,
+    pix: pix ? "simulado" : false,
     audio: config.TRANSCRICAO_AUDIO ? config.OPENAI_TRANSCRICAO_MODELO : false,
   },
   "Bot no ar"

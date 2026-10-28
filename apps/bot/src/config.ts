@@ -40,19 +40,23 @@ const esquema = z
     CONVERSA_EXPIRACAO_MINUTOS: z.coerce.number().int().positive().default(180),
     HISTORICO_LIMITE: z.coerce.number().int().min(10).default(40),
 
-    /** Pix online (OpenPix/Woovi): ligado quando o AppID existe. */
-    OPENPIX_APP_ID: z.string().optional(),
-    OPENPIX_AMBIENTE: z.enum(["sandbox", "producao"]).default("sandbox"),
-    /** Valor do campo "Authorization" cadastrado no webhook da Woovi (defesa extra, opcional). */
-    OPENPIX_WEBHOOK_AUTORIZACAO: z.string().optional(),
+    /**
+     * Pix simulado (sem dinheiro de verdade): o bot faz o papel do banco. O cliente
+     * recebe QR e copia e cola de verdade; o pagamento é feito no painel, em "Banco simulado".
+     */
+    PIX_SIMULADO: booleano(false),
+    /** Chave Pix aleatória fictícia do recebedor (vai dentro do BR Code). */
+    PIX_SIMULADO_CHAVE: z.uuid().default("7d9f0335-8dcc-4054-9bf9-0dbd61d36906"),
+    /** Cidade do recebedor no BR Code (o app do banco mostra). */
+    PIX_SIMULADO_CIDADE: z.string().min(1).max(15).default("SAO PAULO"),
+    /** Segredo do HMAC dos webhooks; sem ele, um aleatório a cada início do bot. */
+    PIX_SIMULADO_SEGREDO: z.string().min(16).optional(),
+    /** Fração de webhooks descartados de propósito (0 a 1), para testar a conferência periódica. */
+    PIX_SIMULADO_PERDA_WEBHOOK: z.coerce.number().min(0).max(1).default(0),
     PIX_CONFERENCIA_SEGUNDOS: z.coerce.number().int().min(15).default(60),
 
-    TELEGRAM_ENABLED: booleano(true),
-    TELEGRAM_BOT_TOKEN: z.string().optional(),
-    TELEGRAM_MODE: z.enum(["polling", "webhook"]).default("polling"),
-    TELEGRAM_WEBHOOK_SECRET: z.string().optional(),
-
-    WHATSAPP_ENABLED: booleano(false),
+    /** Único canal de conversa; desligar só para rodar o bot sem a Evolution (ex.: testar o Pix). */
+    WHATSAPP_ENABLED: booleano(true),
     /** URL da Evolution API, ex.: http://evolution:8080 (rede do docker-compose) */
     EVOLUTION_URL: z.url().optional(),
     EVOLUTION_API_KEY: z.string().optional(),
@@ -64,18 +68,10 @@ const esquema = z
     const exigir = (campo: keyof typeof env, motivo: string) => {
       if (!env[campo]) ctx.addIssue({ code: "custom", path: [campo], message: `obrigatória ${motivo}` });
     };
-    if (env.TELEGRAM_ENABLED) exigir("TELEGRAM_BOT_TOKEN", "com TELEGRAM_ENABLED=true");
     if (env.WHATSAPP_ENABLED) {
       exigir("EVOLUTION_URL", "com WHATSAPP_ENABLED=true");
       exigir("EVOLUTION_API_KEY", "com WHATSAPP_ENABLED=true");
       exigir("WHATSAPP_WEBHOOK_TOKEN", "com WHATSAPP_ENABLED=true");
-    }
-    if (env.OPENPIX_APP_ID && env.NODE_ENV === "production" && env.OPENPIX_AMBIENTE !== "producao") {
-      ctx.addIssue({ code: "custom", path: ["OPENPIX_AMBIENTE"], message: "em produção use OPENPIX_AMBIENTE=producao" });
-    }
-    if (env.TELEGRAM_ENABLED && env.TELEGRAM_MODE === "webhook") {
-      exigir("PUBLIC_URL", "com TELEGRAM_MODE=webhook");
-      exigir("TELEGRAM_WEBHOOK_SECRET", "com TELEGRAM_MODE=webhook");
     }
   });
 

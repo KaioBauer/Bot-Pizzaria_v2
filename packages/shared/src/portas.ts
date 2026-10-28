@@ -85,6 +85,41 @@ export interface PagamentosRepo {
   atualizarStatus(id: string, de: StatusPagamento, para: StatusPagamento): Promise<boolean>;
 }
 
+/** Situação de uma cobrança no Pix simulado (o "lado do banco"). */
+export type StatusCobrancaSimulada = "ativa" | "paga" | "expirada" | "cancelada" | "estornada";
+
+export interface CobrancaSimulada {
+  /** Referência do lojista (o ID do pedido): identifica a cobrança nas consultas. */
+  referencia: string;
+  txid: string;
+  valorCentavos: number;
+  descricao: string;
+  brCode: string;
+  status: StatusCobrancaSimulada;
+  expiraEm: string;
+  criadaEm: string;
+  pagaEm: string | null;
+  pagadorNome: string | null;
+  /** Identificador fim a fim do pagamento (E + ISPB + data + sequência), como no SPI. */
+  endToEndId: string | null;
+  estornadaEm: string | null;
+}
+
+/** Armazenamento do Pix simulado. Só o bot (service_role) acessa. */
+export interface CobrancasSimuladasRepo {
+  /** Cria; se já existir cobrança para a referência, devolve a existente. */
+  criar(cobranca: Omit<CobrancaSimulada, "status" | "criadaEm" | "pagaEm" | "pagadorNome" | "endToEndId" | "estornadaEm">): Promise<CobrancaSimulada>;
+  porReferencia(referencia: string): Promise<CobrancaSimulada | null>;
+  porTxid(txid: string): Promise<CobrancaSimulada | null>;
+  recentes(limite: number): Promise<CobrancaSimulada[]>;
+  /** Muda só se o status atual for `de` (pagamento duplo, corrida com a expiração). false se mudou antes. */
+  atualizar(
+    referencia: string,
+    de: StatusCobrancaSimulada,
+    mudanca: Partial<Pick<CobrancaSimulada, "status" | "pagaEm" | "pagadorNome" | "endToEndId" | "estornadaEm">>
+  ): Promise<boolean>;
+}
+
 export interface ConversasRepo {
   /**
    * Devolve a conversa ativa do chat, criando uma nova se não houver ou se a

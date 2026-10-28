@@ -51,7 +51,6 @@ export function FormLoja({ inicial }: { inicial: ConfiguracaoAdmin }) {
     telefone: inicial.telefone ?? "",
     endereco: inicial.endereco ?? "",
     whatsappNumero: inicial.whatsappNumero ?? "",
-    telegramUsuario: inicial.telegramUsuario ?? "",
     instagram: inicial.instagram ?? "",
     pedidoMinimo: centavosParaCampo(inicial.pedidoMinimoCentavos),
   });
@@ -90,9 +89,8 @@ export function FormLoja({ inicial }: { inicial: ConfiguracaoAdmin }) {
         <Campo rotulo="Telefone"><input value={c.telefone} onChange={mudar("telefone")} className={estiloEntrada} placeholder="(11) 3333-4444" /></Campo>
         <Campo rotulo="Endereço para retirada" className="sm:col-span-2"><input value={c.endereco} onChange={mudar("endereco")} className={estiloEntrada} placeholder="Rua, número - bairro" /></Campo>
       </div>
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2">
         <Campo rotulo="WhatsApp do bot" dica="DDI + DDD + número"><input value={c.whatsappNumero} onChange={mudar("whatsappNumero")} inputMode="numeric" className={estiloEntrada} placeholder="5511987654321" /></Campo>
-        <Campo rotulo="Bot no Telegram" dica="Usuário, sem @"><input value={c.telegramUsuario} onChange={mudar("telegramUsuario")} className={estiloEntrada} placeholder="ViannaPizzariaBot" /></Campo>
         <Campo rotulo="Instagram" dica="Usuário, sem @"><input value={c.instagram} onChange={mudar("instagram")} className={estiloEntrada} placeholder="viannapizzaria" /></Campo>
       </div>
       <div className="grid gap-4 sm:grid-cols-2">

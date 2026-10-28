@@ -1,5 +1,8 @@
 import type {
+  Canal,
   CategoriaCardapio,
+  CobrancaSimulada,
+  CobrancasSimuladasRepo,
   ConfiguracaoLoja,
   IngredienteParaPreco,
   MensagemConversa,
@@ -192,13 +195,43 @@ export function gatewayPixFalso() {
   };
 }
 
+/** Armazenamento do Pix simulado em memória (o mesmo contrato do repositório do banco). */
+export function cobrancasSimuladasEmMemoria(): CobrancasSimuladasRepo & { lista: CobrancaSimulada[] } {
+  const lista: CobrancaSimulada[] = [];
+  return {
+    lista,
+    async criar(c) {
+      const existente = lista.find((x) => x.referencia === c.referencia);
+      if (existente) return { ...existente };
+      const nova: CobrancaSimulada = { ...c, status: "ativa", criadaEm: new Date().toISOString(), pagaEm: null, pagadorNome: null, endToEndId: null, estornadaEm: null };
+      lista.push(nova);
+      return { ...nova };
+    },
+    porReferencia: async (referencia) => {
+      const c = lista.find((x) => x.referencia === referencia);
+      return c ? { ...c } : null;
+    },
+    porTxid: async (txid) => {
+      const c = lista.find((x) => x.txid === txid);
+      return c ? { ...c } : null;
+    },
+    recentes: async (limite) => lista.slice(-limite).reverse().map((c) => ({ ...c })),
+    async atualizar(referencia, de, mudanca) {
+      const c = lista.find((x) => x.referencia === referencia);
+      if (!c || c.status !== de) return false;
+      Object.assign(c, mudanca);
+      return true;
+    },
+  };
+}
+
 /**
  * Semeia uma conversa em que o cliente já informou tudo e o modelo já mostrou
  * o resumo (calcular_pedido com sucesso) — pré-requisito do finalizar_pedido.
  */
 export async function semearResumo(
   repos: Repositorios,
-  chat: { canal: "telegram" | "whatsapp"; chatId: string },
+  chat: { canal: Canal; chatId: string },
   args: { itens: unknown[]; tipo_entrega: string; endereco?: { bairro_id?: string } | null; forma_pagamento?: string },
   falaCliente = `Quero isso. Meu nome é Maria, telefone 11 98765-4321, Rua das Flores 42. Pago no ${args.forma_pagamento === "cartao" ? "cartão" : (args.forma_pagamento ?? "dinheiro")}, troco para 200`
 ) {

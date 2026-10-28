@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ArrowRight, Bike, Clock, CupSoda, MapPin, Moon, Phone, QrCode, Store, Wand2 } from "lucide-react";
 import { momentoLocal, proximaAbertura, situacaoLoja } from "@pizzaria/core";
 import { criarRepositorios } from "@pizzaria/db";
-import { formatarReais, formatarTelefone, type ProdutoCardapio, type TamanhoPizza } from "@pizzaria/shared";
+import { formatarReais, formatarTelefone, type Canal, type ProdutoCardapio, type TamanhoPizza } from "@pizzaria/shared";
 import { CAMADAS_BASE, miniaturaDoSabor } from "../../components/pizza-builder/biblioteca";
 import { cn, Logo } from "../../components/ui";
 import { clientePublico } from "../../lib/supabase/publico";
@@ -16,8 +16,8 @@ export async function generateMetadata(): Promise<Metadata> {
   const repos = criarRepositorios(clientePublico());
   const [config, categorias] = await Promise.all([repos.loja.configuracao(), repos.cardapio.ativo()]);
   const titulo = `Cardápio · ${config.nomePizzaria}`;
-  const descricao = `Monte sua pizza e peça pelo WhatsApp ou Telegram. Cardápio completo da ${config.nomePizzaria}.`;
-  // Prévia do link no WhatsApp/Telegram: foto de uma pizza do cardápio.
+  const descricao = `Monte sua pizza e peça pelo WhatsApp. Cardápio completo da ${config.nomePizzaria}.`;
+  // Prévia do link no WhatsApp: foto de uma pizza do cardápio.
   const foto = categorias.flatMap((c) => c.produtos).find((p) => p.imagemUrl)?.imagemUrl;
   return {
     title: { absolute: titulo },
@@ -107,8 +107,7 @@ export default async function CardapioPage() {
   const bordas = [...new Map(categorias.flatMap((c) => c.produtos).flatMap((p) => p.variacoes).filter((v) => v.tipo === "borda").map((v) => [v.nome, v] as const)).values()];
 
   const linkWhatsapp = config.whatsappNumero ? `https://wa.me/${config.whatsappNumero}?text=${encodeURIComponent("Olá! Quero fazer um pedido 🍕")}` : null;
-  const linkTelegram = config.telegramUsuario ? `https://t.me/${config.telegramUsuario}?start=cardapio` : null;
-  const canaisPedido = [...(config.whatsappNumero ? (["whatsapp"] as const) : []), ...(config.telegramUsuario ? (["telegram"] as const) : [])];
+  const canaisPedido: Canal[] = config.whatsappNumero ? ["whatsapp"] : [];
   const montarPedido = canaisPedido.length > 0;
   const taxas = config.bairros.map((b) => b.taxaCentavos);
 
@@ -126,7 +125,6 @@ export default async function CardapioPage() {
         aberta={situacao.aberta}
         canais={canaisPedido}
         linkWhatsapp={linkWhatsapp}
-        linkTelegram={linkTelegram}
         nomeLoja={config.nomePizzaria}
         status={status}
       >

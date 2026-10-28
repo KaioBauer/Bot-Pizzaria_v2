@@ -21,7 +21,7 @@ const chave = (a: { canal: Canal; chatId: string }) => `${a.canal}:${a.chatId}`;
 const MOLA = { type: "spring", stiffness: 400, damping: 32 } as const;
 
 function nomeDoChat(a: AtendimentoPainel) {
-  return a.clienteNome || (a.canal === "whatsapp" ? formatarTelefone(a.chatId) : `Telegram ${a.chatId}`);
+  return a.clienteNome || formatarTelefone(a.chatId);
 }
 
 /** Iniciais para o avatar; sem nome (só número) vira "#". */
@@ -296,13 +296,7 @@ export function Caixa({ inicial }: { inicial: AtendimentoPainel[] }) {
                 <p className="truncate text-[14px] font-semibold tracking-tight text-zinc-900">{nomeDoChat(atual)}</p>
                 <p className="flex items-center gap-1.5 text-[12px] text-zinc-500">
                   <span className={cn("size-1.5 rounded-full", atual.iaPausada ? "bg-zinc-400" : "bg-emerald-500")} />
-                  {atual.canal === "whatsapp" ? (
-                    <>
-                      WhatsApp · <span className="tabular">{formatarTelefone(atual.chatId)}</span>
-                    </>
-                  ) : (
-                    "Telegram"
-                  )}{" "}
+                  WhatsApp · <span className="tabular">{formatarTelefone(atual.chatId)}</span>{" "}
                   · {atual.iaPausada ? "IA pausada — você responde" : "IA respondendo"}
                 </p>
               </div>

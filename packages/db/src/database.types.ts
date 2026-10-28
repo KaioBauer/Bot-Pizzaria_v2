@@ -922,6 +922,54 @@ export type Database = {
           },
         ]
       }
+      pix_simulado_cobrancas: {
+        Row: {
+          br_code: string
+          created_at: string
+          descricao: string
+          end_to_end_id: string | null
+          estornada_em: string | null
+          expira_em: string
+          paga_em: string | null
+          pagador_nome: string | null
+          referencia: string
+          status: string
+          txid: string
+          updated_at: string
+          valor: number
+        }
+        Insert: {
+          br_code: string
+          created_at?: string
+          descricao?: string
+          end_to_end_id?: string | null
+          estornada_em?: string | null
+          expira_em: string
+          paga_em?: string | null
+          pagador_nome?: string | null
+          referencia: string
+          status?: string
+          txid: string
+          updated_at?: string
+          valor: number
+        }
+        Update: {
+          br_code?: string
+          created_at?: string
+          descricao?: string
+          end_to_end_id?: string | null
+          estornada_em?: string | null
+          expira_em?: string
+          paga_em?: string | null
+          pagador_nome?: string | null
+          referencia?: string
+          status?: string
+          txid?: string
+          updated_at?: string
+          valor?: number
+        }
+        Relationships: []
+      }
       produtos: {
         Row: {
           ativo: boolean

@@ -1,6 +1,6 @@
 # Vianna Pizzaria — sistema de pedidos com IA
 
-Chatbot de pedidos (Telegram e WhatsApp), painel da pizzaria, impressão térmica,
+Chatbot de pedidos (só WhatsApp; o Telegram foi removido), painel da pizzaria, impressão térmica,
 cardápio web e Pix. Monorepo pnpm, TypeScript strict, Supabase.
 
 ## Comandos
@@ -10,7 +10,7 @@ pnpm install
 pnpm check            # typecheck de todos os pacotes + testes (rodar antes de entregar)
 pnpm test             # vitest
 pnpm dev              # bot + web juntos (Iniciar.cmd faz o mesmo com dois cliques)
-pnpm dev:bot          # bot (Telegram em polling), lê apps/bot/.env
+pnpm dev:bot          # bot (WhatsApp via Evolution), lê apps/bot/.env
 pnpm dev:web          # painel + cardápio, lê apps/web/.env.local
 pnpm db:types         # regenera packages/db/src/database.types.ts do banco linkado
 ```
@@ -49,13 +49,13 @@ por injeção — por isso é testado com implementações em memória (`core/sr
   O preço de cada tamanho do sabor fica gravado na variação (base + adicional); mudar o
   `preco_base` reajusta todos via trigger. Borda/adicional soma; no máximo 1 borda. Detalhe em
   `itens_pedido_componentes`; `itens_pedido.produto_id/variacao_id` = primeiro sabor.
-- **Montar no cardápio e enviar pelo Telegram:** `/cardapio` tem carrinho no navegador
+- **Montar no cardápio e enviar pelo WhatsApp:** `/cardapio` tem carrinho no navegador
   (`app/cardapio/carrinho.tsx`, prévia de preço com `@pizzaria/core/precificacao`). Enviar chama
   a RPC `criar_carrinho_web` (anon; tabela `carrinhos_web` sem políticas, vale 24h, uso único) e
-  abre `t.me/<bot>?start=c_<codigo>`. O agente trata `/start c_<codigo>` sem LLM
+  abre `wa.me/<numero>` com o texto pronto `textoWhatsappCarrinho` (contém `c_<codigo>`). O agente trata o código sem LLM
   (`agente/carrinho-web.ts`): consome, reprecifica, responde o resumo e grava no histórico a
   mensagem do cliente com os itens em JSON (IDs) para o modelo seguir do passo 2. Loja fechada
-  não consome o carrinho. Requer `configuracoes.telegram_usuario`.
+  não consome o carrinho. Requer `configuracoes.whatsapp_numero`.
 - **Pedido pelo link (`/pedir`):** cliente monta a pizza visualmente (`components/pizza-builder`:
   camadas massa/molho/sabor por fatia/ingredientes/borda, Framer Motion `motion`, posições por semente)
   e finaliza no navegador. Server action → bot `POST /pedido-link` (rede interna, nunca no Nginx;
@@ -99,7 +99,11 @@ por injeção — por isso é testado com implementações em memória (`core/sr
   `calcular_pedido`/`finalizar_pedido` recusam no servidor.
 - **Agente:** tools `consultar_cardapio`, `calcular_pedido` (cotação oficial para o resumo),
   `finalizar_pedido`, `consultar_status_pedido`, `chamar_atendente`. A confirmação do pedido é montada pelo
-  código (`mensagemPedidoConfirmado`), não pelo LLM. `processarMensagem` nunca lança.
+  código (`mensagemPedidoConfirmado`), não pelo LLM. `processarMensagem` nunca lança. Com
+  `pedido_link_ativo` e loja aberta, o prompt traz o link do `/pedir` (`opcoes.urlPedir`) e o agente oferece,
+  no primeiro contato, pedir pela conversa ou pelo link; a trava de links aceita esse link.
+- **Canal:** só WhatsApp (`Canal = "whatsapp"`). Pedidos/conversas antigos com `telegram` ficam no banco
+  (constraints aceitam) e aparecem só no histórico; `configuracoes.telegram_usuario` ficou sem uso.
 - **Histórico** em `conversas`/`conversa_mensagens` (formato neutro). Janela de
   `HISTORICO_LIMITE` mensagens, recortada para começar numa mensagem do cliente.
   Conversa encerra ao finalizar pedido ou após `CONVERSA_EXPIRACAO_MINUTOS` parada.
@@ -109,7 +113,7 @@ por injeção — por isso é testado com implementações em memória (`core/sr
   que o modelo gerar (`**`, `#`).
 - **Bot:** mensagens do mesmo chat são processadas em série e as que chegam durante o
   processamento são agrupadas (`apps/bot/src/processador.ts`). O adaptador nunca aguarda
-  o agente dentro do webhook (evita reentrega do Telegram por timeout).
+  o agente dentro do webhook (evita reentrega por timeout).
 - **Status:** `aguardando_pagamento → novo → em_preparo → saiu_para_entrega | pronto_para_retirada → concluido`,
   e `cancelado` a partir de qualquer não final. Regras em `shared/src/status.ts`;
   histórico gravado por trigger em `pedido_status_historico`.
@@ -136,13 +140,18 @@ por injeção — por isso é testado com implementações em memória (`core/sr
 - **Next 16:** `proxy.ts` (não middleware), `cookies()`/`params` assíncronos, Tailwind 4.
   Docs da versão em `apps/web/node_modules/next/dist/docs/`.
 
-- **Pix:** `packages/core/src/pagamentos` — `GatewayPix` (OpenPix/Woovi em `openpix.ts`, via
-  fetch, sem SDK; `correlationID` = id do pedido; QR gerado localmente do brCode; webhook
-  RSA-SHA256 sobre o corpo cru, chaves de `/api/v1/webhook/public-keys`) + `criarServicoPix`. Pedido Pix nasce `aguardando_pagamento`; status
+- **Pix (simulado, sem dinheiro real; o OpenPix foi removido):** `packages/core/src/pagamentos` —
+  `GatewayPix` + `criarServicoPix`. `criarPixSimulado` (`simulado.ts`) faz o papel do PSP: BR Code
+  EMV válido (`brcode.ts`, CRC16, chave EVP fictícia), QR, expiração, cancelamento, estorno; estado em
+  `pix_simulado_cobrancas` (só service_role; `referencia` = id do pedido). O "app do banco" é a tela
+  `/admin/pix` (cola o copia e cola) → bot `/admin/pix-simulado/*` (JWT admin). Cada mudança vira
+  webhook HMAC-SHA256 (`x-pix-assinatura`) para `/webhooks/pix` do próprio bot, com atraso de 1–4 s,
+  reenvio e perda opcional (`criarEmissorWebhookPix`). Pagamentos antigos com `provedor = 'openpix'`
+  ficam no banco. Pedido Pix nasce `aguardando_pagamento`; status
   real sempre relido na API (webhook não é confiável); conferência periódica cobre webhook
   perdido e expira vencidos; pago em pedido cancelado -> estorno. Falha ao gerar a cobrança
   descarta o pedido (`descartarAguardandoPagamento`, sem notificar). Copia-e-cola enviado
-  com `{ literal: true }` (contém "*", que o Markdown do Telegram comeria).
+  com `{ literal: true }` (contém "*", que a formatação comeria).
 - **WhatsApp:** `apps/bot/src/canais/whatsapp.ts` (Evolution API v2). Webhook com token na URL;
   ignora grupos, status, canais, próprio número, reentregas e mensagens antigas. No compose a
   Evolution chama o bot pela rede interna.
@@ -150,8 +159,8 @@ por injeção — por isso é testado com implementações em memória (`core/sr
   actions repassam o token de sessão do admin ao bot (`BOT_URL`), rotas `/admin/whatsapp`
   (`admin-whatsapp.ts`, confere JWT + papel admin via `auth.getUser`); `whatsapp-conexao.ts` cria a
   instância se faltar, devolve QR/código de pareamento, status e logout. Chave da Evolution só no bot.
-- **Pedido por áudio:** canais entregam `MensagemCanal` com `audio` (baixado sob demanda: Telegram
-  getFile; WhatsApp base64 do webhook ou `/chat/getBase64FromMediaMessage`). `audio.ts` transcreve
+- **Pedido por áudio:** canais entregam `MensagemCanal` com `audio` (baixado sob demanda: base64 do
+  webhook ou `/chat/getBase64FromMediaMessage`). `audio.ts` transcreve
   dentro da fila do chat (ordem preservada) com `Transcritor` do core (OpenAI whisper-1, dica de
   vocabulário do cardápio) e manda ao agente com `PREFIXO_AUDIO` — o prompt manda confirmar o entendido.
 - **Travas anti-alucinação** (`core/src/agente/verificacao.ts`), além do prompt ("Fontes da verdade"):
@@ -187,5 +196,5 @@ por injeção — por isso é testado com implementações em memória (`core/sr
 
 - `horarios_funcionamento` está provisoriamente 24h e `bairros_entrega` vazia — ajustar em
   /admin/configuracoes antes de produção.
-- Pix testado com gateway simulado; validar com credenciais reais. WhatsApp e áudio validados na
+- Pix é só simulado (sem PSP real): para cobrar de verdade, implementar um `GatewayPix` de um PSP. WhatsApp e áudio validados na
   Evolution local (download + Whisper com áudio real).

@@ -6,6 +6,7 @@ import {
   ClipboardList,
   CornerDownLeft,
   ExternalLink,
+  Landmark,
   Layers,
   MessagesSquare,
   Pause,
@@ -74,6 +75,7 @@ export function ProvedorComandos({
       { id: "cardapio", grupo: "Ir para", rotulo: "Cardápio", Icone: Pizza, atalho: "G M", executar: () => router.push("/admin/cardapio") },
       { id: "ingredientes", grupo: "Ir para", rotulo: "Ingredientes e camadas", Icone: Layers, palavras: "camada imagem", executar: () => router.push("/admin/cardapio/ingredientes") },
       { id: "relatorios", grupo: "Ir para", rotulo: "Relatórios", Icone: ChartColumn, atalho: "G R", palavras: "vendas faturamento", executar: () => router.push("/admin/relatorios") },
+      { id: "pix", grupo: "Ir para", rotulo: "Banco simulado (pagar Pix)", Icone: Landmark, palavras: "pix pagamento banco teste", executar: () => router.push("/admin/pix") },
       { id: "config", grupo: "Ir para", rotulo: "Configurações", Icone: Settings, atalho: "G S", palavras: "horario whatsapp bairro", executar: () => router.push("/admin/configuracoes") },
       { id: "novo-produto", grupo: "Ações", rotulo: "Novo produto", Icone: Plus, palavras: "criar sabor pizza", executar: () => router.push("/admin/cardapio/produto/novo") },
       {

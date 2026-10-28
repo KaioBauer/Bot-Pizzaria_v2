@@ -4,7 +4,7 @@ import { cupomComoTexto, emColunas, montarCupom, quebrar, type PedidoParaCupom }
 const pedido: PedidoParaCupom = {
   numero: 12,
   criadoEm: new Date("2026-10-01T23:41:00Z"),
-  canal: "telegram",
+  canal: "whatsapp",
   clienteNome: "Maria Souza",
   clienteTelefone: "11987654321",
   tipoEntrega: "entrega",

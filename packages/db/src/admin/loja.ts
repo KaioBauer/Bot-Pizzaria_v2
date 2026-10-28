@@ -6,7 +6,6 @@ export interface ConfiguracaoAdmin {
   telefone: string | null;
   endereco: string | null;
   whatsappNumero: string | null;
-  telegramUsuario: string | null;
   instagram: string | null;
   fusoHorario: string;
   pedidoMinimoCentavos: number;
@@ -40,7 +39,6 @@ export async function obterConfiguracaoAdmin(db: Db) {
       telefone: c.telefone,
       endereco: c.endereco,
       whatsappNumero: c.whatsapp_numero,
-      telegramUsuario: c.telegram_usuario,
       instagram: c.instagram,
       fusoHorario: c.fuso_horario,
       pedidoMinimoCentavos: paraCentavos(c.pedido_minimo),
@@ -69,7 +67,6 @@ export async function salvarConfiguracao(db: Db, c: ConfiguracaoAdmin): Promise<
         telefone: c.telefone,
         endereco: c.endereco,
         whatsapp_numero: c.whatsappNumero,
-        telegram_usuario: c.telegramUsuario,
         instagram: c.instagram,
         fuso_horario: c.fusoHorario,
         pedido_minimo: paraReais(c.pedidoMinimoCentavos),

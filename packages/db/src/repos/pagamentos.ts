@@ -33,7 +33,8 @@ function paraRegistro(l: Linha): PagamentoRegistro {
   };
 }
 
-export function criarPagamentosRepo(db: Db, provedor = "openpix"): PagamentosRepo {
+/** `provedor`: quem gerou a cobrança. Pagamentos antigos do OpenPix ficam no banco como histórico. */
+export function criarPagamentosRepo(db: Db, provedor = "simulado"): PagamentosRepo {
   return {
     async criar(p) {
       const resultado = await db

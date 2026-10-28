@@ -25,7 +25,7 @@ export interface MensagemEntrada {
   canal: Canal;
   chatId: string;
   clienteNome?: string | null;
-  /** Telefone conhecido pelo canal (WhatsApp); null no Telegram. */
+  /** Telefone conhecido pelo canal (número do WhatsApp). */
   telefone?: string | null;
   /** Texto do cliente; áudio chega já transcrito, começando com `PREFIXO_AUDIO`. */
   texto: string;
@@ -56,6 +56,8 @@ export interface OpcoesAgente {
   validadeCacheMs?: number;
   /** Link do cardápio público, enviado quando o cliente pede o cardápio. */
   urlCardapio?: string;
+  /** Página do pedido pelo link (/pedir); oferecida só com `configuracoes.pedido_link_ativo`. */
+  urlPedir?: string;
 }
 
 export interface DependenciasAgente {
@@ -177,7 +179,7 @@ export function criarAgente(deps: DependenciasAgente) {
       return { texto: "" };
     }
 
-    // Pedido montado no cardápio do site (link "Enviar pelo Telegram").
+    // Pedido montado no cardápio do site (link "Pedir no WhatsApp").
     const codigoCarrinho = codigoCarrinhoWeb(entrada.texto);
     if (codigoCarrinho) {
       const situacaoAgora = situacaoLoja(config, instante);
@@ -194,7 +196,7 @@ export function criarAgente(deps: DependenciasAgente) {
             nomeCliente: cliente?.nome ?? entrada.clienteNome ?? null,
           })}
 
-Seu pedido continua salvo no cardápio: quando abrirmos, é só tocar de novo em *Enviar pelo ${canal === "whatsapp" ? "WhatsApp" : "Telegram"}*.`,
+Seu pedido continua salvo no cardápio: quando abrirmos, é só tocar de novo em *Pedir no WhatsApp*.`,
         };
       }
       const itens = lerItensCarrinho(await deps.repos.carrinhos.consumir(codigoCarrinho));
@@ -246,6 +248,7 @@ Seu pedido continua salvo no cardápio: quando abrirmos, é só tocar de novo em
     );
     const situacao = situacaoLoja(config, instante);
     const pixDisponivel = Boolean(deps.pix);
+    const urlPedir = config.pedidoLinkAtivo ? (deps.opcoes?.urlPedir ?? null) : null;
 
     const sistema = montarPromptSistema({
       config,
@@ -258,6 +261,7 @@ Seu pedido continua salvo no cardápio: quando abrirmos, é só tocar de novo em
       pixDisponivel,
       proximaAbertura: situacao.aberta ? null : proximaAbertura(config.horarios, instante, config.fusoHorario),
       urlCardapio: deps.opcoes?.urlCardapio ?? null,
+      urlPedir,
     });
 
     const ctx: ContextoTools = {
@@ -300,6 +304,7 @@ Seu pedido continua salvo no cardápio: quando abrirmos, é só tocar de novo em
           config,
           mensagens: [...historico, ...novas],
           urlCardapio: deps.opcoes?.urlCardapio ?? null,
+          urlPedir,
           telefoneCanal: entrada.telefone ?? null,
           cliente,
         });
