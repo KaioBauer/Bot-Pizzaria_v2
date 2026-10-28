@@ -104,8 +104,8 @@ export default async function CardapioAdminPage({
             key={categoria.id}
             className={cn(!categoria.ativo && "opacity-70")}
           >
-            <div className="flex flex-wrap items-center gap-3 border-b border-stone-100 px-5 py-4 sm:px-6">
-              <h2 className="font-display text-xl font-semibold">
+            <div className="flex flex-wrap items-center gap-3 border-b border-zinc-100 px-5 py-4 sm:px-6">
+              <h2 className="text-[15px] font-semibold tracking-tight text-zinc-900">
                 {categoria.nome}
               </h2>
               <Selo>{categoria.produtos.length}</Selo>
@@ -128,16 +128,16 @@ export default async function CardapioAdminPage({
                   <Plus className="size-4" /> Produto
                 </BotaoLink>
                 <details className="group relative">
-                  <summary className="flex h-8 cursor-pointer list-none items-center rounded-lg px-3 text-sm font-semibold text-stone-600 hover:bg-stone-100 [&::-webkit-details-marker]:hidden">
+                  <summary className="flex h-8 cursor-pointer list-none items-center rounded-lg px-2.5 text-[13px] font-medium text-zinc-600 transition-colors hover:bg-zinc-900/5 hover:text-zinc-900 group-open:bg-zinc-900/5 group-open:text-zinc-900 [&::-webkit-details-marker]:hidden">
                     Editar
                   </summary>
-                  <div className="absolute top-10 right-0 z-10 w-80 divide-y divide-stone-100 rounded-2xl bg-white shadow-elevada ring-1 ring-stone-900/10">
+                  <div className="absolute top-10 right-0 z-10 w-80 divide-y divide-zinc-100 rounded-xl bg-white shadow-[0_12px_32px_-12px_rgb(0_0_0/0.2)] ring-1 ring-zinc-200 motion-safe:animate-[entrada_0.15s_ease-out_both]">
                     <form
                       action={salvarCategoriaAction}
                       className="space-y-3 p-4"
                     >
                       <input type="hidden" name="id" value={categoria.id} />
-                      <label className="block text-sm font-medium">
+                      <label className="block text-[13px] font-medium text-zinc-700">
                         Nome
                         <input
                           name="nome"
@@ -146,7 +146,7 @@ export default async function CardapioAdminPage({
                         />
                       </label>
                       <div className="flex items-end gap-3">
-                        <label className="block w-24 text-sm font-medium">
+                        <label className="block w-24 text-[13px] font-medium text-zinc-700">
                           Ordem
                           <input
                             name="ordem"
@@ -187,7 +187,7 @@ export default async function CardapioAdminPage({
                         className="space-y-2 p-4"
                       >
                         <input type="hidden" name="id" value={categoria.id} />
-                        <label className="block text-sm font-medium">
+                        <label className="block text-[13px] font-medium text-zinc-700">
                           Adicional por sabor (R$)
                           <input
                             name="adicional"
@@ -196,7 +196,7 @@ export default async function CardapioAdminPage({
                             className={cn(estiloEntrada, "mt-1")}
                           />
                         </label>
-                        <p className="text-xs text-stone-500">
+                        <p className="text-xs text-zinc-500">
                           Aplica a todos os sabores da categoria: cada tamanho
                           fica com o preço base + este valor.
                         </p>
@@ -220,7 +220,7 @@ export default async function CardapioAdminPage({
                 titulo="Nenhum produto nesta categoria"
               />
             ) : (
-              <ul className="divide-y divide-stone-100">
+              <ul className="divide-y divide-zinc-100">
                 {categoria.produtos.map((produto) => {
                   const precos = produto.variacoes.filter(
                     (v) =>
@@ -247,13 +247,13 @@ export default async function CardapioAdminPage({
                   return (
                     <li
                       key={produto.id}
-                      className="flex items-center gap-4 px-5 py-3 sm:px-6"
+                      className="flex items-center gap-4 px-5 py-3 transition-colors hover:bg-zinc-50/60 sm:px-6"
                     >
                       <MiniaturaProduto
                         nome={produto.nome}
                         url={produto.imagemUrl}
                         className={cn(
-                          "size-14 shrink-0 rounded-xl",
+                          "size-12 shrink-0 rounded-lg ring-1 ring-zinc-900/5",
                           !produto.ativo && "grayscale",
                         )}
                       />
@@ -263,8 +263,8 @@ export default async function CardapioAdminPage({
                       >
                         <p
                           className={cn(
-                            "font-semibold group-hover:text-marca-700",
-                            !produto.ativo && "text-stone-400",
+                            "text-sm font-medium text-zinc-900 transition-colors group-hover:text-zinc-600",
+                            !produto.ativo && "text-zinc-400",
                           )}
                         >
                           {produto.nome}
@@ -274,7 +274,7 @@ export default async function CardapioAdminPage({
                             </Selo>
                           )}
                         </p>
-                        <p className="truncate text-sm text-stone-500">
+                        <p className="mt-0.5 truncate text-[13px] text-zinc-500">
                           {tabelado
                             ? `A partir de ${formatarReais(menor!)}${adicional ? ` · + ${formatarReais(adicional)} por sabor` : " · preço da tabela"}`
                             : precos.length > 1
@@ -298,10 +298,10 @@ export default async function CardapioAdminPage({
                         />
                         <button
                           className={cn(
-                            "inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-xs font-semibold ring-1 ring-inset transition-colors",
+                            "inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[12px] font-medium ring-1 ring-inset transition-[background-color,transform] active:scale-[0.97]",
                             produto.ativo
-                              ? "bg-manjericao-50 text-manjericao-700 ring-manjericao-100 hover:bg-manjericao-100"
-                              : "bg-stone-100 text-stone-500 ring-stone-200 hover:bg-stone-200",
+                              ? "bg-emerald-50 text-emerald-700 ring-emerald-200/70 hover:bg-emerald-100/70"
+                              : "bg-zinc-100 text-zinc-500 ring-zinc-200 hover:bg-zinc-200",
                           )}
                           title={
                             produto.ativo
@@ -313,8 +313,8 @@ export default async function CardapioAdminPage({
                             className={cn(
                               "size-1.5 rounded-full",
                               produto.ativo
-                                ? "bg-manjericao-500"
-                                : "bg-stone-400",
+                                ? "bg-emerald-500"
+                                : "bg-zinc-400",
                             )}
                           />
                           {produto.ativo ? "Disponível" : "Esgotado"}
@@ -322,7 +322,7 @@ export default async function CardapioAdminPage({
                       </form>
                       <Link
                         href={`/admin/cardapio/produto/${produto.id}`}
-                        className="rounded-lg p-2 text-stone-400 hover:bg-stone-100 hover:text-stone-700"
+                        className="rounded-lg p-2 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"
                         aria-label={`Editar ${produto.nome}`}
                       >
                         <ChevronRight className="size-5" />
@@ -338,7 +338,7 @@ export default async function CardapioAdminPage({
 
       <form
         action={salvarCategoriaAction}
-        className="flex flex-wrap items-center gap-3 rounded-2xl border-2 border-dashed border-stone-300 p-4"
+        className="flex flex-wrap items-center gap-3 rounded-2xl border border-dashed border-zinc-300 bg-white/50 p-4 transition-colors focus-within:border-zinc-400"
       >
         <input
           name="nome"

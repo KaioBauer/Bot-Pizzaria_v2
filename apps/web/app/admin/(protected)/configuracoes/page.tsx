@@ -35,7 +35,7 @@ export default async function ConfiguracoesPage() {
   ]);
 
   return (
-    <main className="mx-auto max-w-6xl space-y-10 p-4 sm:p-8">
+    <main className="mx-auto max-w-6xl space-y-8 p-4 sm:p-8">
       <CabecalhoPagina titulo="Configurações" descricao="Como a pizzaria funciona: WhatsApp, dados, pedido pelo link, horários, tamanhos, entrega e motoboys." />
       <SecaoWhatsapp />
       <FormLoja inicial={config} />

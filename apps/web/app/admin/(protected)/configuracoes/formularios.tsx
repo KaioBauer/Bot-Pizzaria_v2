@@ -23,14 +23,14 @@ function useSalvar() {
 /** Seção de ajustes: descrição à esquerda, formulário à direita (empilha no celular). */
 function Secao({ titulo, descricao, children, rodape }: { titulo: string; descricao: React.ReactNode; children: React.ReactNode; rodape: React.ReactNode }) {
   return (
-    <div className="grid gap-4 border-b border-stone-200 pb-10 last:border-0 lg:grid-cols-[17rem_1fr] lg:gap-10">
+    <div className="grid gap-4 border-b border-zinc-200/70 pb-8 last:border-0 lg:grid-cols-[17rem_1fr] lg:gap-10">
       <div>
-        <h2 className="font-display text-xl font-semibold">{titulo}</h2>
-        <p className="mt-1 text-sm text-stone-500">{descricao}</p>
+        <h2 className="text-[15px] font-semibold tracking-tight text-zinc-900">{titulo}</h2>
+        <p className="mt-1 text-[13px] leading-relaxed text-zinc-500">{descricao}</p>
       </div>
       <Cartao>
         <div className="space-y-5 p-5 sm:p-6">{children}</div>
-        <div className="flex flex-wrap items-center justify-end gap-3 rounded-b-2xl border-t border-stone-100 bg-stone-50/70 px-5 py-3 sm:px-6">{rodape}</div>
+        <div className="flex flex-wrap items-center justify-end gap-3 rounded-b-2xl border-t border-zinc-100 bg-zinc-50/70 px-5 py-3 sm:px-6">{rodape}</div>
       </Cartao>
     </div>
   );
@@ -39,7 +39,7 @@ function Secao({ titulo, descricao, children, rodape }: { titulo: string; descri
 function Rodape({ salvando, mensagem, aoSalvar, rotulo }: { salvando: boolean; mensagem: { ok: boolean; texto: string } | null; aoSalvar: () => void; rotulo: string }) {
   return (
     <>
-      {mensagem && <span role="status" className={cn("mr-auto text-sm font-medium", mensagem.ok ? "text-manjericao-700" : "text-red-700")}>{mensagem.texto}</span>}
+      {mensagem && <span role="status" className={cn("mr-auto text-sm font-medium", mensagem.ok ? "text-emerald-700" : "text-red-700")}>{mensagem.texto}</span>}
       <Botao onClick={aoSalvar} disabled={salvando}>{salvando ? "Salvando..." : rotulo}</Botao>
     </>
   );
@@ -77,7 +77,7 @@ export function FormLoja({ inicial }: { inicial: ConfiguracaoAdmin }) {
         />
       }
     >
-      <div className="rounded-xl bg-stone-50 p-4 ring-1 ring-stone-200">
+      <div className="rounded-lg bg-zinc-50/70 p-4 ring-1 ring-zinc-200/70 ring-inset">
         <Interruptor
           checked={c.aceitandoPedidos}
           onChange={mudar("aceitandoPedidos")}
@@ -138,7 +138,7 @@ export function FormPedidoLink({ inicial, link, qrDataUrl }: { inicial: Configur
         />
       }
     >
-      <div className="rounded-xl bg-stone-50 p-4 ring-1 ring-stone-200">
+      <div className="rounded-lg bg-zinc-50/70 p-4 ring-1 ring-zinc-200/70 ring-inset">
         <Interruptor
           checked={ativo}
           onChange={(e) => setAtivo(e.target.checked)}
@@ -151,11 +151,11 @@ export function FormPedidoLink({ inicial, link, qrDataUrl }: { inicial: Configur
       </Campo>
       <div className="grid gap-5 sm:grid-cols-[1fr_11rem] sm:items-start">
         <div className="space-y-2">
-          <span className="block text-sm font-medium text-stone-700">Link público</span>
+          <span className="block text-sm font-medium text-zinc-700">Link público</span>
           <div className="flex gap-2">
-            <input readOnly value={link} onFocus={(e) => e.target.select()} className={cn(estiloEntrada, "min-w-0 flex-1 bg-stone-50 font-mono text-sm")} aria-label="Link do pedido" />
+            <input readOnly value={link} onFocus={(e) => e.target.select()} className={cn(estiloEntrada, "min-w-0 flex-1 bg-zinc-50 font-mono text-sm")} aria-label="Link do pedido" />
             <Botao variante="secundario" onClick={copiar} aria-label="Copiar link">
-              {copiado ? <Check className="size-4 text-manjericao-600" /> : <Copy className="size-4" />}
+              {copiado ? <Check className="size-4 text-emerald-600" /> : <Copy className="size-4" />}
               <span className="hidden sm:inline">{copiado ? "Copiado" : "Copiar"}</span>
             </Botao>
           </div>
@@ -166,11 +166,11 @@ export function FormPedidoLink({ inicial, link, qrDataUrl }: { inicial: Configur
         </div>
         <div className="space-y-2 text-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={qrDataUrl} alt={`QR Code para ${link}`} className="mx-auto aspect-square w-44 rounded-xl ring-1 ring-stone-200" />
+          <img src={qrDataUrl} alt={`QR Code para ${link}`} className="mx-auto aspect-square w-44 rounded-xl ring-1 ring-zinc-200" />
           <a
             href={qrDataUrl}
             download="qr-pedido-pelo-link.png"
-            className="inline-flex items-center gap-1.5 text-sm font-semibold text-stone-700 hover:text-stone-900"
+            className="inline-flex items-center gap-1.5 text-sm font-semibold text-zinc-700 hover:text-zinc-900"
           >
             <Download className="size-4" /> Baixar PNG
           </a>
@@ -198,20 +198,20 @@ export function FormHorarios({ inicial }: { inicial: TurnoFuncionamento[] }) {
       descricao="Fora destes horários o bot avisa quando abre e não aceita pedidos. Para virar a noite, use por exemplo 18:00 até 01:00."
       rodape={<Rodape salvando={salvando} mensagem={mensagem} rotulo="Salvar horários" aoSalvar={() => salvar(() => salvarHorariosAction(turnos.map(({ chave: _c, ...t }) => t)))} />}
     >
-      <ul className="divide-y divide-stone-100">
+      <ul className="divide-y divide-zinc-100">
         {DIAS.map((dia, d) => {
           const doDia = turnos.filter((t) => t.diaSemana === d);
           return (
             <li key={d} className="flex flex-wrap items-center gap-3 py-3 first:pt-0 last:pb-0">
               <span className="w-24 font-medium">{dia}</span>
               <div className="flex min-w-0 flex-1 flex-wrap gap-2">
-                {doDia.length === 0 && <span className="rounded-lg bg-stone-100 px-3 py-2 text-sm text-stone-500">Fechado</span>}
+                {doDia.length === 0 && <span className="rounded-lg bg-zinc-100 px-3 py-2 text-sm text-zinc-500">Fechado</span>}
                 {doDia.map((t) => (
-                  <span key={t.chave} className="flex items-center gap-1 rounded-xl bg-white p-1 pl-2 ring-1 ring-stone-300">
-                    <input type="time" value={t.abre} onChange={(e) => alterar(t.chave, { abre: e.target.value })} className="rounded-md px-1 py-1 tabular outline-none focus:bg-stone-50" aria-label={`${dia}: abre`} />
-                    <span className="text-xs text-stone-400">até</span>
-                    <input type="time" value={t.fecha} onChange={(e) => alterar(t.chave, { fecha: e.target.value })} className="rounded-md px-1 py-1 tabular outline-none focus:bg-stone-50" aria-label={`${dia}: fecha`} />
-                    <button onClick={() => setTurnos((ts) => ts.filter((x) => x.chave !== t.chave))} className="rounded-md p-1.5 text-stone-400 hover:bg-red-50 hover:text-red-600" aria-label="Remover turno">
+                  <span key={t.chave} className="flex items-center gap-1 rounded-lg bg-white p-1 pl-2 ring-1 ring-zinc-200">
+                    <input type="time" value={t.abre} onChange={(e) => alterar(t.chave, { abre: e.target.value })} className="rounded-md px-1 py-1 tabular outline-none focus:bg-zinc-50" aria-label={`${dia}: abre`} />
+                    <span className="text-xs text-zinc-400">até</span>
+                    <input type="time" value={t.fecha} onChange={(e) => alterar(t.chave, { fecha: e.target.value })} className="rounded-md px-1 py-1 tabular outline-none focus:bg-zinc-50" aria-label={`${dia}: fecha`} />
+                    <button onClick={() => setTurnos((ts) => ts.filter((x) => x.chave !== t.chave))} className="rounded-md p-1.5 text-zinc-400 hover:bg-red-50 hover:text-red-600" aria-label="Remover turno">
                       <Trash2 className="size-3.5" />
                     </button>
                   </span>
@@ -258,10 +258,10 @@ export function FormBairros({ inicial }: { inicial: BairroAdmin[] }) {
       }
     >
       {bairros.length === 0 ? (
-        <p className="rounded-xl bg-stone-50 px-4 py-6 text-center text-sm text-stone-500">Nenhum bairro cadastrado — hoje só há retirada.</p>
+        <p className="rounded-lg border border-dashed border-zinc-200 px-4 py-6 text-center text-sm text-zinc-500">Nenhum bairro cadastrado — hoje só há retirada.</p>
       ) : (
         <div className="space-y-2">
-          <div className="hidden grid-cols-[1fr_8rem_5.5rem_2.5rem] gap-2 px-1 text-xs font-semibold tracking-wide text-stone-400 uppercase sm:grid">
+          <div className="hidden grid-cols-[1fr_8rem_5.5rem_2.5rem] gap-2 px-1 text-[12px] font-medium text-zinc-500 sm:grid">
             <span>Bairro</span><span className="text-right">Taxa (R$)</span><span>Ativo</span><span />
           </div>
           {bairros.map((b) => (
@@ -269,7 +269,7 @@ export function FormBairros({ inicial }: { inicial: BairroAdmin[] }) {
               <input value={b.nome} onChange={(e) => alterar(b.chave, { nome: e.target.value })} placeholder="Nome do bairro" className={estiloEntrada} aria-label="Bairro" />
               <input value={b.taxa} onChange={(e) => alterar(b.chave, { taxa: e.target.value })} inputMode="decimal" placeholder="0,00" className={cn(estiloEntrada, "text-right tabular")} aria-label="Taxa" />
               <Interruptor checked={b.ativo} onChange={(e) => alterar(b.chave, { ativo: e.target.checked })} aria-label="Ativo" />
-              <button onClick={() => setBairros((bs) => bs.filter((x) => x.chave !== b.chave))} className="flex size-10 items-center justify-center rounded-lg text-stone-400 hover:bg-red-50 hover:text-red-600" aria-label="Remover bairro">
+              <button onClick={() => setBairros((bs) => bs.filter((x) => x.chave !== b.chave))} className="flex size-10 items-center justify-center rounded-lg text-zinc-400 hover:bg-red-50 hover:text-red-600" aria-label="Remover bairro">
                 <Trash2 className="size-4" />
               </button>
             </div>
@@ -309,7 +309,7 @@ export function FormTamanhos({ inicial }: { inicial: TamanhoAdmin[] }) {
       }
     >
       <div className="space-y-2">
-        <div className="hidden grid-cols-[1fr_6rem_6rem_8rem] gap-2 px-1 text-xs font-semibold tracking-wide text-stone-400 uppercase sm:grid">
+        <div className="hidden grid-cols-[1fr_6rem_6rem_8rem] gap-2 px-1 text-[12px] font-medium text-zinc-500 sm:grid">
           <span>Tamanho</span><span className="text-right">Fatias</span><span className="text-right">Sabores</span><span className="text-right">Preço base (R$)</span>
         </div>
         {tamanhos.map((t) => (

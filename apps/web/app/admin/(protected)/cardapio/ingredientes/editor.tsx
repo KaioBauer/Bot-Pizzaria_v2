@@ -69,7 +69,7 @@ export function ListaIngredientes({ inicial, tamanhos }: { inicial: IngredienteA
       {linhas.length === 0 ? (
         <Vazio icone={<Carrot className="size-6" />} titulo="Nenhum ingrediente cadastrado" descricao="Ex.: Calabresa, Cebola, Bacon, Azeitona. Cada um com a sua camada para desenhar a pizza." />
       ) : (
-        <ul className="divide-y divide-stone-100">
+        <ul className="divide-y divide-zinc-100">
           {linhas.map((l) => (
             <LinhaIngrediente
               key={l.chave}
@@ -80,7 +80,7 @@ export function ListaIngredientes({ inicial, tamanhos }: { inicial: IngredienteA
           ))}
         </ul>
       )}
-      <div className="border-t border-stone-100 px-5 py-4 sm:px-6">
+      <div className="border-t border-zinc-100 px-5 py-4 sm:px-6">
         <Botao variante="secundario" tamanho="sm" onClick={adicionar}>
           <Plus className="size-4" /> Adicionar ingrediente
         </Botao>
@@ -132,7 +132,7 @@ function LinhaIngrediente({ inicial, tamanhos, aoRemover }: { inicial: Linha; ta
   }
 
   return (
-    <li className={cn("space-y-3 px-5 py-4 sm:px-6", !l.ativo && "bg-stone-50/70")}>
+    <li className={cn("space-y-3 px-5 py-4 sm:px-6", !l.ativo && "bg-zinc-50/70")}>
       <div className="flex flex-wrap items-center gap-3">
         <EditorCamada
           compacto
@@ -180,7 +180,7 @@ function LinhaIngrediente({ inicial, tamanhos, aoRemover }: { inicial: Linha; ta
             type="button"
             disabled={ocupado}
             onClick={excluir}
-            className="flex size-8 items-center justify-center rounded-lg text-stone-400 hover:bg-red-50 hover:text-red-600"
+            className="flex size-8 items-center justify-center rounded-lg text-zinc-400 hover:bg-red-50 hover:text-red-600"
             aria-label={`Excluir ${l.nome || "ingrediente"}`}
           >
             <Trash2 className="size-4" />
@@ -194,13 +194,13 @@ function LinhaIngrediente({ inicial, tamanhos, aoRemover }: { inicial: Linha; ta
             const vazio = !(l.precos[t.id] ?? "").trim();
             return (
               <label key={t.id} className="block">
-                <span className="mb-1 block text-xs font-semibold tracking-wide text-stone-400 uppercase">{t.nome}</span>
+                <span className="mb-1 block text-[12px] font-medium text-zinc-500">{t.nome}</span>
                 <input
                   value={l.precos[t.id] ?? ""}
                   onChange={(e) => mudar({ precos: { ...l.precos, [t.id]: e.target.value } })}
                   inputMode="decimal"
                   placeholder="não oferecido"
-                  className={cn(estiloEntrada, "py-2 text-right tabular", vazio && "bg-stone-50")}
+                  className={cn(estiloEntrada, "py-2 text-right tabular", vazio && "bg-zinc-50")}
                   aria-label={`Preço na ${t.nome} (R$)`}
                 />
               </label>
@@ -210,7 +210,7 @@ function LinhaIngrediente({ inicial, tamanhos, aoRemover }: { inicial: Linha; ta
       )}
 
       {mensagem && (
-        <p role={mensagem.ok ? "status" : "alert"} className={cn("text-sm font-medium", mensagem.ok ? "text-manjericao-700" : "text-red-700")}>
+        <p role={mensagem.ok ? "status" : "alert"} className={cn("text-sm font-medium", mensagem.ok ? "text-emerald-700" : "text-red-700")}>
           {mensagem.texto}
         </p>
       )}
@@ -234,7 +234,7 @@ export function ListaCamadasBorda({ bordas }: { bordas: CamadaBordaAdmin[] }) {
               <EditorCamada compacto id={b.nome} nome={b.nome} url={b.imagemUrl} enviar={enviarCamadaBordaAction} remover={removerCamadaBordaAction} />
               <div className="min-w-0">
                 <p className="truncate font-medium">{b.nome}</p>
-                <p className="text-xs text-stone-500">
+                <p className="text-xs text-zinc-500">
                   {b.produtos} produto(s){b.imagemUrl ? "" : " · sem camada"}
                 </p>
               </div>

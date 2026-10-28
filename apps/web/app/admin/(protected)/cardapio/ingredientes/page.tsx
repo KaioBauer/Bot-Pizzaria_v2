@@ -20,7 +20,7 @@ export default async function IngredientesPage() {
   return (
     <main className="mx-auto max-w-6xl space-y-6 p-4 sm:p-8">
       <div>
-        <Link href="/admin/cardapio" className="inline-flex items-center gap-1 text-sm font-medium text-stone-500 hover:text-stone-900">
+        <Link href="/admin/cardapio" className="inline-flex items-center gap-1 text-sm font-medium text-zinc-500 hover:text-zinc-900">
           <ChevronLeft className="size-4" /> Cardápio
         </Link>
         <div className="mt-2">

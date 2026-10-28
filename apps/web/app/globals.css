@@ -82,3 +82,32 @@
     display: none;
   }
 }
+
+/*
+ * Painel (/admin): visual de ferramenta de produto. Dentro de `.painel` a fonte
+ * de interface e a de títulos viram Geist, e os números usam Geist Mono.
+ */
+.painel {
+  --font-sans: var(--fonte-geist), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--fonte-geist), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--fonte-geist-mono), ui-monospace, monospace;
+  font-feature-settings: "cv11", "ss01";
+}
+.painel .tabular {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+@keyframes brilho-novo {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(233 75 39 / 0.35), 0 1px 2px rgb(0 0 0 / 0.04);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgb(233 75 39 / 0), 0 1px 2px rgb(0 0 0 / 0.04);
+  }
+}
+@theme {
+  --animate-brilho-novo: brilho-novo 2s ease-in-out infinite;
+}

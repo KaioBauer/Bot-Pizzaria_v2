@@ -106,10 +106,10 @@ export function SecaoWhatsapp() {
   );
 
   return (
-    <div className="grid gap-4 border-b border-stone-200 pb-10 last:border-0 lg:grid-cols-[17rem_1fr] lg:gap-10">
+    <div className="grid gap-4 border-b border-zinc-200/70 pb-8 last:border-0 lg:grid-cols-[17rem_1fr] lg:gap-10">
       <div>
-        <h2 className="font-display text-xl font-semibold">WhatsApp</h2>
-        <p className="mt-1 text-sm text-stone-500">
+        <h2 className="text-[15px] font-semibold tracking-tight text-zinc-900">WhatsApp</h2>
+        <p className="mt-1 text-[13px] leading-relaxed text-zinc-500">
           O número que atende os clientes. Conecte lendo o QR Code com o celular da pizzaria, como no WhatsApp Web. A conexão é verificada sozinha.
         </p>
       </div>
@@ -119,15 +119,15 @@ export function SecaoWhatsapp() {
           <div className="flex items-center gap-3">
             <span
               className={cn(
-                "flex size-11 shrink-0 items-center justify-center rounded-full",
-                conectado ? "bg-manjericao-50 text-manjericao-700" : "bg-stone-100 text-stone-500"
+                "flex size-10 shrink-0 items-center justify-center rounded-full ring-1 ring-inset",
+                conectado ? "bg-emerald-50 text-emerald-700 ring-emerald-200/60" : "bg-zinc-100 text-zinc-500 ring-zinc-200/60"
               )}
             >
               <MessageCircle className="size-5" />
             </span>
             <div>
-              <p className="flex items-center gap-2 font-semibold">WhatsApp da pizzaria {selo}</p>
-              <p className="text-sm text-stone-500">
+              <p className="flex items-center gap-2 text-sm font-medium text-zinc-900">WhatsApp da pizzaria {selo}</p>
+              <p className="text-sm text-zinc-500">
                 {conectado
                   ? [situacao?.numero ? formatarTelefone(situacao.numero) : null, situacao?.nomePerfil].filter(Boolean).join(" · ") || "Número conectado"
                   : estado === "desligado"
@@ -140,7 +140,7 @@ export function SecaoWhatsapp() {
             <button
               type="button"
               onClick={() => iniciar(async () => void aplicar(await situacaoWhatsappAction()))}
-              className="rounded-lg p-2 text-stone-500 hover:bg-stone-100 hover:text-stone-800"
+              className="rounded-lg p-2 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800"
               title="Verificar agora"
               aria-label="Verificar conexão agora"
             >
@@ -166,7 +166,7 @@ export function SecaoWhatsapp() {
         )}
 
         {estado === "desligado" && (
-          <p className="mt-4 rounded-xl bg-stone-100 p-3 text-sm text-stone-600">
+          <p className="mt-4 rounded-lg bg-zinc-100/70 p-3 text-[13px] text-zinc-600 ring-1 ring-zinc-200/60 ring-inset">
             Para usar, ligue no bot: <code className="font-mono font-semibold">WHATSAPP_ENABLED=true</code> com <code className="font-mono">EVOLUTION_URL</code> e{" "}
             <code className="font-mono">EVOLUTION_API_KEY</code> em <code className="font-mono">apps/bot/.env</code>, e reinicie o bot.
           </p>
@@ -174,10 +174,10 @@ export function SecaoWhatsapp() {
 
         {/* Conectado: desconectar em dois toques */}
         {conectado && (
-          <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-stone-100 pt-4">
+          <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-zinc-100 pt-4">
             {confirmarSaida ? (
               <>
-                <span className="text-sm text-stone-600">O bot para de atender no WhatsApp. Confirmar?</span>
+                <span className="text-sm text-zinc-600">O bot para de atender no WhatsApp. Confirmar?</span>
                 <Botao
                   variante="perigo"
                   tamanho="sm"
@@ -206,10 +206,10 @@ export function SecaoWhatsapp() {
 
         {/* Desconectado: conectar por QR (ou código) */}
         {situacao && !conectado && estado !== "desligado" && !pareamento && (
-          <div className="mt-5 space-y-3 border-t border-stone-100 pt-4">
+          <div className="mt-5 space-y-3 border-t border-zinc-100 pt-4">
             {comCodigo && (
               <label className="block max-w-xs">
-                <span className="mb-1.5 block text-sm font-medium text-stone-700">Número do WhatsApp da pizzaria</span>
+                <span className="mb-1.5 block text-sm font-medium text-zinc-700">Número do WhatsApp da pizzaria</span>
                 <input
                   className={estiloEntrada}
                   inputMode="tel"
@@ -217,7 +217,7 @@ export function SecaoWhatsapp() {
                   value={numero}
                   onChange={(e) => setNumero(e.target.value)}
                 />
-                <span className="mt-1.5 block text-sm text-stone-500">DDI + DDD + número, só dígitos.</span>
+                <span className="mt-1.5 block text-sm text-zinc-500">DDI + DDD + número, só dígitos.</span>
               </label>
             )}
             <div className="flex flex-wrap items-center gap-2">
@@ -234,21 +234,21 @@ export function SecaoWhatsapp() {
 
         {/* Pareando: QR + instruções */}
         {pareamento && !conectado && (
-          <div className="mt-5 grid gap-6 border-t border-stone-100 pt-5 sm:grid-cols-[auto_1fr]">
+          <div className="mt-5 grid gap-6 border-t border-zinc-100 pt-5 sm:grid-cols-[auto_1fr]">
             <div className="flex flex-col items-center gap-2">
               {pareamento.qrCode ? (
                 // eslint-disable-next-line @next/next/no-img-element -- data URL gerada pela Evolution, renova a cada ~25 s
-                <img src={pareamento.qrCode} alt="QR Code para conectar o WhatsApp" className="size-64 rounded-xl bg-white p-2 ring-1 ring-stone-200" />
+                <img src={pareamento.qrCode} alt="QR Code para conectar o WhatsApp" className="size-64 rounded-xl bg-white p-2 ring-1 ring-zinc-200" />
               ) : (
-                <div className="flex size-64 items-center justify-center rounded-xl bg-stone-50 ring-1 ring-stone-200">
-                  <Loader2 className="size-6 animate-spin text-stone-400" />
+                <div className="flex size-64 items-center justify-center rounded-xl bg-zinc-50 ring-1 ring-zinc-200">
+                  <Loader2 className="size-6 animate-spin text-zinc-400" />
                 </div>
               )}
-              <p className="flex items-center gap-1.5 text-xs text-stone-500">
+              <p className="flex items-center gap-1.5 text-xs text-zinc-500">
                 <Loader2 className="size-3 animate-spin" /> Aguardando leitura — o QR se renova sozinho
               </p>
             </div>
-            <div className="space-y-4 text-sm text-stone-700">
+            <div className="space-y-4 text-sm text-zinc-700">
               <ol className="list-decimal space-y-1.5 pl-5">
                 <li>Abra o WhatsApp no celular da pizzaria.</li>
                 <li>
@@ -259,11 +259,11 @@ export function SecaoWhatsapp() {
                 </li>
               </ol>
               {pareamento.codigo && (
-                <div className="rounded-xl bg-sky-50 p-4 ring-1 ring-sky-200">
+                <div className="rounded-lg bg-sky-50 p-4 ring-1 ring-sky-200/70 ring-inset">
                   <p className="text-sky-900">
                     Ou toque em <strong>Conectar com número de telefone</strong> e digite o código:
                   </p>
-                  <p className="mt-2 font-mono text-2xl font-bold tracking-[0.3em] text-sky-950">{pareamento.codigo}</p>
+                  <p className="mt-2 font-mono text-2xl font-semibold tracking-[0.3em] text-sky-950">{pareamento.codigo}</p>
                 </div>
               )}
               <Botao variante="fantasma" tamanho="sm" onClick={() => setPareamento(null)}>

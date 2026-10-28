@@ -106,10 +106,10 @@ export function EditorProduto(props: {
   return (
     <main className="mx-auto max-w-4xl space-y-6 p-4 pb-32 sm:p-8 sm:pb-32">
       <div>
-        <Link href="/admin/cardapio" className="inline-flex items-center gap-1 text-sm font-medium text-stone-500 hover:text-stone-900">
+        <Link href="/admin/cardapio" className="inline-flex items-center gap-1 text-sm font-medium text-zinc-500 hover:text-zinc-900">
           <ChevronLeft className="size-4" /> Cardápio
         </Link>
-        <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight">{produto ? nome || "Produto" : "Novo produto"}</h1>
+        <h1 className="mt-2 text-2xl font-semibold tracking-[-0.02em] text-zinc-900">{produto ? nome || "Produto" : "Novo produto"}</h1>
       </div>
 
       {sistema && (
@@ -159,7 +159,7 @@ export function EditorProduto(props: {
             >
               <ImagePlus className="size-4" /> {foto ? "Trocar foto" : "Enviar foto"}
             </Botao>
-            {!produto && <p className="text-center text-xs text-stone-500">Salve o produto para adicionar a foto.</p>}
+            {!produto && <p className="text-center text-xs text-zinc-500">Salve o produto para adicionar a foto.</p>}
             {foto && produto && (
               <button
                 className="w-full text-sm font-medium text-red-700 hover:underline"
@@ -189,7 +189,7 @@ export function EditorProduto(props: {
             remover={removerCamadaProdutoAction}
             semId="Salve o produto para enviar a camada."
           />
-          <ul className="space-y-1.5 text-sm text-stone-600">
+          <ul className="space-y-1.5 text-sm text-zinc-600">
             <li>• O quadriculado indica as áreas transparentes: só a pizza deve aparecer, sem prato ou mesa.</li>
             <li>• Centralize a pizza e deixe-a ocupar o círculo tracejado.</li>
             <li>• Quadrada, de preferência 800×800 px. Exporte em WebP para ficar leve.</li>
@@ -201,9 +201,9 @@ export function EditorProduto(props: {
       {sistema ? (
         <Cartao>
           <CabecalhoCartao titulo="Tamanhos e preços" descricao="Seguem o preço base de cada tamanho (Configurações → Tamanhos de pizza). Os ingredientes têm preço próprio em Cardápio → Ingredientes e camadas." />
-          <ul className="divide-y divide-stone-100 px-5 sm:px-6">
+          <ul className="divide-y divide-zinc-100 px-5 sm:px-6">
             {produto?.variacoes.filter((v) => v.tipo === "tamanho").map((v) => (
-              <li key={v.id} className={cn("flex justify-between py-2.5 text-sm", !v.ativo && "text-stone-400")}>
+              <li key={v.id} className={cn("flex justify-between py-2.5 text-sm", !v.ativo && "text-zinc-400")}>
                 <span className="font-medium">{v.nome}</span>
                 <span className="tabular">{formatarReais(v.precoCentavos)}</span>
               </li>
@@ -217,9 +217,9 @@ export function EditorProduto(props: {
           descricao="Pizzas: um tamanho por linha, com o mesmo nome em todos os sabores (é assim que o meio a meio casa os tamanhos). Bebidas: uma variação única. Bordas e adicionais somam ao preço."
         />
         <div className="space-y-2 p-5 sm:p-6">
-          {variacoes.length === 0 && <p className="rounded-xl bg-stone-50 px-4 py-6 text-center text-sm text-stone-500">Nenhuma variação ainda — adicione abaixo.</p>}
+          {variacoes.length === 0 && <p className="rounded-lg border border-dashed border-zinc-200 px-4 py-6 text-center text-sm text-zinc-500">Nenhuma variação ainda — adicione abaixo.</p>}
           {variacoes.length > 0 && (
-            <div className="hidden grid-cols-[8.5rem_1fr_8rem_6rem_2.5rem] gap-2 px-1 text-xs font-semibold tracking-wide text-stone-400 uppercase sm:grid">
+            <div className="hidden grid-cols-[8.5rem_1fr_8rem_6rem_2.5rem] gap-2 px-1 text-[12px] font-medium text-zinc-500 sm:grid">
               <span>Tipo</span><span>Nome</span><span className="text-right">Preço (R$)</span><span>Ativa</span><span />
             </div>
           )}
@@ -233,7 +233,7 @@ export function EditorProduto(props: {
               <input value={v.nome} onChange={(e) => alterar(v.chave, { nome: e.target.value })} placeholder="Ex.: Grande" className={estiloEntrada} aria-label="Nome" />
               <input value={v.preco} onChange={(e) => alterar(v.chave, { preco: e.target.value })} inputMode="decimal" placeholder="0,00" className={cn(estiloEntrada, "text-right tabular")} aria-label="Preço" />
               <Interruptor checked={v.ativo} onChange={(e) => alterar(v.chave, { ativo: e.target.checked })} aria-label="Ativa" />
-              <button onClick={() => setVariacoes((vs) => vs.filter((x) => x.chave !== v.chave))} className="flex size-10 items-center justify-center rounded-lg text-stone-400 hover:bg-red-50 hover:text-red-600" aria-label="Remover variação">
+              <button onClick={() => setVariacoes((vs) => vs.filter((x) => x.chave !== v.chave))} className="flex size-10 items-center justify-center rounded-lg text-zinc-400 hover:bg-red-50 hover:text-red-600" aria-label="Remover variação">
                 <Trash2 className="size-4" />
               </button>
             </div>
@@ -254,12 +254,12 @@ export function EditorProduto(props: {
       </Cartao>
       )}
 
-      <div className="fixed inset-x-0 bottom-16 z-20 border-t border-stone-200 bg-white/90 backdrop-blur md:bottom-0 md:left-20 lg:left-64">
+      <div className="fixed inset-x-0 bottom-16 z-20 border-t border-zinc-200/80 bg-white/85 backdrop-blur-xl md:bottom-0 md:left-16 lg:left-60">
         <div className="mx-auto flex max-w-4xl flex-wrap items-center gap-3 px-4 py-3 sm:px-8">
           {mensagem ? (
             <Aviso tom={mensagem.tipo === "erro" ? "perigo" : "sucesso"} className="flex-1 py-2">{mensagem.texto}</Aviso>
           ) : (
-            <span className="flex-1 text-sm text-stone-500">{produto ? "Alterações só valem depois de salvar." : "Preencha e salve para criar o produto."}</span>
+            <span className="flex-1 text-sm text-zinc-500">{produto ? "Alterações só valem depois de salvar." : "Preencha e salve para criar o produto."}</span>
           )}
           {produto && !sistema && (
             <Botao variante="perigo" disabled={salvando} onClick={excluir}>

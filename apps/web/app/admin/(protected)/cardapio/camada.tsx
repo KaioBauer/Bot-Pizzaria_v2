@@ -25,13 +25,13 @@ const QUADRICULADO = {
 /** Prévia da camada: quadriculado com o contorno do disco da pizza por baixo. */
 export function PreviaCamada({ url, nome, className }: { url: string | null; nome: string; className?: string }) {
   return (
-    <div className={cn("relative aspect-square overflow-hidden rounded-xl ring-1 ring-stone-200", className)} style={QUADRICULADO}>
-      <div className="absolute inset-[6%] rounded-full border-2 border-dashed border-stone-300" aria-hidden />
+    <div className={cn("relative aspect-square overflow-hidden rounded-xl ring-1 ring-zinc-200", className)} style={QUADRICULADO}>
+      <div className="absolute inset-[6%] rounded-full border-2 border-dashed border-zinc-300" aria-hidden />
       {url ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={url} alt={`Camada: ${nome}`} className="absolute inset-0 size-full object-contain" />
       ) : (
-        <div className="absolute inset-0 flex items-center justify-center text-stone-400">
+        <div className="absolute inset-0 flex items-center justify-center text-zinc-400">
           <Layers className="size-1/4" aria-hidden />
         </div>
       )}
@@ -108,12 +108,12 @@ export function EditorCamada(props: {
           disabled={!props.id || ocupado}
           onClick={() => entrada.current?.click()}
           title={props.id ? (url ? "Trocar camada" : "Enviar camada (PNG/WebP transparente, até 1 MB)") : props.semId}
-          className={cn("relative size-14 shrink-0 rounded-xl transition hover:ring-2 hover:ring-marca-400 disabled:cursor-not-allowed disabled:opacity-60", ocupado && "animate-pulse")}
+          className={cn("relative size-14 shrink-0 rounded-xl transition hover:ring-2 hover:ring-zinc-900/20 disabled:cursor-not-allowed disabled:opacity-60", ocupado && "animate-pulse")}
         >
           <PreviaCamada url={url} nome={props.nome} className="size-14" />
         </button>
         {url && props.id && (
-          <button type="button" disabled={ocupado} onClick={remover} className="rounded-lg p-1.5 text-stone-400 hover:bg-red-50 hover:text-red-600" aria-label={`Remover camada de ${props.nome}`}>
+          <button type="button" disabled={ocupado} onClick={remover} className="rounded-lg p-1.5 text-zinc-400 hover:bg-red-50 hover:text-red-600" aria-label={`Remover camada de ${props.nome}`}>
             <Trash2 className="size-4" />
           </button>
         )}
@@ -130,11 +130,11 @@ export function EditorCamada(props: {
         type="button"
         disabled={!props.id || ocupado}
         onClick={() => entrada.current?.click()}
-        className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-white px-4 text-sm font-semibold text-stone-800 ring-1 ring-stone-300 ring-inset hover:bg-stone-50 disabled:pointer-events-none disabled:opacity-50"
+        className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-white px-4 text-sm font-medium text-zinc-800 shadow-[0_1px_2px_rgb(0_0_0/0.05)] ring-1 ring-zinc-200 ring-inset transition hover:bg-zinc-50 hover:ring-zinc-300 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50"
       >
         <ImagePlus className="size-4" /> {ocupado ? "Enviando..." : url ? "Trocar camada" : "Enviar camada"}
       </button>
-      {!props.id && props.semId && <p className="text-center text-xs text-stone-500">{props.semId}</p>}
+      {!props.id && props.semId && <p className="text-center text-xs text-zinc-500">{props.semId}</p>}
       {url && props.id && (
         <button type="button" disabled={ocupado} onClick={remover} className="w-full text-sm font-medium text-red-700 hover:underline">
           Remover camada
