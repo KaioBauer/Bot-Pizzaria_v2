@@ -14,15 +14,14 @@ export const revalidate = 60;
 
 export async function generateMetadata(): Promise<Metadata> {
   const repos = criarRepositorios(clientePublico());
-  const [config, categorias] = await Promise.all([repos.loja.configuracao(), repos.cardapio.ativo()]);
+  const config = await repos.loja.configuracao();
   const titulo = `Cardápio · ${config.nomePizzaria}`;
   const descricao = `Monte sua pizza e peça pelo WhatsApp. Cardápio completo da ${config.nomePizzaria}.`;
-  // Prévia do link no WhatsApp: foto de uma pizza do cardápio.
-  const foto = categorias.flatMap((c) => c.produtos).find((p) => p.imagemUrl)?.imagemUrl;
+  // Prévia do link no WhatsApp só com título e descrição (sem imagem, a pedido do dono).
   return {
     title: { absolute: titulo },
     description: descricao,
-    openGraph: { title: titulo, description: descricao, type: "website", locale: "pt_BR", ...(foto ? { images: [{ url: foto, width: 450, height: 450 }] } : {}) },
+    openGraph: { title: titulo, description: descricao, type: "website", locale: "pt_BR" },
   };
 }
 
