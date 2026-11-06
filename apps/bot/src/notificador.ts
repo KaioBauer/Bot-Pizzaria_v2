@@ -1,5 +1,5 @@
 import type { Logger } from "pino";
-import { mensagemStatusPedido } from "@pizzaria/core";
+import { estimativaPreparo, mensagemStatusPedido } from "@pizzaria/core";
 import type { Db } from "@pizzaria/db";
 import { ehStatusPedido, execucaoUnica, type TipoEntrega } from "@pizzaria/shared";
 import type { ChannelAdapter } from "./canais/tipos";
@@ -33,7 +33,7 @@ export function criarNotificador(opcoes: {
   async function processar() {
     const { data, error } = await db
       .from("notificacoes_cliente")
-      .select("id, status, tentativas, pedido_id, pedido:pedidos(numero, tipo_entrega, forma_pagamento, canal, chat_id, motivo_cancelamento, token_acompanhamento)")
+      .select("id, status, tentativas, pedido_id, created_at, pedido:pedidos(numero, tipo_entrega, forma_pagamento, canal, chat_id, motivo_cancelamento, token_acompanhamento)")
       .is("enviada_em", null)
       .lt("tentativas", MAX_TENTATIVAS)
       .gte("created_at", new Date(Date.now() - VALIDADE_MS).toISOString())
@@ -50,6 +50,14 @@ export function criarNotificador(opcoes: {
       await marcar(substituidas, { enviada_em: new Date().toISOString(), ultimo_erro: "substituída por status mais recente" });
     }
 
+    // Tempo médio/previsão só para "em preparo": lê a configuração uma vez por rodada.
+    let tempos: { tempoEntregaMinutos: number; tempoRetiradaMinutos: number; fusoHorario: string } | null = null;
+    if ([...ultimaPorPedido.values()].some((n) => n.status === "em_preparo")) {
+      const { data: c, error: erroConfig } = await db.from("configuracoes").select("tempo_entrega_minutos, tempo_retirada_minutos, fuso_horario").single();
+      if (erroConfig) logger.warn({ err: erroConfig }, "Sem tempo médio de preparo: aviso vai sem previsão");
+      else tempos = { tempoEntregaMinutos: c.tempo_entrega_minutos, tempoRetiradaMinutos: c.tempo_retirada_minutos, fusoHorario: c.fuso_horario };
+    }
+
     for (const n of ultimaPorPedido.values()) {
       const log = logger.child({ pedido: n.pedido.numero, status: n.status });
       // Pedido por link: avisos pelo WhatsApp do telefone informado (chat_id = número com DDI).
@@ -62,6 +70,11 @@ export function criarNotificador(opcoes: {
             tipoEntrega: n.pedido.tipo_entrega as TipoEntrega,
             motivoCancelamento: n.pedido.motivo_cancelamento,
             formaPagamento: n.pedido.forma_pagamento,
+            // Previsão a partir de quando o pedido entrou em preparo (não de quando o aviso saiu).
+            estimativa:
+              n.status === "em_preparo" && tempos
+                ? estimativaPreparo(tempos, n.pedido.tipo_entrega as TipoEntrega, new Date(n.created_at))
+                : null,
           })
         : null;
       const texto =

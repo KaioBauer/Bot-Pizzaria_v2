@@ -99,6 +99,17 @@ export function FormLoja({ inicial }: { inicial: ConfiguracaoAdmin }) {
           <input type="number" min={5} max={1440} value={c.pixExpiracaoMinutos} onChange={(e) => setC({ ...c, pixExpiracaoMinutos: Number(e.target.value) })} className={cn(estiloEntrada, "tabular")} />
         </Campo>
       </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Campo rotulo="Tempo médio para entrega (min)" dica="Do início do preparo até chegar ao cliente">
+          <input type="number" min={5} max={240} value={c.tempoEntregaMinutos} onChange={(e) => setC({ ...c, tempoEntregaMinutos: Number(e.target.value) })} className={cn(estiloEntrada, "tabular")} />
+        </Campo>
+        <Campo rotulo="Tempo médio para retirada (min)" dica="Do início do preparo até ficar pronto no balcão">
+          <input type="number" min={5} max={240} value={c.tempoRetiradaMinutos} onChange={(e) => setC({ ...c, tempoRetiradaMinutos: Number(e.target.value) })} className={cn(estiloEntrada, "tabular")} />
+        </Campo>
+        <p className="text-[12.5px] text-zinc-500 sm:col-span-2">
+          Quando o pedido passa para <b className="font-medium text-zinc-700">Em preparo</b>, o cliente recebe no WhatsApp o tempo médio e o horário previsto.
+        </p>
+      </div>
     </Secao>
   );
 }

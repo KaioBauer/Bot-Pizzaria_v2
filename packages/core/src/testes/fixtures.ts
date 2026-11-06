@@ -81,6 +81,8 @@ export function configDeTeste(extra: Partial<ConfiguracaoLoja> = {}): Configurac
     pedidoMinimoCentavos: 0,
     aceitandoPedidos: true,
     pixExpiracaoMinutos: 30,
+    tempoEntregaMinutos: 45,
+    tempoRetiradaMinutos: 30,
     pedidoLinkAtivo: true,
     maxIngredientes: 6,
     horarios: [0, 1, 2, 3, 4, 5, 6].map((diaSemana) => ({ diaSemana, abre: "18:00", fecha: "23:30" })),

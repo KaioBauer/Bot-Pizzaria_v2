@@ -155,7 +155,8 @@ export function montarPromptSistema(ctx: ContextoPrompt): string {
 Loja: ${descreverSituacao(ctx)}
 Horário de funcionamento:
 ${descreverHorarios(config.horarios)}
-${config.pedidoMinimoCentavos > 0 ? `Pedido mínimo: ${formatarReais(config.pedidoMinimoCentavos)}\n` : ""}Formas de pagamento disponíveis:
+${config.pedidoMinimoCentavos > 0 ? `Pedido mínimo: ${formatarReais(config.pedidoMinimoCentavos)}\n` : ""}Tempo médio depois que o preparo começa (estimativa, não promessa): entrega cerca de ${config.tempoEntregaMinutos} min; retirada cerca de ${config.tempoRetiradaMinutos} min.
+Formas de pagamento disponíveis:
 ${pagamentos.map((p) => `- ${p}`).join("\n")}
 ${config.tamanhos.length ? `Tamanhos de pizza:\n${config.tamanhos.map((t) => `- ${t.nome}: ${t.fatias} fatias, até ${t.maxSabores} sabores, a partir de ${formatarReais(t.precoBaseCentavos)}`).join("\n")}\n` : ""}Bairros atendidos (use o bairro_id no endereço):
 ${bairros}

@@ -11,6 +11,8 @@ export interface ConfiguracaoAdmin {
   pedidoMinimoCentavos: number;
   aceitandoPedidos: boolean;
   pixExpiracaoMinutos: number;
+  tempoEntregaMinutos: number;
+  tempoRetiradaMinutos: number;
 }
 
 /** Pedido direto por link (/pedir). */
@@ -44,6 +46,8 @@ export async function obterConfiguracaoAdmin(db: Db) {
       pedidoMinimoCentavos: paraCentavos(c.pedido_minimo),
       aceitandoPedidos: c.aceitando_pedidos,
       pixExpiracaoMinutos: c.pix_expiracao_minutos,
+      tempoEntregaMinutos: c.tempo_entrega_minutos,
+      tempoRetiradaMinutos: c.tempo_retirada_minutos,
     } satisfies ConfiguracaoAdmin,
     pedidoLink: {
       pedidoLinkAtivo: c.pedido_link_ativo,
@@ -72,6 +76,8 @@ export async function salvarConfiguracao(db: Db, c: ConfiguracaoAdmin): Promise<
         pedido_minimo: paraReais(c.pedidoMinimoCentavos),
         aceitando_pedidos: c.aceitandoPedidos,
         pix_expiracao_minutos: c.pixExpiracaoMinutos,
+        tempo_entrega_minutos: c.tempoEntregaMinutos,
+        tempo_retirada_minutos: c.tempoRetiradaMinutos,
       })
       .eq("id", true)
       .select("id"),

@@ -39,6 +39,8 @@ const configSchema = z.object({
   pedidoMinimoCentavos: z.number().int().min(0).max(100_000),
   aceitandoPedidos: z.boolean(),
   pixExpiracaoMinutos: z.number().int().min(5, "Pix: mínimo 5 minutos").max(1440),
+  tempoEntregaMinutos: z.number({ message: "Informe o tempo médio de entrega" }).int().min(5, "Tempo de entrega: mínimo 5 minutos").max(240, "Tempo de entrega: até 240 minutos"),
+  tempoRetiradaMinutos: z.number({ message: "Informe o tempo médio de retirada" }).int().min(5, "Tempo de retirada: mínimo 5 minutos").max(240, "Tempo de retirada: até 240 minutos"),
 });
 
 const pedidoLinkSchema = z.object({

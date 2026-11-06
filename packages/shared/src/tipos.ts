@@ -107,6 +107,9 @@ export interface ConfiguracaoLoja {
   pedidoMinimoCentavos: number;
   aceitandoPedidos: boolean;
   pixExpiracaoMinutos: number;
+  /** Tempo médio (min) do início do preparo até a entrega / até ficar pronto para retirar. */
+  tempoEntregaMinutos: number;
+  tempoRetiradaMinutos: number;
   /** Pedido direto pelo link /pedir. */
   pedidoLinkAtivo: boolean;
   /** Máximo de ingredientes numa pizza (adicionais + montagem livre). */

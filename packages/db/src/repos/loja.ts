@@ -22,6 +22,8 @@ export function criarLojaRepo(db: Db): LojaRepo {
         pedidoMinimoCentavos: paraCentavos(c.pedido_minimo),
         aceitandoPedidos: c.aceitando_pedidos,
         pixExpiracaoMinutos: c.pix_expiracao_minutos,
+        tempoEntregaMinutos: c.tempo_entrega_minutos,
+        tempoRetiradaMinutos: c.tempo_retirada_minutos,
         pedidoLinkAtivo: c.pedido_link_ativo,
         maxIngredientes: c.max_ingredientes,
         horarios: exigir(horarios, "Erro ao carregar horários").map((h) => ({

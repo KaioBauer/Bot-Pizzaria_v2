@@ -196,6 +196,8 @@ export type Database = {
           pix_expiracao_minutos: number
           telefone: string | null
           telegram_usuario: string | null
+          tempo_entrega_minutos: number
+          tempo_retirada_minutos: number
           updated_at: string
           whatsapp_numero: string | null
         }
@@ -212,6 +214,8 @@ export type Database = {
           pix_expiracao_minutos?: number
           telefone?: string | null
           telegram_usuario?: string | null
+          tempo_entrega_minutos?: number
+          tempo_retirada_minutos?: number
           updated_at?: string
           whatsapp_numero?: string | null
         }
@@ -228,6 +232,8 @@ export type Database = {
           pix_expiracao_minutos?: number
           telefone?: string | null
           telegram_usuario?: string | null
+          tempo_entrega_minutos?: number
+          tempo_retirada_minutos?: number
           updated_at?: string
           whatsapp_numero?: string | null
         }
