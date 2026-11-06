@@ -100,7 +100,7 @@ function EscolhaBorda({
 }) {
   const itens: { nome: string | null; rotulo: string; preco: number }[] = [{ nome: null, rotulo: "Tradicional", preco: 0 }, ...opcoes.map(([nome, preco]) => ({ nome, rotulo: nome.replace(/^Borda\s+/i, ""), preco }))];
   return (
-    <div className="sem-barra -mx-4 flex snap-x snap-mandatory gap-2.5 overflow-x-auto px-4 pt-1 pb-1">
+    <div className="sem-barra -mx-4 flex snap-x snap-mandatory scroll-px-4 gap-2.5 overflow-x-auto px-4 py-1">
       {itens.map((o) => {
         const ativa = o.nome === selecionada;
         const anel = o.nome ? camadasBorda[o.nome] : undefined;
@@ -625,7 +625,7 @@ export function Montador({
 /** Seção em cartão branco, como os grupos de opções de um app de delivery. */
 function Secao({ titulo, detalhe, etiqueta, children }: { titulo: string; detalhe?: string; etiqueta?: ReactNode; children: ReactNode }) {
   return (
-    <section className="mt-4 rounded-3xl bg-white p-4 shadow-[0_1px_3px_rgb(0_0_0/0.06)]">
+    <section className="mt-4 overflow-hidden rounded-3xl bg-white p-4 shadow-[0_1px_3px_rgb(0_0_0/0.06)]">
       <div className="mb-3.5 flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 className="text-[17px] leading-tight font-extrabold tracking-tight">{titulo}</h2>
