@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { MensagemEntrada } from "@pizzaria/core";
 import { dividirTexto } from "./canais/tipos";
 import { criarProcessadorPorChat } from "./processador";
@@ -67,5 +67,47 @@ describe("dividirTexto", () => {
 
   it("corta linhas maiores que o limite", () => {
     expect(dividirTexto("x".repeat(25), 10)).toEqual(["x".repeat(10), "x".repeat(10), "x".repeat(5)]);
+  });
+});
+
+describe("espera o cliente terminar de digitar", () => {
+  afterEach(() => vi.useRealTimers());
+
+  it("junta mensagens mandadas em sequência numa resposta só", async () => {
+    vi.useFakeTimers();
+    const processadas: string[] = [];
+    const p = criarProcessadorPorChat(async (m) => void processadas.push(m.texto), undefined, { esperaMs: 5000, esperaMaximaMs: 20000 });
+    p.receber(msg("1", "oi"));
+    await vi.advanceTimersByTimeAsync(3000);
+    p.receber(msg("1", "quero uma calabresa"));
+    await vi.advanceTimersByTimeAsync(4000); // 7 s desde a primeira, só 4 s de silêncio
+    expect(processadas).toEqual([]);
+    p.receber(msg("1", "grande"));
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(processadas).toEqual(["oi\nquero uma calabresa\ngrande"]);
+  });
+
+  it("não espera mais que o teto, mesmo com o cliente mandando sem parar", async () => {
+    vi.useFakeTimers();
+    const processadas: string[] = [];
+    const p = criarProcessadorPorChat(async (m) => void processadas.push(m.texto), undefined, { esperaMs: 5000, esperaMaximaMs: 12000 });
+    for (let i = 0; i < 4; i++) {
+      p.receber(msg("1", `m${i}`));
+      await vi.advanceTimersByTimeAsync(3000);
+    }
+    expect(processadas).toEqual(["m0\nm1\nm2\nm3"]); // respondeu aos 12 s
+  });
+
+  it("chats diferentes esperam cada um o seu silêncio", async () => {
+    vi.useFakeTimers();
+    const processadas: string[] = [];
+    const p = criarProcessadorPorChat(async (m) => void processadas.push(`${m.chatId}:${m.texto}`), undefined, { esperaMs: 5000 });
+    p.receber(msg("1", "a"));
+    await vi.advanceTimersByTimeAsync(3000);
+    p.receber(msg("2", "b"));
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(processadas).toEqual(["1:a"]);
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(processadas).toEqual(["1:a", "2:b"]);
   });
 });

@@ -153,7 +153,10 @@ const processador = criarProcessadorPorChat(async (mensagem) => {
   } finally {
     clearInterval(digitando);
   }
-}, preparar);
+}, preparar, {
+  esperaMs: config.MENSAGEM_ESPERA_SEGUNDOS * 1000,
+  esperaMaximaMs: config.MENSAGEM_ESPERA_MAXIMA_SEGUNDOS * 1000,
+});
 
 registrarAdminWhatsapp({
   servidor,

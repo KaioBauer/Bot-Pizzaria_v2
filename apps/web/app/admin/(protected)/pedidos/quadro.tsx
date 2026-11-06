@@ -252,7 +252,7 @@ export function QuadroPedidos({ inicial }: { inicial: PedidoPainel[] }) {
 
   return (
     <div className="flex h-[calc(100dvh-8.75rem)] flex-col md:h-dvh">
-      <div className="flex flex-wrap items-center gap-2 px-4 pt-5 sm:px-6 sm:pt-6">
+      <div className="flex shrink-0 flex-wrap items-center gap-2 px-4 pt-5 sm:px-6 sm:pt-6">
         <div className="mr-auto">
           <h1 className="text-2xl font-semibold tracking-[-0.02em]">Pedidos</h1>
           <p className="text-sm text-zinc-500">
@@ -267,7 +267,7 @@ export function QuadroPedidos({ inicial }: { inicial: PedidoPainel[] }) {
       </div>
 
       {/* Números do momento */}
-      <div className="sem-barra flex gap-3 overflow-x-auto px-4 pt-4 sm:px-6">
+      <div className="sem-barra flex shrink-0 gap-3 overflow-x-auto px-4 pt-4 sm:px-6">
         <Numero rotulo="Em andamento" valor={emAndamento} />
         <Numero rotulo="Novos aguardando" valor={naoVistos.length} destaque={naoVistos.length > 0} />
         <Numero rotulo="Tempo médio" valor={tempoMedio} sufixo=" min" />
@@ -276,7 +276,7 @@ export function QuadroPedidos({ inicial }: { inicial: PedidoPainel[] }) {
 
       <AnimatePresence>
         {aviso && (
-          <motion.div className="px-4 pt-3 sm:px-6" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}>
+          <motion.div className="shrink-0 px-4 pt-3 sm:px-6" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}>
             <button onClick={() => setAviso(null)} className="flex w-full items-center gap-2 rounded-lg bg-red-50 px-3.5 py-2.5 text-left text-[13px] text-red-800 ring-1 ring-red-200/70">
               <CircleAlert className="size-4 shrink-0" /> <span className="flex-1">{aviso}</span> <X className="size-4" />
             </button>
@@ -285,7 +285,7 @@ export function QuadroPedidos({ inicial }: { inicial: PedidoPainel[] }) {
       </AnimatePresence>
 
       <LayoutGroup>
-        <div ref={quadroRef} className={cn("sem-barra flex flex-1 gap-3 overflow-x-auto p-4 sm:px-6", !arrasto && "snap-x")}>
+        <div ref={quadroRef} className={cn("sem-barra flex min-h-0 flex-1 gap-3 overflow-x-auto p-4 sm:px-6", !arrasto && "snap-x")}>
           {colunasVisiveis.map((coluna) => {
             const itens = porColuna.get(coluna.id) ?? [];
             const estilo = ESTILO_COLUNA[coluna.id];

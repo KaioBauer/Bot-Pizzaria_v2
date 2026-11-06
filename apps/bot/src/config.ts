@@ -37,6 +37,12 @@ const esquema = z
      */
     PEDIR_URL: z.url().optional(),
 
+    /**
+     * Espera o cliente terminar de digitar: segundos sem mensagem nova antes de
+     * responder (cada mensagem reinicia a conta), com um teto desde a primeira.
+     */
+    MENSAGEM_ESPERA_SEGUNDOS: z.coerce.number().min(0).max(30).default(5),
+    MENSAGEM_ESPERA_MAXIMA_SEGUNDOS: z.coerce.number().min(0).max(120).default(20),
     CONVERSA_EXPIRACAO_MINUTOS: z.coerce.number().int().positive().default(180),
     HISTORICO_LIMITE: z.coerce.number().int().min(10).default(40),
 
