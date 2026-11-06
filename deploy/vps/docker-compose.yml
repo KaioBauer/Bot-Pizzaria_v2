@@ -1,0 +1,83 @@
+# Produção na VPS compartilhada (proxy Nginx em container, rede "proxy" — ver /opt/proxy/README.md).
+# Fica em /opt/vianna. As imagens são construídas FORA da VPS (1 vCPU) e carregadas com docker load:
+#   deploy/vps/publicar.sh   (no PC: build + envio + up)
+# Nenhuma porta é publicada: o proxy fala com vianna-web pela rede "proxy"; bot e Evolution
+# ficam só na rede interna do compose.
+name: vianna
+
+x-logs: &logs
+  driver: json-file
+  options: { max-size: "10m", max-file: "5" }
+
+services:
+  bot:
+    image: vianna-bot:latest
+    container_name: vianna-bot
+    env_file: bot.env
+    environment:
+      NODE_ENV: production
+      PORT: "3001"
+      EVOLUTION_URL: http://evolution:8080
+    restart: unless-stopped
+    logging: *logs
+
+  web:
+    image: vianna-web:latest
+    container_name: vianna-web
+    environment:
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:?defina no .env}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY:?defina no .env}
+      BOT_URL: http://bot:3001
+    networks: [default, proxy]
+    restart: unless-stopped
+    logging: *logs
+
+  evolution:
+    image: evoapicloud/evolution-api:v2.3.7
+    container_name: vianna-evolution
+    depends_on: [evolution-postgres, evolution-redis]
+    environment:
+      SERVER_URL: http://evolution:8080
+      AUTHENTICATION_API_KEY: ${EVOLUTION_API_KEY:?defina no .env}
+      DATABASE_ENABLED: "true"
+      DATABASE_PROVIDER: postgresql
+      DATABASE_CONNECTION_URI: postgresql://evolution:${EVOLUTION_DB_PASSWORD:?defina no .env}@evolution-postgres:5432/evolution?schema=public
+      DATABASE_CONNECTION_CLIENT_NAME: vianna
+      CACHE_REDIS_ENABLED: "true"
+      CACHE_REDIS_URI: redis://evolution-redis:6379/6
+      CACHE_LOCAL_ENABLED: "false"
+      WEBHOOK_GLOBAL_ENABLED: "true"
+      WEBHOOK_GLOBAL_URL: http://bot:3001/webhooks/whatsapp/${WHATSAPP_WEBHOOK_TOKEN:?defina no .env}
+      WEBHOOK_GLOBAL_WEBHOOK_BY_EVENTS: "false"
+      WEBHOOK_EVENTS_MESSAGES_UPSERT: "true"
+    volumes: [evolution-instancias:/evolution/instances]
+    restart: unless-stopped
+    logging: *logs
+
+  evolution-postgres:
+    image: postgres:16-alpine
+    container_name: vianna-evolution-postgres
+    environment:
+      POSTGRES_USER: evolution
+      POSTGRES_PASSWORD: ${EVOLUTION_DB_PASSWORD}
+      POSTGRES_DB: evolution
+    volumes: [evolution-postgres:/var/lib/postgresql/data]
+    restart: unless-stopped
+    logging: *logs
+
+  evolution-redis:
+    image: redis:7-alpine
+    container_name: vianna-evolution-redis
+    volumes: [evolution-redis:/data]
+    restart: unless-stopped
+    logging: *logs
+
+networks:
+  proxy:
+    name: proxy
+    external: true
+
+volumes:
+  evolution-instancias:
+  evolution-postgres:
+  evolution-redis:
