@@ -70,6 +70,7 @@ export function criarProvedorOpenAi(opcoes: OpcoesOpenAi): LlmProvider {
             parameters: tool.parametros,
           },
         })),
+        ...(requisicao.forcarTool ? { tool_choice: { type: "function" as const, function: { name: requisicao.forcarTool } } } : {}),
       });
 
       const mensagem = resposta.choices[0]?.message;

@@ -43,7 +43,7 @@ function Formulario() {
           </span>
         </label>
         {estado.erro && <Aviso>{estado.erro}</Aviso>}
-        <Botao type="submit" tamanho="lg" disabled={enviando} className="h-13 w-full text-base">
+        <Botao type="submit" tamanho="lg" aria-busy={enviando} disabled={enviando} className="h-13 w-full text-base">
           {enviando ? "Entrando..." : "Entrar"}
         </Botao>
       </div>

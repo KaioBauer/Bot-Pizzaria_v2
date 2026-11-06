@@ -111,3 +111,70 @@
 @theme {
   --animate-brilho-novo: brilho-novo 2s ease-in-out infinite;
 }
+
+/*
+ * Celular: o iOS dá zoom ao focar campo com fonte < 16px. Fora de @layer para
+ * vencer text-sm/text-xs dos utilitários; campos com fonte grande ficam como estão.
+ */
+@media (pointer: coarse) {
+  :is(input, select, textarea):not(.text-lg, .text-xl, .text-2xl, .text-3xl) {
+    font-size: 16px;
+  }
+}
+
+/*
+ * Botão esperando o servidor (aria-busy="true"): o próprio botão é a barra de
+ * progresso. A parte que falta encher fica clareada (véu na cor do texto) e o
+ * véu recua da esquerda para a direita — rápido no começo, desacelera perto do
+ * fim. Quando a resposta chega, IndicadorProgresso marca data-progresso-fim e o
+ * botão enche até o fim. Fora de @layer para valer sobre os utilitários.
+ */
+:is(button, a):is([aria-busy="true"], [data-progresso-fim]) {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  /* Sem o "apagado" de disabled: o botão inteiro é a barra. */
+  opacity: 1 !important;
+}
+:is(button, a)[aria-busy="true"] {
+  cursor: progress;
+}
+:is(button, a):is([aria-busy="true"], [data-progresso-fim])::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  right: 0;
+  width: 100%;
+  z-index: -1;
+  pointer-events: none;
+  background: color-mix(in srgb, currentColor 32%, transparent);
+}
+:is(button, a)[aria-busy="true"]::before {
+  animation: progresso-enche 10s cubic-bezier(0.08, 0.75, 0.2, 1) forwards;
+}
+:is(button, a)[data-progresso-fim]::before {
+  animation: progresso-fim 0.35s ease-out forwards;
+}
+/* width = parte que AINDA falta. */
+@keyframes progresso-enche {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 8%;
+  }
+}
+@keyframes progresso-fim {
+  from {
+    width: 20%;
+  }
+  to {
+    width: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  :is(button, a)[aria-busy="true"]::before {
+    animation: none;
+    width: 100%;
+  }
+}

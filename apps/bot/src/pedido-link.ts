@@ -17,6 +17,15 @@ export function urlAcompanhamento(base: string, token: string): string {
 }
 
 /**
+ * Aviso de status de pedido feito pelo link: leva o link de acompanhamento,
+ * menos quando o pedido já foi concluído (entregue/retirado), que não há mais o que acompanhar.
+ */
+export function textoAvisoPedidoLink(status: string, novoStatus: string, base: string | null | undefined, token: string): string {
+  if (!base || novoStatus === "concluido") return status;
+  return `${status}\nAcompanhe: ${urlAcompanhamento(base, token)}`;
+}
+
+/**
  * Pedido direto pelo link (/pedir). Quem chama é a server action do painel,
  * pela rede interna. Proteções: honeypot, limite por IP e por telefone e a
  * chave de idempotência (resolvida no core/banco).

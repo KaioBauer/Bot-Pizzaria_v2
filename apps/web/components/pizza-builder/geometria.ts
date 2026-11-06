@@ -57,6 +57,8 @@ function ponto(anguloGraus: number, raio: number): { x: number; y: number } {
  * Pedaços espalhados dentro do setor (ou da pizza toda), sem encostar na
  * borda. Usa amostragem com distância mínima para não empilhar pedaços.
  */
+const arred = (n: number) => Math.round(n * 100) / 100;
+
 export function espalhar(semente: string, quantidade: number, setor: Setor = { inicio: 0, fim: 360 }, raioMaximo = 38): Pedaco[] {
   const rand = aleatorio(hash(semente));
   const pedacos: Pedaco[] = [];
@@ -70,7 +72,8 @@ export function espalhar(semente: string, quantidade: number, setor: Setor = { i
     const rotacao = rand() * 360;
     const escala = 0.8 + rand() * 0.4;
     if (pedacos.some((p) => Math.hypot(p.x - x, p.y - y) < minimo) && tentativa < quantidade * 25) continue;
-    pedacos.push({ x, y, rotacao, escala, atraso: pedacos.length * 0.045 });
+    // Arredondado: servidor e navegador serializam floats longos de jeitos diferentes (erro de hidratação).
+    pedacos.push({ x: arred(x), y: arred(y), rotacao: arred(rotacao), escala: arred(escala), atraso: arred(pedacos.length * 0.045) });
   }
   return pedacos;
 }

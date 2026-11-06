@@ -1,8 +1,20 @@
 import { describe, expect, it } from "vitest";
 import { STATUS_PEDIDO } from "@pizzaria/shared";
-import { acaoPrincipal, colunaDoStatus, impressaoPendente, minutosDesde, nivelAtraso, rotuloCanal } from "./quadro";
+import { acaoPrincipal, caminhoAteColuna, colunaDoStatus, impressaoPendente, minutosDesde, nivelAtraso, rotuloCanal } from "./quadro";
 
 describe("quadro de pedidos", () => {
+  it("arrastar para outra raia segue a máquina de status, só para a frente", () => {
+    expect(caminhoAteColuna("novo", "entrega", "preparo")).toEqual(["em_preparo"]);
+    expect(caminhoAteColuna("novo", "entrega", "saida")).toEqual(["em_preparo", "saiu_para_entrega"]);
+    expect(caminhoAteColuna("novo", "retirada", "saida")).toEqual(["em_preparo", "pronto_para_retirada"]);
+    expect(caminhoAteColuna("aguardando_pagamento", "entrega", "novos")).toEqual(["novo"]);
+    expect(caminhoAteColuna("saiu_para_entrega", "entrega", "finalizados")).toEqual(["concluido"]);
+    expect(caminhoAteColuna("em_preparo", "entrega", "preparo")).toEqual([]);
+    expect(caminhoAteColuna("em_preparo", "entrega", "novos")).toBeNull();
+    expect(caminhoAteColuna("novo", "entrega", "pagamento")).toBeNull();
+    expect(caminhoAteColuna("concluido", "entrega", "saida")).toBeNull();
+  });
+
   it("rótulo do canal de origem, inclusive o pedido pelo link", () => {
     expect(rotuloCanal("whatsapp")).toBe("WhatsApp");
     expect(rotuloCanal("telegram")).toBe("Telegram");

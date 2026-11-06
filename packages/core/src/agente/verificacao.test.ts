@@ -8,7 +8,9 @@ import {
   conferirDadosCliente,
   itensQueSairam,
   linksCitados,
+  pedeTelefoneConhecido,
   removerNaoAutorizados,
+  resumoSemCotacao,
   telefonesCitados,
   ultimaCotacao,
   valoresCitados,
@@ -216,7 +218,7 @@ describe("travas no agente", () => {
     cliente_telefone: "11987654321",
   };
   const erroDaTool = (requisicao: { mensagens: MensagemConversa[] } | undefined) =>
-    JSON.parse((requisicao?.mensagens.at(-1) as { conteudo: string }).conteudo) as { erro?: string };
+    JSON.parse((requisicao?.mensagens.at(-1) as { conteudo: string }).conteudo) as { erro?: string; refazer_calculo?: unknown };
 
   it("finalizar sem resumo mostrado não registra pedido", async () => {
     const { agente, pedidos, requisicoes } = montar([chamar(["finalizar_pedido", args]), texto("Vou te mostrar o resumo.")]);
@@ -241,6 +243,7 @@ describe("travas no agente", () => {
     await agente.processarMensagem(entrada("dinheiro, troco pra 300"));
     expect(pedidos).toHaveLength(0);
     expect(erroDaTool(requisicoes[1]).erro).toMatch(/depois do resumo/);
+    expect(erroDaTool(requisicoes[1])).toMatchObject({ refazer_calculo: { tipo_entrega: args.tipo_entrega } });
   });
 
   it("resposta que não confirma (acréscimo) não finaliza", async () => {
@@ -269,7 +272,7 @@ describe("travas no agente", () => {
     expect(semEndereco.pedidos).toHaveLength(0);
     expect(erroDaTool(semEndereco.requisicoes[1]).erro).toMatch(/Endereço é obrigatório/);
 
-    const outroBairro = montar([chamar(["finalizar_pedido", { ...entrega, endereco: { ...entrega.endereco, bairro_id: ID.inexistente } }]), texto("Vou recalcular.")]);
+    const outroBairro = montar([chamar(["finalizar_pedido", { ...entrega, endereco: { ...entrega.endereco, bairro_id: "ffffffff-0000-4000-8000-000000000000" } }]), texto("Vou recalcular.")]);
     await semearResumo(outroBairro.repos, entrada(""), entrega);
     await outroBairro.agente.processarMensagem(entrada("sim"));
     expect(outroBairro.pedidos).toHaveLength(0);
@@ -289,5 +292,41 @@ describe("travas no agente", () => {
     const r = await agente.processarMensagem(entrada("quanto fica?"));
     expect(r.texto).toMatch(/não te passar nenhum valor errado/);
     expect([...conversas.values()][0]?.mensagens.at(-1)).toMatchObject({ conteudo: r.texto });
+  });
+});
+
+describe("resumoSemCotacao", () => {
+  const cliente: MensagemConversa = { papel: "user", conteudo: "pra entregar no centro" };
+  const comCotacao: MensagemConversa = { papel: "assistant", conteudo: null, toolCalls: [{ id: "c", nome: "calcular_pedido", argumentos: "{}" }] };
+  const resumo = "1x Calabresa (Grande) R$ 60,00\n*Total: R$ 60,00*\nEntrega: Rua A, 1 - Centro\nPode confirmar?";
+
+  it("aponta resumo com total e pedido de confirmação sem calcular_pedido na rodada", () => {
+    expect(resumoSemCotacao(resumo, [cliente])).toBe(true);
+    const ok: MensagemConversa = { papel: "tool", toolCallId: "c", conteudo: '{"sucesso":true}' };
+    const falhou: MensagemConversa = { papel: "tool", toolCallId: "c", conteudo: '{"sucesso":false,"erros":["x"]}' };
+    expect(resumoSemCotacao(resumo, [cliente, comCotacao, ok])).toBe(false);
+    expect(resumoSemCotacao(resumo, [cliente, comCotacao, falhou])).toBe(true);
+  });
+
+  it("não implica com respostas que não são resumo", () => {
+    expect(resumoSemCotacao("A Calabresa Grande sai R$ 60,00. Quer pedir?", [cliente])).toBe(false);
+    expect(resumoSemCotacao("Pode confirmar o endereço?", [cliente])).toBe(false);
+    expect(resumoSemCotacao("Qual a forma de pagamento: dinheiro ou cartão?", [cliente])).toBe(false);
+  });
+
+  it("confirmação de entrega + pagamento sem valores também é fechamento", () => {
+    expect(resumoSemCotacao("Só confirmando: entrega na Rua A, 1 e pagamento em dinheiro. Pode confirmar?", [cliente])).toBe(true);
+  });
+});
+
+describe("pedeTelefoneConhecido", () => {
+  it("só aponta pedido de telefone quando o número do WhatsApp já é conhecido", () => {
+    expect(pedeTelefoneConhecido("Perfeito. Só me confirma o telefone com DDD, por favor.", "5547900000002")).toBe(true);
+    expect(pedeTelefoneConhecido("Qual o seu telefone?", "5547900000002")).toBe(true);
+    expect(pedeTelefoneConhecido("Qual o seu telefone?", null)).toBe(false);
+    expect(pedeTelefoneConhecido("Perfeito. Só falta o *telefone com DDD* para eu fechar o pedido.", "5547900000002")).toBe(true);
+    expect(pedeTelefoneConhecido("Preciso do telefone com DDD para continuar.", "5547900000002")).toBe(true);
+    expect(pedeTelefoneConhecido("O telefone da pizzaria é (47) 99923-3221. Posso ajudar em algo mais?", "5547900000002")).toBe(false);
+    expect(pedeTelefoneConhecido("Qual a forma de pagamento?", "5547900000002")).toBe(false);
   });
 });

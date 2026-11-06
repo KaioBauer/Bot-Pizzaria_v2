@@ -380,8 +380,8 @@ export function FormularioPedido({
       ) : (
         <button
           type="submit"
-          disabled={!podeFinalizar || enviando}
-          className="flex h-14 w-full items-center justify-between rounded-2xl bg-marca-600 px-5 text-base font-bold text-white shadow-[0_12px_24px_-12px_rgb(201_53_26/0.9)] disabled:bg-stone-300 disabled:shadow-none"
+          aria-busy={enviando} disabled={!podeFinalizar || enviando}
+          className="flex h-14 w-full items-center justify-between rounded-2xl bg-marca-600 px-5 text-base font-bold text-white shadow-[0_12px_24px_-12px_rgb(201_53_26/0.9)] disabled:not-aria-busy:bg-stone-300 disabled:not-aria-busy:shadow-none"
         >
           <span className="flex items-center gap-2">
             {enviando && <Loader2 className="size-5 animate-spin" />}

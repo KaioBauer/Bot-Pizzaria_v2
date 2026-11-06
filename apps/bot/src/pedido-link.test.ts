@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { configDeTeste, ID, sabor, TAMANHOS, variacoesDeTeste } from "@pizzaria/core/testes/fixtures";
 import { repositoriosEmMemoria } from "@pizzaria/core/testes/memoria";
 import type { ChannelAdapter } from "./canais/tipos";
-import { CABECALHO_IP_CLIENTE, registrarPedidoLink, ROTA_PEDIDO_LINK } from "./pedido-link";
+import { CABECALHO_IP_CLIENTE, registrarPedidoLink, ROTA_PEDIDO_LINK, textoAvisoPedidoLink } from "./pedido-link";
 
 // Sempre aberto: o teste não depende do relógio.
 const config = configDeTeste({
@@ -116,5 +116,13 @@ describe("rota do pedido por link", () => {
     expect(r.statusCode).toBe(422);
     expect(r.json()).toMatchObject({ ok: false, erros: [expect.stringContaining("não existe")] });
     rota.parar();
+  });
+});
+
+describe("aviso de status do pedido por link", () => {
+  it("leva o link de acompanhamento, menos quando o pedido foi concluído", () => {
+    expect(textoAvisoPedidoLink("Saiu para entrega", "saiu_para_entrega", "https://x.com/pedir/", "tk")).toBe("Saiu para entrega\nAcompanhe: https://x.com/pedir/acompanhar/tk");
+    expect(textoAvisoPedidoLink("Entregue", "concluido", "https://x.com/pedir", "tk")).toBe("Entregue");
+    expect(textoAvisoPedidoLink("Em preparo", "em_preparo", undefined, "tk")).toBe("Em preparo");
   });
 });

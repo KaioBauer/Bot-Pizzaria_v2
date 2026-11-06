@@ -752,8 +752,8 @@ export function Carrinho({
                           type="button"
                           whileTap={{ scale: 0.97 }}
                           onClick={() => enviar(canal)}
-                          disabled={enviando || !aberta || itens.length === 0}
-                          className={cn(estiloCanal[canal], "flex h-14 flex-1 items-center justify-center gap-2 rounded-2xl font-bold text-white transition hover:brightness-95 disabled:bg-stone-300 disabled:shadow-none")}
+                          aria-busy={enviando} disabled={enviando || !aberta || itens.length === 0}
+                          className={cn(estiloCanal[canal], "flex h-14 flex-1 items-center justify-center gap-2 rounded-2xl font-bold text-white transition hover:brightness-95 disabled:not-aria-busy:bg-stone-300 disabled:not-aria-busy:shadow-none")}
                         >
                           <MessageCircle className="size-5" />
                           {enviando ? "Enviando..." : "Pedir no WhatsApp"}

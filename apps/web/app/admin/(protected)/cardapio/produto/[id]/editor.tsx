@@ -153,7 +153,7 @@ export function EditorProduto(props: {
             <Botao
               variante="secundario"
               className="w-full"
-              disabled={!produto || salvando}
+              aria-busy={salvando} disabled={!produto || salvando}
               onClick={() => entradaFoto.current?.click()}
               title={produto ? undefined : "Salve o produto antes de enviar a foto"}
             >
@@ -266,7 +266,7 @@ export function EditorProduto(props: {
               <Trash2 className="size-4" /> Excluir
             </Botao>
           )}
-          <Botao tamanho="lg" disabled={salvando} onClick={salvar}>
+          <Botao tamanho="lg" aria-busy={salvando} disabled={salvando} onClick={salvar}>
             {salvando ? "Salvando..." : "Salvar produto"}
           </Botao>
         </div>

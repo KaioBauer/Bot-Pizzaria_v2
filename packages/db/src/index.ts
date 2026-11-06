@@ -6,6 +6,7 @@ export { criarCobrancasSimuladasRepo } from "./repos/pix-simulado";
 export * from "./admin/atendimento";
 export * from "./admin/cardapio";
 export * from "./admin/entregas";
+export * from "./admin/impressao";
 export * from "./admin/ingredientes";
 export * from "./admin/loja";
 export * from "./admin/pedidos";

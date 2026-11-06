@@ -96,7 +96,7 @@ export function Pedir({ catalogo, loja }: { catalogo: CatalogoPedir; loja: InfoL
   return (
     <div className="min-h-dvh bg-[#f6f3ee] text-stone-900">
       {/* Barra do app */}
-      <header className="sticky top-0 z-40 border-b border-black/[0.04] bg-white/90 backdrop-blur-xl">
+      <header className="sticky top-0 z-40 border-b border-black/[0.04] bg-white [transform:translateZ(0)]">
         <div className="mx-auto flex h-16 max-w-lg items-center gap-3 px-4">
           <Logo className="size-10 shrink-0 drop-shadow-[0_4px_8px_rgb(201_53_26/0.35)]" />
           <div className="min-w-0 flex-1 leading-tight">

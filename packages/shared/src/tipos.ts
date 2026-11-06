@@ -188,6 +188,7 @@ export interface ResumoPedido {
   tipoEntrega: TipoEntrega;
   totalCentavos: number;
   criadoEm: string;
+  formaPagamento?: FormaPagamento;
 }
 
 // Pagamentos ---------------------------------------------------------------------

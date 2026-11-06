@@ -84,6 +84,7 @@ export function repositoriosEmMemoria(params: {
         return p ? registro(p) : null;
       },
       pendentes: async () => pagamentos.filter((p) => p.status === "pendente").map(registro),
+      aprovadosDeCancelados: async () => pagamentos.map(registro).filter((p) => p.status === "aprovado" && p.pedidoStatus === "cancelado"),
       atualizarStatus: async (id, de, para) => {
         const p = pagamentos.find((x) => x.id === id && x.status === de);
         if (p) p.status = para;

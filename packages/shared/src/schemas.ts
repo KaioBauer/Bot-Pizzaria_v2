@@ -79,7 +79,7 @@ export const finalizarPedidoArgsSchema = z
       .nullish()
       .describe("valor em reais da nota que o cliente vai usar, só se pagar em dinheiro e precisar de troco"),
     cliente_nome: z.string().trim().min(2).max(80),
-    cliente_telefone: telefoneSchema.describe("com DDD, ex.: 11987654321"),
+    cliente_telefone: telefoneSchema.describe("com DDD, ex.: 11987654321. No WhatsApp é o telefone da seção Cliente (não pergunte)"),
     observacoes: textoOpcional(300).describe("observação geral do pedido"),
   })
   .superRefine((pedido, ctx) => {

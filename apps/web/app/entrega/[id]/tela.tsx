@@ -173,11 +173,12 @@ export function TelaEntrega({ detalhe: d, usuarioId, admin }: { detalhe: Detalhe
         {d.observacoes && <p className="mt-3 rounded-xl bg-stone-50 p-3 text-sm text-stone-600">Obs.: {d.observacoes}</p>}
       </section>
 
-      {erro && <Aviso>{erro}</Aviso>}
+      {/* Com o formulário de entrega aberto, o erro aparece junto do botão (o motoboy está olhando para ele). */}
+      {erro && !minha && <Aviso>{erro}</Aviso>}
 
       {/* Ação conforme o status */}
       {podeIniciar && (
-        <Botao tamanho="lg" disabled={ocupado} onClick={() => executar(() => iniciarEntregaAction(d.id))} className="h-14 w-full text-lg">
+        <Botao tamanho="lg" aria-busy={ocupado} disabled={ocupado} onClick={() => executar(() => iniciarEntregaAction(d.id))} className="h-14 w-full text-lg">
           <Navigation className="size-5" /> {ocupado ? "Iniciando..." : "Iniciar entrega"}
         </Botao>
       )}
@@ -255,7 +256,8 @@ export function TelaEntrega({ detalhe: d, usuarioId, admin }: { detalhe: Detalhe
             </label>
           )}
 
-          <Botao tamanho="lg" disabled={ocupado} onClick={confirmar} className="h-14 w-full bg-manjericao-600 text-lg hover:bg-manjericao-700">
+          {erro && <Aviso>{erro}</Aviso>}
+          <Botao tamanho="lg" aria-busy={ocupado} disabled={ocupado} onClick={confirmar} className="h-14 w-full bg-manjericao-600 text-lg hover:bg-manjericao-700">
             <CheckCircle2 className="size-5" /> {ocupado ? "Enviando..." : "Confirmar entrega"}
           </Botao>
         </section>

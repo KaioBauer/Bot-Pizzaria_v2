@@ -1,6 +1,7 @@
 import {
   paraCentavos,
   paraReais,
+  type FormaPagamento,
   type PedidosRepo,
   type StatusPedido,
   type TipoEntrega,
@@ -69,7 +70,7 @@ export function criarPedidosRepo(db: Db): PedidosRepo {
       const pedidos = exigir(
         await db
           .from("pedidos")
-          .select("id, numero, status, tipo_entrega, valor_total, created_at")
+          .select("id, numero, status, tipo_entrega, valor_total, created_at, forma_pagamento")
           .eq("canal", canal)
           .eq("chat_id", chatId)
           .gte("created_at", desde.toISOString())
@@ -84,6 +85,7 @@ export function criarPedidosRepo(db: Db): PedidosRepo {
         tipoEntrega: p.tipo_entrega as TipoEntrega,
         totalCentavos: paraCentavos(p.valor_total),
         criadoEm: p.created_at,
+        formaPagamento: p.forma_pagamento as FormaPagamento,
       }));
     },
 

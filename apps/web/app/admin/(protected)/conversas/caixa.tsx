@@ -238,14 +238,16 @@ export function Caixa({ inicial }: { inicial: AtendimentoPainel[] }) {
                     onClick={() => setSelecionado(chave(a))}
                     aria-current={ativo ? "true" : undefined}
                     className={cn(
-                      "relative flex w-full gap-3 rounded-lg px-2.5 py-2.5 text-left transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-zinc-900",
-                      ativo ? "bg-zinc-100" : "hover:bg-zinc-50"
+                      "relative flex w-full cursor-pointer gap-3 rounded-lg px-2.5 py-2.5 text-left transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-zinc-900",
+                      ativo ? "bg-marca-50 ring-1 ring-marca-200 ring-inset" : "hover:bg-zinc-100"
                     )}
                   >
+                    {/* Barra da conversa aberta: dá para ver de longe qual está selecionada. */}
+                    {ativo && <span className="absolute inset-y-2 left-0 w-[3px] rounded-full bg-marca-600" aria-hidden />}
                     <Avatar atendimento={a} />
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center gap-2">
-                        <span className={cn("truncate text-[13.5px]", a.precisaAtencao ? "font-semibold text-zinc-900" : "font-medium text-zinc-800")}>{nomeDoChat(a)}</span>
+                        <span className={cn("truncate text-[13.5px]", a.precisaAtencao || ativo ? "font-semibold text-zinc-900" : "font-medium text-zinc-800")}>{nomeDoChat(a)}</span>
                         <span className={cn("ml-auto shrink-0 text-[11.5px] tabular", a.precisaAtencao ? "text-amber-700" : "text-zinc-400")}>{hora(a.ultimaMensagemEm)}</span>
                       </span>
                       <span className="mt-0.5 flex items-center gap-2">
@@ -450,7 +452,7 @@ export function Caixa({ inicial }: { inicial: AtendimentoPainel[] }) {
                   />
                   <motion.button
                     type="submit"
-                    disabled={!texto.trim() || enviando}
+                    aria-busy={enviando} disabled={!texto.trim() || enviando}
                     aria-label="Enviar"
                     whileTap={reduzido ? undefined : { scale: 0.92 }}
                     className={cn(

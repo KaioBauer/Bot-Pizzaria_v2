@@ -66,7 +66,6 @@ describe("precificarItens", () => {
   describe("rejeita", () => {
     const casos: Array<[string, ItemPedidoArgs, RegExp]> = [
       ["variação inexistente", item({ sabores: [sabor(ID.calabresa, ID.inexistente)] }), /não existe/],
-      ["variação de outro produto", item({ sabores: [sabor(ID.margherita, ID.calabresaGrande)] }), /não pertence/],
       ["borda como sabor", item({ sabores: [sabor(ID.calabresa, ID.calabresaBorda)] }), /adicionais/],
       [
         "meio a meio com tamanhos diferentes",
@@ -132,12 +131,21 @@ describe("precificarItens", () => {
     });
   });
 
+  it("produto_id corrompido pelo modelo: vale o produto da variação (preço e nome do servidor)", () => {
+    const r = precificarItens([item({ sabores: [sabor("c019ccf7-0000-0000-0000-000000000000", ID.calabresaGrande)] })], variacoesDeTeste());
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.itens[0]?.descricao).toContain("Calabresa");
+      expect(r.itens[0]?.componentes[0]).toMatchObject({ produtoId: ID.calabresa, variacaoId: ID.calabresaGrande });
+    }
+  });
+
   it("indica qual item tem problema e junta erros de vários itens", () => {
     const r = precificarItens(
       [
         item({ sabores: [calabresaGrande] }),
         item({ sabores: [sabor(ID.calabresa, ID.inexistente)] }),
-        item({ sabores: [sabor(ID.margherita, ID.calabresaGrande)] }),
+        item({ sabores: [sabor(ID.calabresa, ID.calabresaBorda)] }),
       ],
       variacoesDeTeste()
     );

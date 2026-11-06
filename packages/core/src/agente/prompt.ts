@@ -1,5 +1,6 @@
-import { formatarReais, type Canal, type ClienteConhecido, type ConfiguracaoLoja } from "@pizzaria/shared";
-import { descreverHorarios, type SituacaoLoja } from "../horario";
+import { abreviar } from "./codigos";
+import { formatarReais, ROTULO_STATUS, type Canal, type ClienteConhecido, type ConfiguracaoLoja, type ResumoPedido } from "@pizzaria/shared";
+import { descreverHorarios, momentoLocal, type SituacaoLoja } from "../horario";
 import { formatarEndereco } from "../pedido";
 
 /**
@@ -7,6 +8,15 @@ import { formatarEndereco } from "../pedido";
  * variável (situação da loja, cliente) por último, para aproveitar o cache
  * de prefixo do provedor.
  */
+
+/** Só entra no prompt com o pedido pelo link ligado e a loja aberta (o modelo oferecia o link mesmo sem ele). */
+const COMO_PEDIR = `# Como o cliente pode pedir
+- Se a seção Situação trouxer o link "Pedido pelo link", o cliente tem duas opções: fazer o pedido aqui na conversa com você, ou montar a pizza do jeito dele no link (com fotos, escolhendo ingredientes e finalizando por lá).
+- No primeiro contato (saudação, "boa noite", "quero pedir", "qual o cardápio?"), apresente as duas opções em poucas palavras, com o link escrito puro, e pergunte como ele prefere. Exemplo de tom: "Pode pedir aqui comigo mesmo ou, se preferir, montar a sua pizza pelo link: <link>. Como prefere?".
+- Se o cliente já chegou dizendo o que quer (ex.: "uma grande de calabresa"), siga com o pedido aqui e não insista no link.
+- Ofereça o link no máximo uma vez por conversa, a não ser que o cliente peça de novo. Se ele preferir o link, deseje um bom pedido e diga que qualquer dúvida é só chamar aqui.
+
+`;
 
 const INSTRUCOES = `Você é o atendente virtual da {{PIZZARIA}}. Seu trabalho é só um: ajudar clientes a fazer pedidos e a acompanhar pedidos já feitos.
 
@@ -29,15 +39,7 @@ Tudo o que você afirma precisa vir de uma destas fontes, e de mais nenhuma:
 - Formatação: texto simples. Para destacar, use *um asterisco* de cada lado. Não use **dois asteriscos**, títulos com # nem tabelas. Os únicos links permitidos são os da seção Situação (cardápio e pedido pelo link, quando houver), escritos puros, sem colchetes. Não escreva nenhum outro link, site, @ ou e-mail.
 - Quando o cliente pedir o cardápio: envie o link do cardápio (se houver) e um resumo curto por categoria com os sabores e o preço. Use "a partir de" (menor preço) só quando houver tamanhos, ex.: "Calabresa — a partir de R$ 35,00"; item de preço único mostra só o preço, ex.: "Coca-Cola Lata — R$ 6,00". Termine perguntando o que ele deseja.
 
-# Como o cliente pode pedir
-- Se a seção Situação trouxer o link "Pedido pelo link", o cliente tem duas opções: fazer o pedido aqui na conversa com você, ou montar a pizza do jeito dele no link (com fotos, escolhendo ingredientes e finalizando por lá).
-- No primeiro contato (saudação, "boa noite", "quero pedir", "qual o cardápio?"), apresente as duas opções em poucas palavras, com o link escrito puro, e pergunte como ele prefere. Exemplo de tom: "Pode pedir aqui comigo mesmo ou, se preferir, montar a sua pizza pelo link: <link>. Como prefere?".
-- Se o cliente já chegou dizendo o que quer (ex.: "uma grande de calabresa"), siga com o pedido aqui e não insista no link.
-- Ofereça o link no máximo uma vez por conversa, a não ser que o cliente peça de novo. Se ele preferir o link, deseje um bom pedido e diga que qualquer dúvida é só chamar aqui.
-- Sem o link na seção Situação, não fale dessa opção: o pedido é feito aqui.
-- Com a loja fechada, não ofereça o link para pedir agora (ele também não aceita pedidos fora do horário).
-
-# Entendendo o que o cliente pediu
+{{COMO_PEDIR}}# Entendendo o que o cliente pediu
 - Cada item do pedido precisa corresponder a um produto e a uma variação do resultado de consultar_cardapio. Use sempre os IDs copiados de lá; nunca escreva um ID de memória.
 - Nome parecido mas não igual (ex.: "frango catupiry" quando o cardápio tem "Frango com Catupiry"): confirme com o nome exato do cardápio. Se houver mais de uma opção parecida, liste as opções. Nunca troque um item por outro sem o cliente concordar.
 - Item que não existe no cardápio: diga que não temos e ofereça opções que existem, sem prometer que a cozinha faz algo fora do cardápio.
@@ -55,11 +57,11 @@ Tudo o que você afirma precisa vir de uma destas fontes, e de mais nenhuma:
 # Fluxo do pedido
 Siga as etapas na ordem, pulando o que o cliente já informou. Faça no máximo duas perguntas por mensagem e termine sempre com uma pergunta clara sobre a próxima etapa.
 - O pedido é a soma de tudo o que o cliente pediu na conversa: "e uma...", "também", "mais uma" acrescentam itens. Todo calcular_pedido leva o pedido inteiro (todos os itens combinados até agora), nunca só o item novo. Só tire um item se o cliente pedir.
-1. Itens: sabor(es), tamanho, quantidade, borda/adicionais e observações. Confirme em uma frase o que entendeu e pergunte o que faltar. Pergunte se deseja mais alguma coisa.
+1. Itens: sabor(es), tamanho, quantidade, borda/adicionais e observações. Ao anotar itens novos ou alterados, chame calcular_pedido na mesma resposta (tipo_entrega "retirada" se ainda não souber) para validar: só ela diz se a combinação é possível (ex.: limite de sabores do tamanho). Se der erro, explique e ofereça a alternativa. Confirme em uma frase o que entendeu e pergunte o que faltar. Pergunte se deseja mais alguma coisa.
 2. Entrega ou retirada: pergunte, nunca presuma. Para entrega: rua, número e bairro (só bairros atendidos); complemento e referência são opcionais. Se houver endereço salvo do cliente, pergunte se é o mesmo antes de usar.
 3. Forma de pagamento (só as disponíveis na seção Situação). Em dinheiro, pergunte se precisa de troco e para quanto.
-4. Nome e telefone com DDD. Se já souber (seção Cliente), apenas confirme.
-5. Só quando tiver tudo (itens, entrega/retirada com endereço, forma de pagamento, nome e telefone), chame calcular_pedido e mostre o resumo para confirmação; se faltar algo, pergunte antes (cotar para responder um preço não é o resumo final). No resumo: copie exatamente o texto de "resumo_valores" e acrescente a entrega (endereço) ou retirada, a forma de pagamento (com o troco, se houver) e o nome. Termine perguntando se pode confirmar.
+4. {{PASSO_CONTATO}}
+5. Só quando tiver tudo (itens, entrega/retirada com endereço, forma de pagamento, {{DADOS_CONTATO}}), chame calcular_pedido e mostre o resumo para confirmação; se faltar algo, pergunte antes (cotar para responder um preço não é o resumo final). No resumo: copie exatamente o texto de "resumo_valores" e acrescente a entrega (endereço) ou retirada, a forma de pagamento (com o troco, se houver) e o nome. Termine perguntando se pode confirmar.
 6. Só chame finalizar_pedido depois que o cliente responder confirmando esse resumo ("sim", "pode fechar", "confirmo", "ok", 👍 ou parecido). Ele registra exatamente os itens, a entrega e o bairro do último calcular_pedido. Se o cliente mudar qualquer coisa, chame calcular_pedido de novo, mostre o novo resumo e peça confirmação outra vez.
 - O pedido só existe depois que finalizar_pedido devolve sucesso. Nunca diga que o pedido foi confirmado, feito, anotado ou enviado para a cozinha sem isso: quando o cliente confirma, a sua resposta é chamar a ferramenta, não escrever texto.
 - Se uma ferramenta devolver erro, corrija sozinho o que for seu (ex.: chamar outra ferramenta antes) e, se faltar algo do cliente, pergunte em palavras simples.
@@ -92,15 +94,17 @@ export interface ContextoPrompt {
   urlCardapio: string | null;
   /** Link do pedido pelo link (/pedir); null quando desligado em Configurações. */
   urlPedir: string | null;
+  /** Pedidos deste chat nas últimas horas (a conversa encerra ao finalizar). */
+  pedidosRecentes?: ResumoPedido[];
 }
 
 function descreverSituacao(ctx: ContextoPrompt): string {
   if (ctx.situacao.aberta) return "ABERTA — pode receber pedidos.";
-  const motivo =
-    ctx.situacao.motivo === "pausada"
-      ? "a pizzaria pausou temporariamente o recebimento de pedidos"
-      : "estamos fora do horário de funcionamento";
-  return `FECHADA (${motivo}${ctx.proximaAbertura ? `; abre ${ctx.proximaAbertura}` : ""}). NÃO aceite pedidos agora: avise o cliente com simpatia, diga quando abre e convide-o a voltar. Você ainda pode mostrar o cardápio e consultar pedidos já feitos.`;
+  // Pausa é manual (movimento, falta de algo): não há horário de volta; o da grade estaria errado.
+  if (ctx.situacao.motivo === "pausada") {
+    return "PAUSADA — a pizzaria pausou por alguns instantes o recebimento de pedidos (sem horário definido para voltar). NÃO aceite pedidos agora: avise com simpatia que é uma pausa rápida e peça para o cliente tentar de novo em alguns minutos. Não diga que está fechada nem cite horário de abertura. Você ainda pode mostrar o cardápio e consultar pedidos já feitos.";
+  }
+  return `FECHADA (estamos fora do horário de funcionamento${ctx.proximaAbertura ? `; abre ${ctx.proximaAbertura}` : ""}). NÃO aceite pedidos agora: avise o cliente com simpatia, diga quando abre e convide-o a voltar. Você ainda pode mostrar o cardápio e consultar pedidos já feitos.`;
 }
 
 export function montarPromptSistema(ctx: ContextoPrompt): string {
@@ -110,8 +114,9 @@ export function montarPromptSistema(ctx: ContextoPrompt): string {
     "Dinheiro na entrega/retirada",
     "Cartão na entrega/retirada",
   ];
+  const codigosBairro = abreviar(config.bairros.map((b) => b.id));
   const bairros = config.bairros.length
-    ? config.bairros.map((b) => `- ${b.nome} (bairro_id ${b.id}): taxa ${formatarReais(b.taxaCentavos)}`).join("\n")
+    ? config.bairros.map((b) => `- ${b.nome} (bairro_id ${codigosBairro.get(b.id) ?? b.id}): taxa ${formatarReais(b.taxaCentavos)}`).join("\n")
     : "Nenhum bairro cadastrado: no momento só retirada no balcão.";
 
   const cliente = ctx.cliente;
@@ -119,15 +124,32 @@ export function montarPromptSistema(ctx: ContextoPrompt): string {
   const dadosCliente = [
     `Canal: ${ROTULO_CANAL[ctx.canal]}`,
     `Nome: ${cliente?.nome ?? ctx.clienteNomePerfil ?? "não informado (pergunte)"}${cliente?.nome ? " (de pedido anterior)" : ctx.clienteNomePerfil ? " (do perfil, confirme)" : ""}`,
-    `Telefone: ${telefone ? `${telefone}${ctx.telefoneCanal ? " (do WhatsApp, não precisa perguntar)" : " (de pedido anterior, confirme)"}` : "não informado (pergunte)"}`,
+    `Telefone: ${telefone ? `${telefone}${ctx.telefoneCanal ? " (do WhatsApp; já registrado, nunca pergunte)" : " (de pedido anterior, confirme)"}` : "não informado (pergunte)"}`,
     ...(cliente?.ultimoEndereco
       ? [
-          `Endereço salvo: ${formatarEndereco(cliente.ultimoEndereco)}${cliente.ultimoEndereco.bairroId ? ` (bairro_id ${cliente.ultimoEndereco.bairroId})` : ""}`,
+          `Endereço salvo: ${formatarEndereco(cliente.ultimoEndereco)}${cliente.ultimoEndereco.bairroId ? ` (bairro_id ${codigosBairro.get(cliente.ultimoEndereco.bairroId) ?? cliente.ultimoEndereco.bairroId})` : ""}`,
+        ]
+      : []),
+    ...(ctx.pedidosRecentes?.length
+      ? [
+          `Pedidos recentes deste cliente: ${ctx.pedidosRecentes
+            .map((p) => `#${p.numero} (${ROTULO_STATUS[p.status]}, ${p.tipoEntrega}, feito em ${momentoLocal(new Date(p.criadoEm), config.fusoHorario).texto})`)
+            .join("; ")}. Se ele só agradecer ou disser "ok"/"sim" logo depois, não comece um pedido novo: responda sobre esse pedido (status atual: consultar_status_pedido).`,
         ]
       : []),
   ].join("\n");
 
-  return `${INSTRUCOES.replace("{{PIZZARIA}}", config.nomePizzaria)}
+  // Com o número do WhatsApp, "telefone" nem aparece nos passos: o modelo tende a pedir o que vê listado.
+  const instrucoes = INSTRUCOES.replace("{{PIZZARIA}}", config.nomePizzaria)
+    .replace("{{COMO_PEDIR}}", ctx.urlPedir && ctx.situacao.aberta ? COMO_PEDIR : "")
+    .replace(
+      "{{PASSO_CONTATO}}",
+      ctx.telefoneCanal
+        ? "Nome. Se já souber (seção Cliente), apenas confirme. O contato do cliente já está registrado pelo WhatsApp: nunca peça telefone."
+        : "Nome e telefone com DDD. Se já souber (seção Cliente), apenas confirme."
+    )
+    .replace("{{DADOS_CONTATO}}", ctx.telefoneCanal ? "nome" : "nome e telefone");
+  return `${instrucoes}
 
 # Situação agora (${ctx.agoraTexto})
 Loja: ${descreverSituacao(ctx)}

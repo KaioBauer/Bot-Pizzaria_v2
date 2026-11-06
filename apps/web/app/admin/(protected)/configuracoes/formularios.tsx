@@ -40,7 +40,7 @@ function Rodape({ salvando, mensagem, aoSalvar, rotulo }: { salvando: boolean; m
   return (
     <>
       {mensagem && <span role="status" className={cn("mr-auto text-sm font-medium", mensagem.ok ? "text-emerald-700" : "text-red-700")}>{mensagem.texto}</span>}
-      <Botao onClick={aoSalvar} disabled={salvando}>{salvando ? "Salvando..." : rotulo}</Botao>
+      <Botao onClick={aoSalvar} aria-busy={salvando} disabled={salvando}>{salvando ? "Salvando..." : rotulo}</Botao>
     </>
   );
 }

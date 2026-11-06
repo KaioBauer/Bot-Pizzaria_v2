@@ -59,6 +59,14 @@ export function criarServicoPix(deps: {
     return "sem_mudanca";
   }
 
+  /** Pedido cancelado com o Pix já pago: devolve o dinheiro (idempotente pelo status). */
+  async function estornar(pagamento: PagamentoRegistro): Promise<void> {
+    await gateway.estornar(pagamento.provedorId);
+    if (await repos.pagamentos.atualizarStatus(pagamento.id, "aprovado", "estornado")) {
+      logger.warn({ pedido: pagamento.pedidoNumero, provedorId: pagamento.provedorId }, "Pedido pago e cancelado: Pix estornado");
+    }
+  }
+
   async function encerrar(pagamento: PagamentoRegistro, status: StatusPagamento, motivo: string): Promise<boolean> {
     if (pagamento.status === "pendente") await repos.pagamentos.atualizarStatus(pagamento.id, "pendente", status);
     const cancelou = await repos.pedidos.cancelarAguardandoPagamento(pagamento.pedidoId, motivo);
@@ -122,13 +130,24 @@ export function criarServicoPix(deps: {
 
     processarAtualizacao,
 
-    /** Conferência periódica: cobre webhooks perdidos e expira cobranças vencidas. */
+    /**
+     * Conferência periódica: cobre webhooks perdidos, expira cobranças vencidas e
+     * devolve o Pix de pedido pago que foi cancelado depois (pela pizzaria no painel).
+     */
     async conferirPendentes(): Promise<void> {
       for (const pagamento of await repos.pagamentos.pendentes()) {
         try {
           await processarAtualizacao(pagamento.provedorId);
         } catch (err) {
           logger.error({ err, provedorId: pagamento.provedorId }, "Falha ao conferir pagamento");
+        }
+      }
+      for (const pagamento of await repos.pagamentos.aprovadosDeCancelados()) {
+        try {
+          await estornar(pagamento);
+        } catch (err) {
+          // Fica "aprovado": a próxima conferência tenta de novo.
+          logger.error({ err, provedorId: pagamento.provedorId }, "Falha ao estornar Pix de pedido cancelado");
         }
       }
     },

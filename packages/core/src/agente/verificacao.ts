@@ -155,6 +155,40 @@ export function verificarResposta(texto: string, fontes: FontesOficiais): Proble
   return problemas;
 }
 
+const PEDE_CONFIRMACAO = /\b(confirm[a-z]*|posso fechar|posso finalizar|fecho o pedido|finalizo o pedido)\b/;
+
+/**
+ * Resumo para o cliente confirmar ("Total: R$ ... Pode confirmar?") montado sem
+ * calcular_pedido nesta rodada: o modelo reaproveitou uma cotação antiga (ex.:
+ * de retirada, depois de o cliente pedir entrega) e o total sai sem a taxa.
+ * `rodada` = mensagens desde a última fala do cliente.
+ */
+export function resumoSemCotacao(texto: string, rodada: MensagemConversa[]): boolean {
+  const normalizado = normalizarTexto(texto);
+  if (!PEDE_CONFIRMACAO.test(normalizado)) return false;
+  const comTotal = /\btotal\b/.test(normalizado) && valoresCitados(texto).length > 0;
+  // "Entrega na rua X, pagamento em dinheiro. Pode confirmar?" também é o fechamento do pedido.
+  const fechamento = /\b(entrega|retirada|retirar)\b/.test(normalizado) && /\b(pagamento|dinheiro|cartao|pix)\b/.test(normalizado);
+  if (!comTotal && !fechamento) return false;
+  const chamadas = new Set(rodada.flatMap((m) => (m.papel === "assistant" ? (m.toolCalls ?? []).filter((c) => c.nome === "calcular_pedido").map((c) => c.id) : [])));
+  // Só vale cotação que deu certo: com erro, o total mostrado não veio dela.
+  return !rodada.some((m) => m.papel === "tool" && chamadas.has(m.toolCallId) && /"sucesso":\s*true/.test(m.conteudo));
+}
+
+/**
+ * Pergunta o telefone do cliente quando ele já é conhecido pelo canal (o número
+ * do WhatsApp). O modelo às vezes ignora a seção Cliente e pede de novo.
+ */
+export function pedeTelefoneConhecido(texto: string, telefoneCanal: string | null): boolean {
+  if (!telefoneCanal) return false;
+  const normalizado = normalizarTexto(texto);
+  if (/telefone (da|de contato da) pizzaria|nosso telefone/.test(normalizado)) return false;
+  return (
+    /\b(telefone|celular|numero de contato|numero para contato)\b/.test(normalizado) &&
+    /\?|\b(me (passa|passe|confirma|confirme|informa|informe|diz|diga|manda|mande)|qual (e )?(o )?(seu )?|falta|faltou|preciso|precisa|necessito)\b/.test(normalizado)
+  );
+}
+
 /** Remove links e telefones não autorizados (último recurso, se o modelo insistir). */
 export function removerNaoAutorizados(texto: string, problemas: ProblemaResposta[]): string {
   let limpo = texto;

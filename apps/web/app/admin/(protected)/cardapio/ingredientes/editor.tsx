@@ -173,7 +173,7 @@ function LinhaIngrediente({ inicial, tamanhos, aoRemover }: { inicial: Linha; ta
         </select>
         <Interruptor checked={l.ativo} onChange={(e) => mudar({ ativo: e.target.checked })} rotulo={<span className="text-sm">Ativo</span>} />
         <div className="ml-auto flex items-center gap-2">
-          <Botao tamanho="sm" disabled={ocupado || !alterado} onClick={salvar}>
+          <Botao tamanho="sm" aria-busy={ocupado} disabled={ocupado || !alterado} onClick={salvar}>
             {ocupado ? "Salvando..." : "Salvar"}
           </Botao>
           <button

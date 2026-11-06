@@ -16,6 +16,8 @@ export interface RequisicaoLlm {
   sistema: string;
   mensagens: MensagemConversa[];
   tools: DefinicaoTool[];
+  /** Obriga o modelo a chamar esta ferramenta (correção de resumo sem cotação). */
+  forcarTool?: string;
 }
 
 export interface RespostaLlm {

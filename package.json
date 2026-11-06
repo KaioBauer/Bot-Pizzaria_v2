@@ -18,6 +18,7 @@
     "check": "pnpm typecheck && pnpm test",
     "db:types": "supabase gen types typescript --linked --schema public > packages/db/src/database.types.ts",
     "usuario": "tsx apps/bot/scripts/usuario.ts",
+    "simular": "tsx apps/bot/scripts/simular.ts",
     "cardapio:importar": "tsx apps/bot/scripts/importar-cardapio.ts"
   },
   "devDependencies": {

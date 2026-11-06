@@ -1,6 +1,6 @@
 "use client";
 
-import { animate, AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { animate, useReducedMotion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { formatarReais } from "@pizzaria/shared";
 
@@ -47,48 +47,9 @@ export function TotalAnimado({ centavos, className }: { centavos: number; classN
     return () => controle.stop();
   }, [centavos, reduzido]);
   return (
-    <span ref={ref} className={`tabular ${className ?? ""}`}>
+    <span ref={ref} className={`shrink-0 whitespace-nowrap tabular ${className ?? ""}`}>
       {formatarReais(centavos)}
     </span>
-  );
-}
-
-interface Flutuante {
-  id: number;
-  texto: string;
-}
-
-/** "+R$ 8,00" que sobe e some quando algo com custo entra na pizza. */
-export function useFlutuantes() {
-  const [lista, setLista] = useState<Flutuante[]>([]);
-  const seq = useRef(0);
-  const mostrar = useCallback((centavos: number) => {
-    if (centavos <= 0) return;
-    const id = ++seq.current;
-    setLista((l) => [...l, { id, texto: `+${formatarReais(centavos)}` }]);
-    setTimeout(() => setLista((l) => l.filter((f) => f.id !== id)), 1100);
-  }, []);
-  return { flutuantes: lista, mostrar };
-}
-
-export function Flutuantes({ itens }: { itens: Flutuante[] }) {
-  return (
-    <div className="pointer-events-none absolute inset-x-0 top-[42%] z-50 flex justify-center" aria-hidden>
-      <AnimatePresence>
-        {itens.map((f) => (
-          <motion.span
-            key={f.id}
-            className="absolute rounded-full bg-manjericao-600 px-3.5 py-1.5 text-[15px] font-extrabold text-white shadow-[0_8px_20px_-6px_rgb(35_127_67/0.7)] ring-2 ring-white"
-            initial={{ opacity: 0, y: 16, scale: 0.6 }}
-            animate={{ opacity: 1, y: -36, scale: 1.08 }}
-            exit={{ opacity: 0, y: -56, scale: 0.9 }}
-            transition={{ duration: 0.7, ease: "easeOut" }}
-          >
-            {f.texto}
-          </motion.span>
-        ))}
-      </AnimatePresence>
-    </div>
   );
 }
 

@@ -1,5 +1,6 @@
 import { execFile } from "node:child_process";
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -12,10 +13,16 @@ const executar = promisify(execFile);
  * qualquer porta), pelo spooler, com o tipo de dado RAW: o driver repassa os
  * bytes sem interpretar. Não exige compartilhar a impressora nem módulo
  * nativo — usa a API winspool.drv via PowerShell.
+ *
+ * "O Windows aceitou" NÃO é "imprimiu": com a impressora desligada o driver
+ * genérico continua "Normal" e o spooler guarda o cupom, que sai de surpresa
+ * quando ela liga (com o pedido já marcado como impresso). Por isso o script
+ * espera o trabalho SAIR da fila do Windows; se não sair no prazo, cancela o
+ * trabalho e falha — o pedido continua na fila do painel e é reenviado depois.
  */
 
 const SCRIPT = String.raw`
-param([string]$Impressora, [string]$Arquivo, [string]$Documento)
+param([string]$Impressora, [string]$Arquivo, [string]$Documento, [int]$Espera = 15)
 $ErrorActionPreference = 'Stop'
 Add-Type -TypeDefinition @'
 using System;
@@ -38,11 +45,13 @@ public static class SpoolerRaw {
   [DllImport("winspool.drv", SetLastError = true)] static extern bool EndPagePrinter(IntPtr h);
   [DllImport("winspool.drv", SetLastError = true)] static extern bool WritePrinter(IntPtr h, byte[] dados, int tamanho, out int escritos);
 
-  public static void Enviar(string impressora, byte[] dados, string documento) {
+  /** Devolve o número do trabalho na fila do Windows. */
+  public static int Enviar(string impressora, byte[] dados, string documento) {
     IntPtr h;
     if (!OpenPrinter(impressora, out h, IntPtr.Zero)) throw new Win32Exception(Marshal.GetLastWin32Error());
     try {
-      if (StartDocPrinter(h, 1, new DOCINFO { pDocName = documento, pDataType = "RAW" }) == 0)
+      int trabalho = StartDocPrinter(h, 1, new DOCINFO { pDocName = documento, pDataType = "RAW" });
+      if (trabalho == 0)
         throw new Win32Exception(Marshal.GetLastWin32Error());
       try {
         StartPagePrinter(h);
@@ -51,11 +60,20 @@ public static class SpoolerRaw {
           throw new Win32Exception(Marshal.GetLastWin32Error());
         EndPagePrinter(h);
       } finally { EndDocPrinter(h); }
+      return trabalho;
     } finally { ClosePrinter(h); }
   }
 }
 '@
-[SpoolerRaw]::Enviar($Impressora, [System.IO.File]::ReadAllBytes($Arquivo), $Documento)
+$trabalho = [SpoolerRaw]::Enviar($Impressora, [System.IO.File]::ReadAllBytes($Arquivo), $Documento)
+$limite = (Get-Date).AddSeconds($Espera)
+while ((Get-Date) -lt $limite) {
+  if (-not (Get-PrintJob -PrinterName $Impressora -ID $trabalho -ErrorAction SilentlyContinue)) { 'impresso'; exit 0 }
+  Start-Sleep -Milliseconds 500
+}
+Remove-PrintJob -PrinterName $Impressora -ID $trabalho -ErrorAction SilentlyContinue
+[Console]::Error.WriteLine("A impressora nao imprimiu em $Espera s (desligada, sem papel ou tampa aberta). O cupom foi tirado da fila do Windows; o pedido continua na fila do painel.")
+exit 2
 `;
 
 const SCRIPT_STATUS = String.raw`
@@ -66,17 +84,22 @@ if (-not $p) { 'inexistente' } elseif ($p.WorkOffline) { 'offline' } else { [str
 
 export class SpoolerWindows {
   private readonly pasta = join(tmpdir(), "vianna-print-agent");
-  private scriptPronto: Promise<void> | null = null;
 
   constructor(private readonly impressora: string) {}
 
-  private preparar(): Promise<void> {
-    this.scriptPronto ??= (async () => {
-      await mkdir(this.pasta, { recursive: true });
-      await writeFile(join(this.pasta, "enviar.ps1"), SCRIPT, "utf8");
-      await writeFile(join(this.pasta, "status.ps1"), SCRIPT_STATUS, "utf8");
-    })();
-    return this.scriptPronto;
+  /**
+   * Garante os scripts na pasta temporária ANTES DE CADA USO: o serviço roda por
+   * semanas e a limpeza do Windows (Sensor de Armazenamento, Limpeza de Disco)
+   * apaga arquivos antigos do TEMP. Gravados só no início, as impressões
+   * falhavam para sempre com "o argumento enviar.ps1 não existe".
+   */
+  private async preparar(): Promise<void> {
+    await mkdir(this.pasta, { recursive: true });
+    for (const [nome, conteudo] of [["enviar.ps1", SCRIPT], ["status.ps1", SCRIPT_STATUS]] as const) {
+      const caminho = join(this.pasta, nome);
+      // Regrava se sumiu ou se é de uma versão anterior do agente.
+      if (!existsSync(caminho) || (await readFile(caminho, "utf8")) !== conteudo) await writeFile(caminho, conteudo, "utf8");
+    }
   }
 
   private powershell(script: string, args: string[]) {

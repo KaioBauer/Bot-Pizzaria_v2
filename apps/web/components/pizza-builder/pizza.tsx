@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { useId, useMemo } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { BASE_SALGADA, CAMADAS_BASE, coresDaBorda, type BaseSabor, type CoresBorda, type TipoCamada } from "./biblioteca";
 import { corDoNome, divisorias, espalhar, recorteDoSetor, setorDaFatia, type Setor } from "./geometria";
 
@@ -58,7 +58,7 @@ function Chuva({ semente, setor, cor }: { semente: string; setor: Setor; cor: st
         <motion.span
           key={i}
           className="absolute block h-[1.1%] w-[4.5%] rounded-full"
-          style={{ left: `${p.x}%`, top: `${p.y}%`, background: cor, rotate: p.rotacao }}
+          style={{ left: `${p.x}%`, top: `${p.y}%`, backgroundColor: cor, rotate: p.rotacao }}
           initial={{ y: "-2600%", opacity: 0 }}
           animate={{ y: ["-2600%", "0%"], opacity: [0, 1, 0] }}
           transition={{ duration: 0.55, delay: p.atraso * 1.4, ease: "easeIn", times: [0, 0.85, 1] }}
@@ -154,6 +154,14 @@ function Pedacos({ item, reduzido, semEntrada }: { item: Item; reduzido: boolean
   const QUEDA = 0.62;
   // Momento em que o pedaço toca a pizza (fração da animação).
   const IMPACTO = 0.55;
+  // Sombra e farinha só existem durante a queda: invisíveis e montadas, pesavam na rolagem.
+  const [caindo, setCaindo] = useState(animar);
+  useEffect(() => {
+    if (!caindo) return;
+    const ultimo = Math.max(0, ...pedacos.map((p) => p.atraso));
+    const id = setTimeout(() => setCaindo(false), (ultimo + QUEDA + 0.6) * 1000);
+    return () => clearTimeout(id);
+  }, [caindo, pedacos]);
   return (
     <div className="pointer-events-none absolute inset-0">
       {pedacos.map((p, i) => {
@@ -163,13 +171,13 @@ function Pedacos({ item, reduzido, semEntrada }: { item: Item; reduzido: boolean
           <div
             key={i}
             className="absolute"
-            style={{ left: `${p.x}%`, top: `${p.y}%`, width: `${visual.tamanho * p.escala}%`, height: `${visual.tamanho * p.escala}%`, transform: "translate(-50%, -50%)" }}
+            style={{ left: `${p.x}%`, top: `${p.y}%`, width: `${(visual.tamanho * p.escala).toFixed(2)}%`, height: `${(visual.tamanho * p.escala).toFixed(2)}%`, transform: "translate(-50%, -50%)" }}
           >
-            {animar && (
+            {animar && caindo && (
               <>
                 {/* Sombra que cresce e escurece à medida que o pedaço se aproxima. */}
                 <motion.span
-                  className="absolute inset-[8%] rounded-full bg-[#3a1d08] blur-[3px]"
+                  className="absolute inset-[8%] rounded-full bg-[radial-gradient(circle,#3a1d08_35%,transparent_70%)]"
                   initial={{ opacity: 0, scale: 0.3 }}
                   animate={{ opacity: [0, 0.45, 0], scale: [0.3, 1, 1] }}
                   transition={{ duration: QUEDA + 0.25, times: [0, IMPACTO * 0.85, 1], delay: p.atraso }}
@@ -421,7 +429,8 @@ export function Pizza({ escala, fatias, fatiaAtiva, aoEscolherFatia, ingrediente
         .filter(Boolean)
         .join(", ")}
     >
-      <div className="absolute inset-[4%] translate-y-[3%] rounded-full bg-stone-900/25 blur-2xl" aria-hidden />
+      {/* Sombra em gradiente (blur custava caro a cada quadro da rolagem). */}
+      <div className="absolute inset-[-2%] translate-y-[3%] rounded-full bg-[radial-gradient(circle,rgb(28_25_23/0.28)_45%,rgb(28_25_23/0.1)_58%,transparent_70%)]" aria-hidden />
       {/* Massa crua e assada empilhadas: o forno troca uma pela outra (crossfade). */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={base.massaCrua} alt="" draggable={false} className="absolute inset-0 size-full transition-opacity duration-700" style={{ opacity: assada ? 0 : 1 }} />

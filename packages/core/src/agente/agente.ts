@@ -7,10 +7,11 @@ import { loggerSilencioso, type Logger } from "../logger";
 import type { ServicoPix } from "../pagamentos/pix";
 import { mensagemPedidoConfirmado, mensagemPedidoPix } from "../pedido";
 import { cotarPedido, idsDeVariacao } from "../precificacao";
+import { expandirArgumentos, montarCodigos } from "./codigos";
 import { codigoCarrinhoWeb, conversaCarrinhoWeb, lerItensCarrinho, mensagemCarrinhoInvalido } from "./carrinho-web";
 import { mensagemBoasVindas, reconhecerComando } from "./comandos";
 import { montarPromptSistema } from "./prompt";
-import { removerNaoAutorizados, verificarResposta, type ProblemaResposta } from "./verificacao";
+import { pedeTelefoneConhecido, removerNaoAutorizados, resumoSemCotacao, verificarResposta, type ProblemaResposta } from "./verificacao";
 import {
   DEFINICOES_TOOLS,
   TOOL,
@@ -77,6 +78,7 @@ const MAX_CARACTERES_ENTRADA = 2000;
 export const MENSAGEM_ATENDENTE_CHAMADO =
   "Certo! Chamei um atendente da pizzaria, ele continua a conversa com você por aqui em instantes 🙏";
 const MENSAGEM_PEDIR_CONFIRMACAO = "Para eu fechar seu pedido, me confirma com um *sim*? 🙂";
+const MENSAGEM_RECALCULAR = "Deixa eu conferir o total no sistema antes de fechar: me confirma se é *entrega* (com o bairro) ou *retirada*? 🙂";
 const MENSAGEM_CONFERIR_VALORES =
   "Para não te passar nenhum valor errado, deixa eu calcular no sistema: me confirma os itens do pedido (sabor, tamanho e quantidade)? 🙂";
 
@@ -92,6 +94,10 @@ export function afirmaPedidoFeito(texto: string): boolean {
 }
 
 const AVISO_SEM_FINALIZAR = `Você ia dizer ao cliente que o pedido foi confirmado, mas finalizar_pedido NÃO foi chamado e o pedido NÃO existe. Se o cliente já confirmou o resumo (sim, ok, 👍, pode fechar...), chame finalizar_pedido agora com os mesmos dados do último calcular_pedido. Se ainda não confirmou, peça a confirmação. Nunca diga que o pedido foi confirmado sem chamar finalizar_pedido.`;
+
+const AVISO_RESUMO_SEM_COTACAO = `Você mostrou um resumo com total e pediu confirmação sem chamar calcular_pedido nesta resposta. O total pode estar errado (ex.: cotação antiga de retirada sem a taxa de entrega). Chame calcular_pedido agora com o pedido inteiro, o tipo de entrega e o bairro_id atuais, e monte o resumo com o "resumo_valores" que ela devolver.`;
+
+const AVISO_TELEFONE_CONHECIDO = `Você pediu o telefone ao cliente, mas ele já é conhecido: é o número do WhatsApp (seção Cliente). Não pergunte nem peça para confirmar o telefone; use esse número em cliente_telefone e siga para o próximo passo.`;
 
 const formatarValor = (centavos: number) => `R$ ${(centavos / 100).toFixed(2).replace(".", ",")}`;
 
@@ -158,11 +164,13 @@ export function criarAgente(deps: DependenciasAgente) {
     const instante = agora();
     const { canal, chatId } = entrada;
 
-    const [config, conversaId, cliente, iaPausada] = await Promise.all([
+    const [config, conversaId, cliente, iaPausada, pedidosRecentes] = await Promise.all([
       configuracao(),
       deps.repos.conversas.obterAtiva(canal, chatId, new Date(instante.getTime() - expiracaoMs)),
       deps.repos.clientes.buscar(canal, chatId),
       deps.repos.atendimento.iaPausada(canal, chatId),
+      // A conversa encerra ao finalizar: sem isto, um "obrigado"/"sim" logo depois parece pedido novo.
+      deps.repos.pedidos.recentesDoChat(canal, chatId, new Date(instante.getTime() - 12 * 60 * 60_000)).catch(() => []),
     ]);
 
     // Atendimento humano: a IA fica quieta; a mensagem vai para o painel com aviso.
@@ -262,6 +270,7 @@ Seu pedido continua salvo no cardápio: quando abrirmos, é só tocar de novo em
       proximaAbertura: situacao.aberta ? null : proximaAbertura(config.horarios, instante, config.fusoHorario),
       urlCardapio: deps.opcoes?.urlCardapio ?? null,
       urlPedir,
+      pedidosRecentes,
     });
 
     const ctx: ContextoTools = {
@@ -287,18 +296,31 @@ Seu pedido continua salvo no cardápio: quando abrirmos, é só tocar de novo em
     // Uma chance de corrigir a resposta antes de ir ao cliente (ver verificacao.ts).
     let correcao: string | null = null;
     let corrigido = false;
+    let forcarTool: string | undefined;
+    let vazias = 0;
     let consultouStatus = false;
     for (let rodada = 0; rodada < maxRodadas; rodada++) {
       const resposta = await deps.llm.completar({
         sistema: correcao ? sistema + correcao : sistema,
         mensagens: [...historico, ...novas],
         tools: DEFINICOES_TOOLS,
+        ...(forcarTool ? { forcarTool } : {}),
       });
+      forcarTool = undefined;
+
+      // Resposta vazia (acontece com modelos pequenos): uma nova tentativa antes do "não entendi".
+      if (resposta.toolCalls.length === 0 && !resposta.conteudo?.trim() && vazias++ === 0) {
+        logger.warn({ canal, chatId }, "Modelo respondeu vazio; tentando de novo");
+        continue;
+      }
 
       if (resposta.toolCalls.length === 0) {
         let texto = corrigirLinkCardapio(normalizarFormatacao(resposta.conteudo ?? ""), deps.opcoes?.urlCardapio) || MENSAGEM_NAO_ENTENDI;
         // Pedido criado retorna antes daqui; falar de pedido de antes (status) é legítimo.
         const pedidoFalso = !consultouStatus && afirmaPedidoFeito(texto);
+        const semCotacao = !pedidoFalso && resumoSemCotacao(texto, novas);
+        // Pergunta desnecessária, não informação errada: corrige uma vez e, se insistir, envia assim mesmo.
+        const telefoneRepetido = !corrigido && pedeTelefoneConhecido(texto, entrada.telefone ?? null);
         const problemas = verificarResposta(texto, {
           categorias: await cardapio().catch(() => []),
           config,
@@ -308,15 +330,23 @@ Seu pedido continua salvo no cardápio: quando abrirmos, é só tocar de novo em
           telefoneCanal: entrada.telefone ?? null,
           cliente,
         });
-        if (pedidoFalso || problemas.length) {
+        if (pedidoFalso || semCotacao || telefoneRepetido || problemas.length) {
           if (!corrigido) {
             corrigido = true;
-            correcao = avisoCorrecao([...(pedidoFalso ? [AVISO_SEM_FINALIZAR] : []), ...problemas.map(descreverProblema)]);
-            logger.warn({ canal, chatId, texto, pedidoFalso, problemas }, "Resposta sem fonte oficial; pedindo correção ao modelo");
+            correcao = avisoCorrecao([
+              ...(pedidoFalso ? [AVISO_SEM_FINALIZAR] : []),
+              ...(semCotacao ? [AVISO_RESUMO_SEM_COTACAO] : []),
+              ...(telefoneRepetido ? [AVISO_TELEFONE_CONHECIDO] : []),
+              ...problemas.map(descreverProblema),
+            ]);
+            // Resumo sem cotação: a próxima resposta TEM de ser o calcular_pedido (o modelo tende a repetir o texto).
+            if (semCotacao) forcarTool = TOOL.calcularPedido;
+            logger.warn({ canal, chatId, texto, pedidoFalso, semCotacao, problemas }, "Resposta sem fonte oficial; pedindo correção ao modelo");
             continue;
           }
-          logger.warn({ canal, chatId, texto, pedidoFalso, problemas }, "Modelo insistiu em resposta sem fonte oficial; usando resposta segura");
+          logger.warn({ canal, chatId, texto, pedidoFalso, semCotacao, problemas }, "Modelo insistiu em resposta sem fonte oficial; usando resposta segura");
           if (pedidoFalso) texto = MENSAGEM_PEDIR_CONFIRMACAO;
+          else if (semCotacao) texto = MENSAGEM_RECALCULAR;
           else if (problemas.some((p) => p.tipo === "valor")) texto = MENSAGEM_CONFERIR_VALORES;
           else texto = removerNaoAutorizados(texto, problemas) || MENSAGEM_NAO_ENTENDI;
         }
@@ -325,6 +355,17 @@ Seu pedido continua salvo no cardápio: quando abrirmos, é só tocar de novo em
         return { texto };
       }
 
+      // Códigos curtos (e UUIDs corrompidos) viram os IDs completos antes de gravar e executar:
+      // o histórico guarda IDs reais, que o finalizar_pedido relê.
+      const codigos = montarCodigos(await cardapio().catch(() => []), config.bairros);
+      resposta.toolCalls = resposta.toolCalls.map((c) => {
+        if (c.nome !== TOOL.calcularPedido && c.nome !== TOOL.finalizarPedido) return c;
+        try {
+          return { ...c, argumentos: JSON.stringify(expandirArgumentos(JSON.parse(c.argumentos || "{}"), codigos)) };
+        } catch {
+          return c; // JSON inválido: a tool devolve o erro ao modelo
+        }
+      });
       novas.push({ papel: "assistant", conteudo: resposta.conteudo, toolCalls: resposta.toolCalls });
       consultouStatus ||= resposta.toolCalls.some((c) => c.nome === TOOL.consultarStatus);
 

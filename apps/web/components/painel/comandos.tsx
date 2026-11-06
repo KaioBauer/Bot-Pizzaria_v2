@@ -13,6 +13,7 @@ import {
   Pizza,
   Play,
   Plus,
+  Printer,
   Search,
   Settings,
   type LucideIcon,
@@ -76,6 +77,7 @@ export function ProvedorComandos({
       { id: "ingredientes", grupo: "Ir para", rotulo: "Ingredientes e camadas", Icone: Layers, palavras: "camada imagem", executar: () => router.push("/admin/cardapio/ingredientes") },
       { id: "relatorios", grupo: "Ir para", rotulo: "Relatórios", Icone: ChartColumn, atalho: "G R", palavras: "vendas faturamento", executar: () => router.push("/admin/relatorios") },
       { id: "pix", grupo: "Ir para", rotulo: "Banco simulado (pagar Pix)", Icone: Landmark, palavras: "pix pagamento banco teste", executar: () => router.push("/admin/pix") },
+      { id: "impressao", grupo: "Ir para", rotulo: "Impressão (fila da impressora)", Icone: Printer, atalho: "G I", palavras: "imprimir cupom fila reimprimir", executar: () => router.push("/admin/impressao") },
       { id: "config", grupo: "Ir para", rotulo: "Configurações", Icone: Settings, atalho: "G S", palavras: "horario whatsapp bairro", executar: () => router.push("/admin/configuracoes") },
       { id: "novo-produto", grupo: "Ações", rotulo: "Novo produto", Icone: Plus, palavras: "criar sabor pizza", executar: () => router.push("/admin/cardapio/produto/novo") },
       {
@@ -120,7 +122,7 @@ export function ProvedorComandos({
         return;
       }
       if (Date.now() - prefixoG < 800) {
-        const destino = { p: "/admin/pedidos", c: "/admin/conversas", m: "/admin/cardapio", r: "/admin/relatorios", s: "/admin/configuracoes" }[e.key];
+        const destino = { p: "/admin/pedidos", c: "/admin/conversas", m: "/admin/cardapio", r: "/admin/relatorios", i: "/admin/impressao", s: "/admin/configuracoes" }[e.key];
         if (destino) router.push(destino);
         prefixoG = 0;
       }

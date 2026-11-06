@@ -181,7 +181,7 @@ export function SecaoWhatsapp() {
                 <Botao
                   variante="perigo"
                   tamanho="sm"
-                  disabled={ocupado}
+                  aria-busy={ocupado} disabled={ocupado}
                   onClick={() =>
                     iniciar(async () => {
                       aplicar(await desconectarWhatsappAction());
@@ -221,7 +221,7 @@ export function SecaoWhatsapp() {
               </label>
             )}
             <div className="flex flex-wrap items-center gap-2">
-              <Botao variante="sucesso" disabled={ocupado || (comCodigo && numero.replace(/\D/g, "").length < 12)} onClick={() => iniciar(() => conectar(comCodigo ? numero : ""))}>
+              <Botao variante="sucesso" aria-busy={ocupado} disabled={ocupado || (comCodigo && numero.replace(/\D/g, "").length < 12)} onClick={() => iniciar(() => conectar(comCodigo ? numero : ""))}>
                 {ocupado ? <Loader2 className="size-4 animate-spin" /> : comCodigo ? <Smartphone className="size-4" /> : <QrCode className="size-4" />}
                 {comCodigo ? "Gerar código" : "Conectar WhatsApp"}
               </Botao>

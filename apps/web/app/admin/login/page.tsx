@@ -71,7 +71,7 @@ export default function LoginPage() {
               )}
             </AnimatePresence>
 
-            <Botao type="submit" disabled={enviando} className="group h-10 w-full">
+            <Botao type="submit" aria-busy={enviando} disabled={enviando} className="group h-10 w-full">
               {enviando ? (
                 <>
                   <Loader2 className="size-4 animate-spin" /> Entrando...

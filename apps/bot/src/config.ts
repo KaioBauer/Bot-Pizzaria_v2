@@ -18,7 +18,7 @@ const esquema = z
     SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
 
     OPENAI_API_KEY: z.string().min(1),
-    OPENAI_MODEL: z.string().default("gpt-5.4-mini"),
+    OPENAI_MODEL: z.string().default("gpt-5.4"),
     /** Só para modelos de raciocínio (gpt-5*). */
     OPENAI_REASONING_EFFORT: z.enum(["none", "minimal", "low", "medium", "high"]).default("none"),
 

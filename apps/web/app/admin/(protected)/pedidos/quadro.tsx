@@ -8,9 +8,10 @@ import { formatarReais, ROTULO_STATUS, type StatusPedido } from "@pizzaria/share
 import { useAvisos } from "../../../../components/painel/avisos";
 import { Botao, cn } from "../../../../components/ui";
 import { ativarSom, somAtivo, tocarAlerta } from "../../../../lib/alerta-sonoro";
-import { COLUNAS, colunaDoStatus, minutosDesde, type ColunaQuadro } from "../../../../lib/quadro";
+import { caminhoAteColuna, COLUNAS, colunaDoStatus, minutosDesde, type ColunaQuadro } from "../../../../lib/quadro";
 import { clienteNavegador } from "../../../../lib/supabase/navegador";
-import { alterarStatusAction, reimprimirAction } from "./actions";
+import { alterarStatusAction, reimprimirAction, type ResultadoAcao } from "./actions";
+import { useArrastarPedidos } from "./arrastar";
 import { CartaoPedido } from "./cartao";
 import { JANELA_FINALIZADOS_MS, RECARGA_MS, REPETIR_ALERTA_MS } from "./constantes";
 import { DetalhePedido } from "./detalhe";
@@ -205,6 +206,44 @@ export function QuadroPedidos({ inicial }: { inicial: PedidoPainel[] }) {
     executar(p.id, () => alterarStatusAction({ pedidoId: p.id, de: p.status, para: "cancelado", motivo }), `#${p.numero} cancelado`);
   const reimprimir = (p: PedidoPainel) => executar(p.id, () => reimprimirAction(p.id), `#${p.numero} enviado para a impressora`);
 
+  // Arrastar o cartão para outra raia: anda pela máquina de status até lá (só para a frente).
+  const quadroRef = useRef<HTMLDivElement>(null);
+  const { arrasto, iniciar, bloquearCliqueAposArrasto } = useArrastarPedidos(quadroRef, (id, coluna) => {
+    const p = pedidos.get(id);
+    if (!p || ocupados.has(id)) return;
+    const caminho = caminhoAteColuna(p.status, p.tipoEntrega, coluna);
+    if (caminho === null) {
+      const titulo = coluna === "finalizados" ? "Finalizados" : (COLUNAS.find((c) => c.id === coluna)?.titulo ?? coluna);
+      setAviso(`O pedido #${p.numero} não pode ir para "${titulo}": os pedidos só andam para a frente. Para cancelar, abra o pedido.`);
+      return;
+    }
+    const ultimo = caminho[caminho.length - 1];
+    if (!ultimo) return;
+    void executar(
+      id,
+      async (): Promise<ResultadoAcao> => {
+        let de = p.status;
+        for (const para of caminho) {
+          const r = await alterarStatusAction({ pedidoId: id, de, para });
+          if (!r.ok) return r;
+          de = para;
+        }
+        return { ok: true };
+      },
+      `#${p.numero} · ${ROTULO_STATUS[ultimo]}`
+    );
+  });
+  const pedidoArrastado = arrasto ? pedidos.get(arrasto.pedidoId) : undefined;
+  const estadoDaColuna = (coluna: ColunaQuadro): keyof typeof ESTILO_ALVO => {
+    if (!pedidoArrastado || !arrasto) return "normal";
+    const caminho = caminhoAteColuna(pedidoArrastado.status, pedidoArrastado.tipoEntrega, coluna);
+    const valida = caminho !== null && caminho.length > 0;
+    if (arrasto.coluna === coluna) return valida ? "alvo" : caminho?.length === 0 ? "normal" : "invalida";
+    return valida ? "valida" : "normal";
+  };
+  const destinoDoArrasto =
+    arrasto?.coluna && pedidoArrastado ? caminhoAteColuna(pedidoArrastado.status, pedidoArrastado.tipoEntrega, arrasto.coluna)?.at(-1) : undefined;
+
   const colunasVisiveis = COLUNAS.filter((c) => c.id !== "pagamento" || (porColuna.get("pagamento")?.length ?? 0) > 0);
   const finalizados = porColuna.get("finalizados") ?? [];
   const pedidoSelecionado = selecionado ? pedidos.get(selecionado) : undefined;
@@ -261,12 +300,19 @@ export function QuadroPedidos({ inicial }: { inicial: PedidoPainel[] }) {
       </AnimatePresence>
 
       <LayoutGroup>
-        <div className="sem-barra flex flex-1 snap-x gap-3 overflow-x-auto p-4 sm:px-6">
+        <div ref={quadroRef} className={cn("sem-barra flex flex-1 gap-3 overflow-x-auto p-4 sm:px-6", !arrasto && "snap-x")}>
           {colunasVisiveis.map((coluna) => {
             const itens = porColuna.get(coluna.id) ?? [];
             const estilo = ESTILO_COLUNA[coluna.id];
             return (
-              <section key={coluna.id} className="flex w-[86vw] max-w-sm shrink-0 snap-start flex-col rounded-2xl bg-zinc-100/60 ring-1 ring-zinc-200/50 sm:w-80 lg:w-auto lg:max-w-none lg:min-w-0 lg:flex-1">
+              <section
+                key={coluna.id}
+                data-coluna={coluna.id}
+                className={cn(
+                  "flex w-[86vw] max-w-sm shrink-0 snap-start flex-col rounded-2xl ring-1 transition-[background-color,box-shadow] duration-150 sm:w-80 lg:w-auto lg:max-w-none lg:min-w-0 lg:flex-1",
+                  ESTILO_ALVO[estadoDaColuna(coluna.id)]
+                )}
+              >
                 <h2 className="flex items-center gap-2 px-3.5 pt-3 pb-2 text-[13px] font-medium text-zinc-700">
                   <span className={cn("size-2 rounded-full", estilo.ponto)} />
                   {coluna.titulo}
@@ -280,7 +326,7 @@ export function QuadroPedidos({ inicial }: { inicial: PedidoPainel[] }) {
                     {itens.length}
                   </motion.span>
                 </h2>
-                <div className="sem-barra flex-1 space-y-2 overflow-y-auto px-2 pb-2">
+                <div data-coluna-lista className="sem-barra flex-1 space-y-2 overflow-y-auto px-2 pb-2">
                   {itens.length === 0 && (
                     <div className="mt-1 flex flex-col items-center gap-2 rounded-xl border border-dashed border-zinc-300/80 px-4 py-10 text-center">
                       <estilo.Icone className="size-5 text-zinc-300" />
@@ -300,6 +346,9 @@ export function QuadroPedidos({ inicial }: { inicial: PedidoPainel[] }) {
                           setSelecionado(p.id);
                         }}
                         aoAvancar={(para) => void avancar(p, para)}
+                        arrastando={arrasto?.pedidoId === p.id}
+                        aoIniciarArrasto={(e) => iniciar(e, p.id)}
+                        aoBloquearClique={bloquearCliqueAposArrasto}
                       />
                     ))}
                   </AnimatePresence>
@@ -315,7 +364,11 @@ export function QuadroPedidos({ inicial }: { inicial: PedidoPainel[] }) {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 24 }}
                 transition={{ type: "spring", stiffness: 400, damping: 36 }}
-                className="flex w-[86vw] max-w-sm shrink-0 snap-start flex-col rounded-2xl bg-zinc-100/60 ring-1 ring-zinc-200/50 sm:w-80"
+                data-coluna="finalizados"
+                className={cn(
+                  "flex w-[86vw] max-w-sm shrink-0 snap-start flex-col rounded-2xl ring-1 transition-[background-color,box-shadow] duration-150 sm:w-80",
+                  ESTILO_ALVO[estadoDaColuna("finalizados")]
+                )}
               >
                 <h2 className="flex items-center gap-2 px-3.5 pt-3 pb-2 text-[13px] font-medium text-zinc-500">
                   <History className="size-3.5" /> Finalizados · últimas 12h
@@ -331,6 +384,26 @@ export function QuadroPedidos({ inicial }: { inicial: PedidoPainel[] }) {
           </AnimatePresence>
         </div>
       </LayoutGroup>
+
+      {/* Fantasma do cartão seguindo o dedo/mouse. */}
+      {arrasto && pedidoArrastado && (
+        <div
+          className="pointer-events-none fixed top-0 left-0 z-50"
+          style={{ width: arrasto.largura, transform: `translate(${arrasto.x - arrasto.dx}px, ${arrasto.y - arrasto.dy}px)` }}
+          aria-hidden
+        >
+          <div className="rotate-2 rounded-xl bg-white px-3.5 py-3 shadow-[0_18px_40px_-12px_rgb(0_0_0/0.35)] ring-1 ring-zinc-300">
+            <div className="flex items-center gap-2">
+              <span className="text-[15px] font-semibold tracking-tight tabular">#{pedidoArrastado.numero}</span>
+              <span className="ml-auto text-[13px] font-semibold tabular">{formatarReais(pedidoArrastado.totalCentavos)}</span>
+            </div>
+            <p className="mt-0.5 truncate text-[13px] text-zinc-600">{pedidoArrastado.clienteNome}</p>
+            <p className={cn("mt-1 text-[12px]", destinoDoArrasto ? "font-medium text-emerald-700" : "text-zinc-400")}>
+              {destinoDoArrasto ? `Soltar: ${ROTULO_STATUS[destinoDoArrasto]}` : "Arraste para outra raia"}
+            </p>
+          </div>
+        </div>
+      )}
 
       <AnimatePresence>
       {pedidoSelecionado && (
@@ -348,6 +421,13 @@ export function QuadroPedidos({ inicial }: { inicial: PedidoPainel[] }) {
     </div>
   );
 }
+
+const ESTILO_ALVO = {
+  normal: "bg-zinc-100/60 ring-zinc-200/50",
+  valida: "bg-zinc-100/60 ring-2 ring-zinc-300",
+  alvo: "bg-emerald-50 ring-2 ring-emerald-400",
+  invalida: "bg-red-50/60 ring-2 ring-red-200",
+};
 
 const ESTILO_COLUNA: Record<ColunaQuadro, { ponto: string; Icone: typeof Bell }> = {
   pagamento: { ponto: "bg-violet-500", Icone: Hourglass },

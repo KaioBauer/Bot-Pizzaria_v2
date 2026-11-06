@@ -14,7 +14,10 @@ import {
  * REVALIDAÇÃO DE PREÇO NO SERVIDOR. Tudo aqui parte de IDs informados pelo
  * LLM e de variações lidas do banco — nenhum valor monetário vindo do modelo
  * é usado. Regras:
- * - sabor: variação ativa do tipo `tamanho` ou `padrao`, do próprio produto;
+ * - sabor: variação ativa do tipo `tamanho` ou `padrao`. A variação já diz qual é o
+ *   produto: se o `produto_id` do modelo não bater (UUID corrompido ao copiar),
+ *   vale o produto da variação — a descrição devolvida mostra o sabor e o
+ *   cliente confere no resumo antes de confirmar;
  * - vários sabores: diferentes, todos com tamanho e no mesmo tamanho, até o
  *   limite do tamanho (Média 2, Big 3, Gigante 4...);
  * - preço: base do tamanho + adicional de cada sabor (preço do sabor - base),
@@ -88,8 +91,6 @@ export function precificarItens(
       const v = variacoes.get(sabor.variacao_id);
       if (!v) {
         erro(`a variação ${sabor.variacao_id} não existe no cardápio`);
-      } else if (v.produtoId !== sabor.produto_id) {
-        erro(`a variação "${v.nome}" não pertence ao produto informado`);
       } else if (!disponivel(v)) {
         erro(`"${nomeSabor(v)}" não está disponível no momento`);
       } else if (v.tipo !== "tamanho" && v.tipo !== "padrao") {
@@ -116,7 +117,7 @@ export function precificarItens(
 
     // Produtos pedidos (e não só os sabores válidos), para que um sabor
     // indisponível não gere também um erro enganoso sobre a borda.
-    const produtosDosSabores = new Set(item.sabores.map((s) => s.produto_id));
+    const produtosDosSabores = new Set([...item.sabores.map((s) => s.produto_id), ...sabores.map((s) => s.produtoId)]);
     const adicionais: VariacaoParaPreco[] = [];
     const vistos = new Set<string>();
     for (const adicionalId of item.adicionais) {

@@ -20,6 +20,8 @@ describe("mensagemStatusPedido", () => {
       "Motivo: Endereço fora da área"
     );
     expect(mensagemStatusPedido({ ...base, status: "cancelado" })).not.toContain("Motivo");
+    expect(mensagemStatusPedido({ ...base, status: "cancelado", formaPagamento: "pix" })).toContain("devolvido automaticamente");
+    expect(mensagemStatusPedido({ ...base, status: "cancelado", formaPagamento: "dinheiro" })).not.toContain("devolvido");
   });
 
   it("diferencia entrega e retirada na conclusão", () => {

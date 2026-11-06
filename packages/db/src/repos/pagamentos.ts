@@ -67,6 +67,20 @@ export function criarPagamentosRepo(db: Db, provedor = "simulado"): PagamentosRe
       return (linhas as Linha[]).map(paraRegistro);
     },
 
+    async aprovadosDeCancelados() {
+      const linhas = exigir(
+        await db
+          .from("pagamentos")
+          .select(CAMPOS.replace("pedido:pedidos(", "pedido:pedidos!inner("))
+          .eq("provedor", provedor)
+          .eq("status", "aprovado")
+          .eq("pedido.status", "cancelado")
+          .limit(100),
+        "Erro ao listar Pix de pedidos cancelados"
+      );
+      return (linhas as unknown as Linha[]).map(paraRegistro);
+    },
+
     async atualizarStatus(id, de, para) {
       const linhas = exigir(
         await db

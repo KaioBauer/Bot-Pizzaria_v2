@@ -117,6 +117,34 @@ describe("criarServicoPix.processarAtualizacao", () => {
     expect(await ctx.pix.processarAtualizacao(ctx.provedorId)).toBe("sem_mudanca");
   });
 
+  it("pago e depois cancelado pela pizzaria: a conferência estorna sozinha, uma vez só", async () => {
+    const ctx = await pedidoPixPendente();
+    ctx.cobrancas.get(ctx.provedorId)!.status = "aprovado";
+    expect(await ctx.pix.processarAtualizacao(ctx.provedorId)).toBe("confirmado");
+    ctx.pedidos[0]!.status = "cancelado"; // cancelado no painel, com o Pix já pago
+    await ctx.pix.conferirPendentes();
+    expect(ctx.chamadas.filter((c) => c === `estornar:${ctx.provedorId}`)).toHaveLength(1);
+    expect(ctx.pagamentos[0]?.status).toBe("estornado");
+    await ctx.pix.conferirPendentes();
+    expect(ctx.chamadas.filter((c) => c === `estornar:${ctx.provedorId}`)).toHaveLength(1);
+  });
+
+  it("estorno que falha fica para a próxima conferência", async () => {
+    const ctx = await pedidoPixPendente();
+    ctx.cobrancas.get(ctx.provedorId)!.status = "aprovado";
+    await ctx.pix.processarAtualizacao(ctx.provedorId);
+    ctx.pedidos[0]!.status = "cancelado";
+    const estornarOriginal = ctx.gateway.estornar;
+    ctx.gateway.estornar = async () => {
+      throw new Error("banco fora do ar");
+    };
+    await ctx.pix.conferirPendentes();
+    expect(ctx.pagamentos[0]?.status).toBe("aprovado");
+    ctx.gateway.estornar = estornarOriginal;
+    await ctx.pix.conferirPendentes();
+    expect(ctx.pagamentos[0]?.status).toBe("estornado");
+  });
+
   it("pedido cancelado no painel com Pix pendente: cancela a cobrança", async () => {
     const ctx = await pedidoPixPendente();
     ctx.pedidos[0]!.status = "cancelado";

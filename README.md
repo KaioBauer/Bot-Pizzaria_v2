@@ -113,7 +113,7 @@ spooler — não precisa compartilhar. Rede: `tcp://IP:9100`.
 | `SUPABASE_URL` | ✅ | | URL do projeto |
 | `SUPABASE_SERVICE_ROLE_KEY` | ✅ | | Chave service_role (só servidor) |
 | `OPENAI_API_KEY` | ✅ | | |
-| `OPENAI_MODEL` | | `gpt-5.4-mini` | Modelo do agente |
+| `OPENAI_MODEL` | | `gpt-5.4` | Modelo do agente (o mini erra mais o fluxo do pedido) |
 | `OPENAI_REASONING_EFFORT` | | `none` | Só modelos gpt-5*; com tools no Chat Completions use `none` |
 | `CARDAPIO_URL` | | | Link do cardápio público que o bot envia |
 | `CONVERSA_EXPIRACAO_MINUTOS` | | `180` | Conversa parada por mais tempo recomeça |

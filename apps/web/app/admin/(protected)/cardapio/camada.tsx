@@ -105,7 +105,7 @@ export function EditorCamada(props: {
         {input}
         <button
           type="button"
-          disabled={!props.id || ocupado}
+          aria-busy={ocupado} disabled={!props.id || ocupado}
           onClick={() => entrada.current?.click()}
           title={props.id ? (url ? "Trocar camada" : "Enviar camada (PNG/WebP transparente, até 1 MB)") : props.semId}
           className={cn("relative size-14 shrink-0 rounded-xl transition hover:ring-2 hover:ring-zinc-900/20 disabled:cursor-not-allowed disabled:opacity-60", ocupado && "animate-pulse")}
@@ -128,7 +128,7 @@ export function EditorCamada(props: {
       <PreviaCamada url={url} nome={props.nome} className={cn("w-full", ocupado && "animate-pulse")} />
       <button
         type="button"
-        disabled={!props.id || ocupado}
+        aria-busy={ocupado} disabled={!props.id || ocupado}
         onClick={() => entrada.current?.click()}
         className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-white px-4 text-sm font-medium text-zinc-800 shadow-[0_1px_2px_rgb(0_0_0/0.05)] ring-1 ring-zinc-200 ring-inset transition hover:bg-zinc-50 hover:ring-zinc-300 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50"
       >

@@ -45,6 +45,24 @@ export function acaoPrincipal(
   return para ? { para, rotulo: ROTULO_ACAO[para] ?? para } : null;
 }
 
+/**
+ * Arrastar o cartão para outra raia: os status pelos quais o pedido passa
+ * (sempre para a frente, nunca cancela). [] = já está na raia; null = não pode.
+ */
+export function caminhoAteColuna(status: StatusPedido, tipoEntrega: TipoEntrega, coluna: ColunaQuadro): StatusPedido[] | null {
+  if (colunaDoStatus(status) === coluna) return [];
+  const caminho: StatusPedido[] = [];
+  let atual = status;
+  for (let passo = 0; passo < 5; passo++) {
+    const proximo = proximosStatus(atual, tipoEntrega).find((s) => s !== "cancelado");
+    if (!proximo) return null;
+    caminho.push(proximo);
+    if (colunaDoStatus(proximo) === coluna) return caminho;
+    atual = proximo;
+  }
+  return null;
+}
+
 export function minutosDesde(iso: string, agora: number): number {
   return Math.max(0, Math.floor((agora - new Date(iso).getTime()) / 60_000));
 }

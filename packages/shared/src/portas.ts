@@ -81,6 +81,8 @@ export interface PagamentosRepo {
   }): Promise<string>;
   porProvedorId(provedorId: string): Promise<PagamentoRegistro | null>;
   pendentes(): Promise<PagamentoRegistro[]>;
+  /** Pix pago de pedido que acabou cancelado (ex.: pela pizzaria no painel): a devolver. */
+  aprovadosDeCancelados(): Promise<PagamentoRegistro[]>;
   /** Muda o status só se ainda estiver em `de`. false se outro processo já mudou. */
   atualizarStatus(id: string, de: StatusPagamento, para: StatusPagamento): Promise<boolean>;
 }

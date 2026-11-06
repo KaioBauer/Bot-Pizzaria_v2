@@ -3,7 +3,7 @@ import { mensagemStatusPedido } from "@pizzaria/core";
 import type { Db } from "@pizzaria/db";
 import { ehStatusPedido, execucaoUnica, type TipoEntrega } from "@pizzaria/shared";
 import type { ChannelAdapter } from "./canais/tipos";
-import { urlAcompanhamento } from "./pedido-link";
+import { textoAvisoPedidoLink } from "./pedido-link";
 
 const MAX_TENTATIVAS = 5;
 /** Notificação mais velha que isso não é mais enviada (perdeu o sentido). */
@@ -33,7 +33,7 @@ export function criarNotificador(opcoes: {
   async function processar() {
     const { data, error } = await db
       .from("notificacoes_cliente")
-      .select("id, status, tentativas, pedido_id, pedido:pedidos(numero, tipo_entrega, canal, chat_id, motivo_cancelamento, token_acompanhamento)")
+      .select("id, status, tentativas, pedido_id, pedido:pedidos(numero, tipo_entrega, forma_pagamento, canal, chat_id, motivo_cancelamento, token_acompanhamento)")
       .is("enviada_em", null)
       .lt("tentativas", MAX_TENTATIVAS)
       .gte("created_at", new Date(Date.now() - VALIDADE_MS).toISOString())
@@ -61,12 +61,11 @@ export function criarNotificador(opcoes: {
             status: n.status,
             tipoEntrega: n.pedido.tipo_entrega as TipoEntrega,
             motivoCancelamento: n.pedido.motivo_cancelamento,
+            formaPagamento: n.pedido.forma_pagamento,
           })
         : null;
       const texto =
-        status && porLink && opcoes.urlPedir
-          ? `${status}\nAcompanhe: ${urlAcompanhamento(opcoes.urlPedir, n.pedido.token_acompanhamento)}`
-          : status;
+        status && porLink ? textoAvisoPedidoLink(status, n.status, opcoes.urlPedir, n.pedido.token_acompanhamento) : status;
 
       if (!texto) {
         await marcar([n.id], { enviada_em: new Date().toISOString(), ultimo_erro: "status sem notificação" });

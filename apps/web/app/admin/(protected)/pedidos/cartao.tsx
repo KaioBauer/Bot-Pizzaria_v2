@@ -34,6 +34,10 @@ export function CartaoPedido(props: {
   compacto?: boolean;
   aoAbrir: () => void;
   aoAvancar?: (para: StatusPedido) => void;
+  /** Arrastar entre raias (quadro). */
+  arrastando?: boolean;
+  aoIniciarArrasto?: (e: React.PointerEvent<HTMLElement>) => void;
+  aoBloquearClique?: (e: React.MouseEvent) => void;
 }) {
   const { pedido, agora } = props;
   const reduzido = useReducedMotion() ?? false;
@@ -67,11 +71,14 @@ export function CartaoPedido(props: {
       layout
       layoutId={pedido.id}
       initial={reduzido ? { opacity: 0 } : { opacity: 0, y: 10, scale: 0.98 }}
-      animate={{ opacity: props.ocupado ? 0.55 : 1, y: 0, scale: 1 }}
+      animate={{ opacity: props.arrastando ? 0.35 : props.ocupado ? 0.55 : 1, y: 0, scale: 1 }}
+      onPointerDown={props.aoIniciarArrasto}
+      onClickCapture={props.aoBloquearClique}
       exit={{ opacity: 0, scale: 0.96, transition: { duration: 0.15 } }}
       transition={reduzido ? { duration: 0.15 } : { type: "spring", stiffness: 380, damping: 32 }}
       className={cn(
         "group relative overflow-hidden rounded-xl bg-white ring-1 transition-[box-shadow,ring-color] duration-200",
+        props.aoIniciarArrasto && "cursor-grab touch-manipulation select-none [-webkit-touch-callout:none] active:cursor-grabbing",
         props.destacado
           ? "animate-brilho-novo ring-marca-300"
           : "shadow-[0_1px_2px_rgb(0_0_0/0.04)] ring-zinc-200/80 hover:shadow-[0_10px_28px_-14px_rgb(0_0_0/0.25)] hover:ring-zinc-300"
@@ -142,7 +149,8 @@ export function CartaoPedido(props: {
       {acao && props.aoAvancar && (
         <div className="px-3 pb-3">
           <button
-            disabled={props.ocupado}
+            data-sem-arrasto
+            aria-busy={props.ocupado} disabled={props.ocupado}
             onClick={() => props.aoAvancar?.(acao.para)}
             className={cn(
               "group/acao flex h-9 w-full items-center justify-center gap-1.5 rounded-lg text-[13px] font-medium text-white shadow-[0_1px_2px_rgb(0_0_0/0.2),inset_0_1px_0_rgb(255_255_255/0.12)] transition active:scale-[0.98] disabled:opacity-60",

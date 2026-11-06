@@ -36,7 +36,7 @@ No `apps/bot/.env` de produção:
 NODE_ENV=production
 PUBLIC_URL=https://bot.SEU-DOMINIO
 CARDAPIO_URL=https://painel.SEU-DOMINIO/cardapio
-OPENAI_MODEL=gpt-5.4-mini
+OPENAI_MODEL=gpt-5.4
 # + SUPABASE_*, OPENAI_API_KEY
 # Pix simulado (sem dinheiro de verdade): PIX_SIMULADO=true, PIX_SIMULADO_CIDADE
 # WhatsApp: EVOLUTION_API_KEY, WHATSAPP_WEBHOOK_TOKEN

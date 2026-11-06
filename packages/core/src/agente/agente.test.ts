@@ -51,6 +51,54 @@ describe("agente", () => {
     expect(requisicoes[0]?.sistema).toContain("envie o link do cardápio");
   });
 
+  it("resumo com total sem calcular_pedido na rodada volta ao modelo para recalcular (taxa de entrega)", async () => {
+    const memoria = repositoriosEmMemoria({ variacoes: variacoesDeTeste(), config: configDeTeste() });
+    const itens = [{ sabores: [sabor(ID.calabresa, ID.calabresaGrande)], quantidade: 1 }];
+    await semearResumo(memoria.repos, entrada(""), { itens, tipo_entrega: "retirada" });
+    const { llm, requisicoes } = llmRoteirizado([
+      texto("1x Calabresa (Grande)\n*Total: R$ 45,00*\nEntrega: Rua A, 1 - Centro\nPode confirmar?"),
+      chamar(["calcular_pedido", { itens, tipo_entrega: "entrega", bairro_id: ID.bairroCentro }]),
+      texto("Resumo atualizado com a entrega. Pode confirmar?"),
+    ]);
+    const r = await criarAgente({ repos: memoria.repos, llm, agora: () => ABERTO }).processarMensagem(entrada("quero entrega, Rua A 1, Centro"));
+    expect(requisicoes[1]!.sistema).toContain("sem chamar calcular_pedido");
+    expect(requisicoes[1]!.forcarTool).toBe("calcular_pedido");
+    expect(requisicoes[2]!.forcarTool).toBeUndefined();
+    expect(r.texto).toBe("Resumo atualizado com a entrega. Pode confirmar?");
+  });
+
+  it("o prompt lembra o pedido recém-feito (a conversa encerra ao finalizar)", async () => {
+    const memoria = repositoriosEmMemoria({ variacoes: variacoesDeTeste(), config: configDeTeste() });
+    memoria.pedidos.push({ id: "p1", numero: 7, status: "em_preparo", tipoEntrega: "entrega", totalCentavos: 7300 } as (typeof memoria.pedidos)[number]);
+    const { llm, requisicoes } = llmRoteirizado([texto("Seu pedido #7 está em preparo!")]);
+    await criarAgente({ repos: memoria.repos, llm, agora: () => ABERTO }).processarMensagem(entrada("obrigado"));
+    expect(requisicoes[0]!.sistema).toMatch(/Pedidos recentes deste cliente: #7 \(Em preparo/);
+  });
+
+  it("loja pausada: pausa rápida, sem horário de abertura da grade", async () => {
+    const memoria = repositoriosEmMemoria({ variacoes: variacoesDeTeste(), config: configDeTeste({ aceitandoPedidos: false }) });
+    const { llm, requisicoes } = llmRoteirizado([texto("Estamos numa pausa rápida, tente em alguns minutos.")]);
+    await criarAgente({ repos: memoria.repos, llm, agora: () => ABERTO }).processarMensagem(entrada("quero pedir"));
+    expect(requisicoes[0]!.sistema).toContain("PAUSADA");
+    expect(requisicoes[0]!.sistema).not.toMatch(/; abre /);
+  });
+
+  it("resposta vazia do modelo ganha uma nova tentativa", async () => {
+    const memoria = repositoriosEmMemoria({ variacoes: variacoesDeTeste(), config: configDeTeste() });
+    const { llm, requisicoes } = llmRoteirizado([texto(""), texto("Oi! Como posso ajudar?")]);
+    const r = await criarAgente({ repos: memoria.repos, llm, agora: () => ABERTO }).processarMensagem(entrada("oi"));
+    expect(requisicoes).toHaveLength(2);
+    expect(r.texto).toBe("Oi! Como posso ajudar?");
+  });
+
+  it("não pede ao cliente do WhatsApp o telefone que já é conhecido", async () => {
+    const memoria = repositoriosEmMemoria({ variacoes: variacoesDeTeste(), config: configDeTeste() });
+    const { llm, requisicoes } = llmRoteirizado([texto("Só me confirma o telefone com DDD, por favor."), texto("Qual a forma de pagamento?")]);
+    const r = await criarAgente({ repos: memoria.repos, llm, agora: () => ABERTO }).processarMensagem({ ...entrada("meu nome é Maria"), telefone: "5547900000002" });
+    expect(requisicoes[1]!.sistema).toContain("número do WhatsApp");
+    expect(r.texto).toBe("Qual a forma de pagamento?");
+  });
+
   it("oferece pedir pela conversa ou pelo link só com o pedido pelo link ligado", async () => {
     const opcoes = { urlCardapio: "https://painel.exemplo/cardapio", urlPedir: "https://painel.exemplo/pedir" };
     const promptCom = async (config: Parameters<typeof configDeTeste>[0], agora = ABERTO) => {
@@ -61,6 +109,8 @@ describe("agente", () => {
     };
     expect(await promptCom({ pedidoLinkAtivo: true })).toContain("Pedido pelo link (o cliente monta a pizza e finaliza por lá): https://painel.exemplo/pedir");
     expect(await promptCom({ pedidoLinkAtivo: false })).not.toContain("https://painel.exemplo/pedir");
+    expect(await promptCom({ pedidoLinkAtivo: false })).not.toContain("Como o cliente pode pedir");
+    expect(await promptCom({ pedidoLinkAtivo: true })).toContain("Como o cliente pode pedir");
     // Loja fechada: o link também não aceita pedidos, então não é oferecido.
     expect(await promptCom({ pedidoLinkAtivo: true }, FECHADO)).not.toContain("https://painel.exemplo/pedir");
   });

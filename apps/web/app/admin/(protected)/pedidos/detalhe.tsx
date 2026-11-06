@@ -2,6 +2,7 @@
 
 import { ArrowRight, ArrowUpRight, Ban, Banknote, Bike, CreditCard, Link2, MapPin, MessageCircle, Phone, Printer, QrCode, Store, X } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import QRCode from "qrcode";
 import { useEffect, useRef, useState } from "react";
 import { entregaDoPedido, historicoStatusPedido, type EntregaDoPedido, type PedidoPainel } from "@pizzaria/db";
 import { formatarReais, formatarTelefone, ROTULO_PAGAMENTO, ROTULO_STATUS, statusFinal, type StatusPedido } from "@pizzaria/shared";
@@ -21,7 +22,7 @@ const hora = (iso: string) => new Date(iso).toLocaleTimeString("pt-BR", { hour: 
 
 function Secao({ titulo, children, acao }: { titulo: string; children: React.ReactNode; acao?: React.ReactNode }) {
   return (
-    <section className="px-6 py-5">
+    <section className="px-4 py-5 sm:px-6">
       <div className="mb-3 flex items-center justify-between">
         <h3 className="text-[12px] font-medium text-zinc-500">{titulo}</h3>
         {acao}
@@ -100,7 +101,7 @@ export function DetalhePedido(props: {
         className="relative flex h-full w-full max-w-[480px] flex-col bg-white shadow-[0_0_0_1px_rgb(0_0_0/0.06),-24px_0_60px_-20px_rgb(0_0_0/0.25)] sm:m-2 sm:h-[calc(100%-1rem)] sm:rounded-2xl"
       >
         {/* Cabeçalho */}
-        <header className="flex items-start gap-3 border-b border-zinc-100 px-6 pt-5 pb-4">
+        <header className="flex items-start gap-3 border-b border-zinc-100 px-4 pt-5 pb-4 sm:px-6">
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-xl font-semibold tracking-tight text-zinc-900">
@@ -186,6 +187,12 @@ export function DetalhePedido(props: {
               <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-[13px] text-red-800 ring-1 ring-red-200/70 ring-inset">Cancelado: {pedido.motivoCancelamento}</p>
             )}
           </section>
+
+          {pedido.tipoEntrega === "entrega" && !statusFinal(pedido.status) && !entrega?.entregueEm && (
+            <Secao titulo="QR da entrega">
+              <QrEntrega pedidoId={pedido.id} />
+            </Secao>
+          )}
 
           {entrega && (
             <Secao titulo="Motoboy">
@@ -303,7 +310,7 @@ export function DetalhePedido(props: {
         </div>
 
         {/* Rodapé fixo com as ações */}
-        <footer className="border-t border-zinc-100 bg-white/90 p-4 backdrop-blur sm:rounded-b-2xl">
+        <footer className="border-t border-zinc-100 bg-white/90 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur sm:rounded-b-2xl">
           <AnimatePresence mode="wait" initial={false}>
             {cancelando ? (
               <motion.div
@@ -338,7 +345,7 @@ export function DetalhePedido(props: {
                   </Botao>
                   <Botao
                     className="flex-1 bg-red-600 hover:bg-red-700"
-                    disabled={!motivo.trim() || props.ocupado}
+                    aria-busy={props.ocupado} disabled={!motivo.trim() || props.ocupado}
                     onClick={() => {
                       props.aoCancelar(motivo.trim());
                       setCancelando(false);
@@ -358,7 +365,7 @@ export function DetalhePedido(props: {
                 className="space-y-2"
               >
                 {acao && (
-                  <Botao tamanho="lg" className="group w-full" disabled={props.ocupado} onClick={() => props.aoAvancar(acao.para)}>
+                  <Botao tamanho="lg" className="group w-full" aria-busy={props.ocupado} disabled={props.ocupado} onClick={() => props.aoAvancar(acao.para)}>
                     {props.ocupado ? "Salvando..." : acao.rotulo}
                     {!props.ocupado && <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />}
                   </Botao>
@@ -378,6 +385,64 @@ export function DetalhePedido(props: {
           </AnimatePresence>
         </footer>
       </motion.aside>
+    </div>
+  );
+}
+
+/**
+ * QR da tela do motoboy (<painel>/entrega/<pedido>), o mesmo do cupom: serve
+ * quando a impressora não está disponível. Usa o endereço em que o painel está
+ * aberto (pelo túnel/domínio, o celular do motoboy alcança; localhost não).
+ */
+function QrEntrega({ pedidoId }: { pedidoId: string }) {
+  const [aberto, setAberto] = useState(false);
+  const [imagem, setImagem] = useState<string | null>(null);
+  const [url, setUrl] = useState("");
+  const [local, setLocal] = useState(false);
+
+  useEffect(() => {
+    if (!aberto) return;
+    const endereco = `${window.location.origin}/entrega/${pedidoId}`;
+    setUrl(endereco);
+    setLocal(/^(localhost|127\.0\.0\.1|\[::1\])$/.test(window.location.hostname));
+    let vivo = true;
+    QRCode.toDataURL(endereco, { width: 480, margin: 2, errorCorrectionLevel: "M" })
+      .then((d) => vivo && setImagem(d))
+      .catch(() => vivo && setImagem(null));
+    return () => {
+      vivo = false;
+    };
+  }, [aberto, pedidoId]);
+
+  if (!aberto) {
+    return (
+      <Botao variante="secundario" className="w-full" onClick={() => setAberto(true)}>
+        <QrCode className="size-4" /> Mostrar QR da entrega
+      </Botao>
+    );
+  }
+  return (
+    <div className="space-y-2.5 rounded-xl bg-zinc-50/70 p-3.5 text-center ring-1 ring-zinc-200/70 ring-inset">
+      {imagem ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={imagem} alt="QR Code da entrega" className="mx-auto size-56 rounded-lg bg-white" />
+      ) : (
+        <div className="mx-auto size-56 animate-pulse rounded-lg bg-zinc-200/70" />
+      )}
+      <p className="text-[12.5px] text-zinc-500">O motoboy escaneia com o celular para iniciar e concluir a entrega.</p>
+      {local && (
+        <p className="rounded-lg bg-amber-50 px-3 py-2 text-left text-[12.5px] text-amber-900 ring-1 ring-amber-200/70 ring-inset">
+          O painel está aberto em <b>localhost</b>: o celular do motoboy não alcança esse endereço. Abra o painel pelo endereço público (túnel ou domínio) para o QR funcionar.
+        </p>
+      )}
+      <div className="flex justify-center gap-2">
+        <a href={url} target="_blank" rel="noreferrer" className={estiloLinkSutil}>
+          <ArrowUpRight className="size-3.5" /> Abrir link
+        </a>
+        <button type="button" onClick={() => setAberto(false)} className={estiloLinkSutil}>
+          Esconder
+        </button>
+      </div>
     </div>
   );
 }

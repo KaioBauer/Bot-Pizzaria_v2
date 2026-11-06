@@ -9,6 +9,7 @@ export function mensagemStatusPedido(pedido: {
   status: StatusPedido;
   tipoEntrega: TipoEntrega;
   motivoCancelamento: string | null;
+  formaPagamento?: string | null;
 }): string | null {
   const n = `*#${pedido.numero}*`;
   switch (pedido.status) {
@@ -28,6 +29,8 @@ export function mensagemStatusPedido(pedido: {
       return [
         `❌ Seu pedido ${n} foi cancelado.`,
         pedido.motivoCancelamento ? `Motivo: ${pedido.motivoCancelamento}` : null,
+        // O estorno é automático (conferência do Pix); aqui não se sabe se chegou a pagar.
+        pedido.formaPagamento === "pix" ? "Se você já tinha pago pelo Pix, o valor é devolvido automaticamente." : null,
         "Se tiver qualquer dúvida, é só chamar por aqui.",
       ]
         .filter(Boolean)

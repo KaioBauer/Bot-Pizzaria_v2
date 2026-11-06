@@ -25,7 +25,9 @@ const dataHora = (iso: string) =>
   new Date(iso).toLocaleString("pt-BR", { timeZone: FUSO, day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" });
 const hora = (iso: string) => new Date(iso).toLocaleTimeString("pt-BR", { timeZone: FUSO, hour: "2-digit", minute: "2-digit" });
 
-function restante(iso: string, agora: number): string {
+/** Contagem até o vencimento; antes de montar no navegador (agora = null) mostra o horário, igual no servidor e no cliente. */
+function restante(iso: string, agora: number | null): string {
+  if (agora === null) return `às ${hora(iso)}`;
   const s = Math.max(0, Math.round((new Date(iso).getTime() - agora) / 1000));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
@@ -42,12 +44,13 @@ export function BancoSimulado({ inicial }: { inicial: Resposta<Extrato> }) {
   const [codigo, setCodigo] = useState("");
   const [pagador, setPagador] = useState("Cliente de teste");
   const [erro, setErro] = useState<string | null>(null);
-  const [agora, setAgora] = useState(() => Date.now());
+  const [agora, setAgora] = useState<number | null>(null);
   const [lendo, iniciar] = useTransition();
 
   const atualizar = useCallback(async () => setExtrato(await extratoAction()), []);
 
   useEffect(() => {
+    setAgora(Date.now());
     const t = setInterval(() => {
       setAgora(Date.now());
       if (document.visibilityState === "visible") void atualizar();
@@ -165,7 +168,7 @@ export function BancoSimulado({ inicial }: { inicial: Resposta<Extrato> }) {
                       <Botao type="button" variante="secundario" className="flex-1" onClick={() => void colarDaAreaDeTransferencia()}>
                         <ClipboardPaste className="size-4" /> Colar
                       </Botao>
-                      <Botao type="submit" className="flex-1" disabled={!codigo.trim() || lendo}>
+                      <Botao type="submit" className="flex-1" aria-busy={lendo} disabled={!codigo.trim() || lendo}>
                         {lendo ? <Loader2 className="size-4 animate-spin" /> : <QrCode className="size-4" />} Continuar
                       </Botao>
                     </div>
@@ -198,7 +201,7 @@ export function BancoSimulado({ inicial }: { inicial: Resposta<Extrato> }) {
                       <span className="text-[13px] font-medium text-zinc-700">Quem está pagando</span>
                       <input value={pagador} onChange={(e) => setPagador(e.target.value)} maxLength={60} className={estiloEntrada} disabled={etapa.tipo === "autorizando"} />
                     </label>
-                    <Botao tamanho="lg" variante="sucesso" className="w-full" disabled={etapa.tipo === "autorizando"} onClick={() => etapa.tipo === "confirmar" && void pagar(etapa)}>
+                    <Botao tamanho="lg" variante="sucesso" className="w-full" aria-busy={etapa.tipo === "autorizando"} disabled={etapa.tipo === "autorizando"} onClick={() => etapa.tipo === "confirmar" && void pagar(etapa)}>
                       {etapa.tipo === "autorizando" ? (
                         <>
                           <Loader2 className="size-4 animate-spin" /> Autorizando...
@@ -287,7 +290,7 @@ function Linha({ rotulo, valor, mono }: { rotulo: string; valor: string; mono?: 
   );
 }
 
-function ItemCobranca({ cobranca: c, agora, aoPagar }: { cobranca: CobrancaSimulada; agora: number; aoPagar: () => void }) {
+function ItemCobranca({ cobranca: c, agora, aoPagar }: { cobranca: CobrancaSimulada; agora: number | null; aoPagar: () => void }) {
   const status = STATUS[c.status];
   return (
     <li className="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-3.5 sm:px-6">

@@ -1,6 +1,6 @@
 "use client";
 
-import { ChartColumn, ClipboardList, MessagesSquare, Pizza, Search, Settings } from "lucide-react";
+import { ChartColumn, ClipboardList, MessagesSquare, Pizza, Printer, Search, Settings } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -14,7 +14,8 @@ export const ITENS_MENU = [
   { href: "/admin/conversas", rotulo: "Conversas", Icone: MessagesSquare, atalho: "G C" },
   { href: "/admin/cardapio", rotulo: "Cardápio", Icone: Pizza, atalho: "G M" },
   { href: "/admin/relatorios", rotulo: "Relatórios", Icone: ChartColumn, atalho: "G R" },
-  { href: "/admin/configuracoes", rotulo: "Configurações", Icone: Settings, atalho: "G S" },
+  { href: "/admin/impressao", rotulo: "Impressão", Icone: Printer, atalho: "G I" },
+  { href: "/admin/configuracoes", rotulo: "Configurações", curto: "Ajustes", Icone: Settings, atalho: "G S" },
 ] as const;
 
 function ativo(pathname: string, href: string) {
@@ -32,7 +33,7 @@ function Selo({ href, flutuante }: { href: string; flutuante?: boolean }) {
       transition={{ type: "spring", stiffness: 500, damping: 20 }}
       className={cn(
         "flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-marca-600 px-1 text-[10.5px] font-semibold text-white tabular",
-        flutuante ? "absolute top-1 right-1/2 translate-x-4" : "md:absolute md:top-0.5 md:right-0.5 lg:static lg:ml-auto"
+        flutuante ? "absolute top-1 right-1/2 translate-x-4" : "relative md:absolute md:top-0.5 md:right-0.5 lg:relative lg:top-auto lg:right-auto lg:ml-auto"
       )}
     >
       {pendentes}
@@ -97,23 +98,24 @@ export function MenuInferior() {
   const pathname = usePathname();
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-zinc-200/70 bg-white/85 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden"
+      className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-6 border-t border-zinc-200/70 bg-white/85 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden"
       aria-label="Menu do painel"
     >
-      {ITENS_MENU.map(({ href, rotulo, Icone }) => {
+      {ITENS_MENU.map((item) => {
+        const { href, rotulo, Icone } = item;
         const atual = ativo(pathname, href);
         return (
           <Link
             key={href}
             href={href}
             aria-current={atual ? "page" : undefined}
-            className={cn("relative flex flex-col items-center gap-1 py-2 text-[10.5px] font-medium", atual ? "text-zinc-900" : "text-zinc-400")}
+            className={cn("relative flex min-w-0 flex-col items-center gap-1 py-2 text-[10.5px] font-medium", atual ? "text-zinc-900" : "text-zinc-400")}
           >
-            <span className="relative flex h-7 w-12 items-center justify-center">
+            <span className="relative flex h-7 w-11 max-w-full items-center justify-center">
               {atual && <motion.span layoutId="menu-inferior-ativo" className="absolute inset-0 rounded-full bg-zinc-100" transition={{ type: "spring", stiffness: 500, damping: 38 }} />}
               <Icone className={cn("relative size-[18px]", atual && "text-marca-600")} />
             </span>
-            {rotulo}
+            <span className="max-w-full truncate px-0.5">{"curto" in item ? item.curto : rotulo}</span>
             <Selo href={href} flutuante />
           </Link>
         );

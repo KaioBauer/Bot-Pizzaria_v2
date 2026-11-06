@@ -135,8 +135,20 @@ por injeção — por isso é testado com implementações em memória (`core/sr
   impressos fora de `aguardando_pagamento`/`cancelado` e reimpressões; marca via RPC
   `marcar_pedido_impresso` só depois que a impressora aceitou (duplicar > perder). USB no Windows
   = RAW pelo spooler (`transporte/windows.ts`). Sem os VT do `cut()` da biblioteca (gastam papel).
+  Os `.ps1` do spooler são conferidos/recriados no TEMP antes de cada uso (a limpeza do Windows os apaga).
+  Tela `/admin/impressao` (`db/admin/impressao.ts`): mesma fila do agente; "Tirar da fila" marca como impresso
+  sem imprimir (RPC `marcar_pedido_impresso`, que o admin pode chamar) — útil antes de religar a impressora.
+  Mudou o print-agent: `pnpm --filter @pizzaria/print-agent build` e reiniciar o serviço (admin).
 - **Varreduras** (impressão, notificação) usam `execucaoUnica` do shared: nunca em paralelo,
   chamadas durante a execução geram uma repetição.
+- **Quadro de pedidos:** cartões arrastáveis entre raias (`pedidos/arrastar.tsx`, pointer events; no toque
+  segura ~0,3 s). `caminhoAteColuna` (`lib/quadro.ts`) anda pela máquina de status só para a frente (pula etapas
+  passando pelas do meio; nunca cancela). Detalhe do pedido de entrega tem "Mostrar QR da entrega" (mesmo link do
+  cupom, com o endereço em que o painel está aberto) para quando a impressora falhar.
+- **Botões com espera:** `aria-busy={pendente}` vira barra de progresso no próprio botão (CSS em `globals.css`;
+  `components/ui/progresso.tsx` completa a barra quando termina). Campos com fonte >= 16px no toque (iOS não dá zoom).
+- **/pedir:** sem animação de forno (a pizza vai direto para a sacola); evitar `backdrop-blur`/`blur` em camadas
+  fixas e números longos em `style` (erro de hidratação: `espalhar` arredonda). Tamanho da pizza em `svh`, não `dvh`.
 - **Next 16:** `proxy.ts` (não middleware), `cookies()`/`params` assíncronos, Tailwind 4.
   Docs da versão em `apps/web/node_modules/next/dist/docs/`.
 
@@ -170,8 +182,19 @@ por injeção — por isso é testado com implementações em memória (`core/sr
   `calcular_pedido` com sucesso (o modelo chegou a corromper IDs ao recopiar). Exige que nome,
   telefone, endereço, pagamento e troco tenham sido ditos pelo cliente (ou venham do canal/cadastro)
   **antes** desse resumo, e que a última mensagem do cliente depois dele confirme ("sim", 👍...).
-  `calcular_pedido` avisa o modelo quando itens da cotação anterior sumiram. Simular conversa com o
-  modelo real: script com `repositoriosEmMemoria` + `criarRepositorios(...).cardapio` (só leitura).
+  `calcular_pedido` avisa o modelo quando itens da cotação anterior sumiram. Outras travas: resumo com
+  total/pedido de confirmação sem `calcular_pedido` com sucesso na rodada volta com a ferramenta
+  **obrigatória** (`forcarTool` → `tool_choice`); pedir telefone já conhecido pelo WhatsApp volta para
+  correção (e `finalizar_pedido` usa o número do chat se o modelo omitir); resposta vazia ganha nova
+  tentativa. Simular conversa com o modelo real (nada é gravado): `pnpm simular roteiro.json`
+  (`apps/bot/scripts/simular.ts`, roteiro `{ "telefone", "mensagens": [...], "repetir" }`).
+- **IDs curtos para o modelo** (`agente/codigos.ts`): o `gpt-5.4-mini` corrompe UUIDs (acerta o começo).
+  O cardápio e os bairros vão com o prefixo de 8 caracteres (alonga se colidir); o agente expande os
+  argumentos de `calcular_pedido`/`finalizar_pedido` antes de gravar no histórico e executar, e um UUID
+  com o fim inventado é recuperado pelo começo. O sabor vale pela variação (`produto_id` é corrigido).
+- **Prompt dinâmico:** a seção "Como o cliente pode pedir" só entra com `pedido_link_ativo` e loja
+  aberta; com número do WhatsApp, "telefone" sai dos passos; pedidos das últimas 12 h vão na seção
+  Cliente (a conversa encerra ao finalizar); loja pausada é "PAUSADA" sem horário de volta.
 - **Web sem service_role:** todo acesso do painel usa a sessão do admin (RLS); cardápio público
   usa anon (`lib/supabase/publico.ts`). Fotos no bucket `produtos` (escrita só admin).
 - **Relatórios:** views `relatorio_vendas_diarias` e `relatorio_produtos_vendidos` com

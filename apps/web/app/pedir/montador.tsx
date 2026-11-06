@@ -11,12 +11,9 @@ import {
   CAMADAS_BASE,
   ehDoce,
   escalaDoTamanho,
-  Flutuantes,
-  IMAGENS_CENARIO,
   miniaturaDoSabor,
   Palco,
   TotalAnimado,
-  useFlutuantes,
   usePrecarregar,
   vibrar,
   visuaisDoSabor,
@@ -240,7 +237,6 @@ export function Montador({
   const [categoria, setCategoria] = useState<string | null>(null);
   const [assando, setAssando] = useState(false);
   const [conquista, setConquista] = useState(false);
-  const { flutuantes, mostrar } = useFlutuantes();
 
   const tamanhoAtual = tamanhos.find((t) => t.nome === estado.tamanho) ?? tamanhos[0];
   const indiceTamanho = tamanhoAtual ? tamanhos.indexOf(tamanhoAtual) : 0;
@@ -251,8 +247,6 @@ export function Montador({
   // Pré-carrega as camadas: as dos ingredientes já; as dos sabores quando o navegador estiver ocioso.
   usePrecarregar([...catalogo.ingredientes.map((i) => camadasIngredientes.get(i.id)?.visuais[0]?.url), ...Object.values(catalogo.camadasBorda)]);
   usePrecarregar(Object.values(VISUAIS).flatMap((v) => [v.url, v.assadaUrl]), true);
-  // Forno, pá e caixa: prontos antes do primeiro "Adicionar".
-  usePrecarregar(IMAGENS_CENARIO, true);
 
   /** Fatias efetivas: no modo livre, o sabor é o "Monte a sua". */
   const fatiasDoEstado = (e: Estado) => (e.modo === "livre" ? [livre?.id ?? null] : e.fatias);
@@ -288,10 +282,9 @@ export function Montador({
   };
   const totalCentavos = unitario(estado) * estado.quantidade;
 
-  /** Aplica a mudança e mostra o "+R$" do que ela acrescentou. */
+  /** Aplica a mudança com o som de pôr ou tirar algo da pizza. */
   function alterar(novo: Estado) {
     const delta = unitario(novo) - unitario(estado);
-    if (delta > 0) mostrar(delta);
     tocar(delta < 0 ? "sai" : "pop");
     setEstado(novo);
   }
@@ -391,7 +384,7 @@ export function Montador({
   function adicionar() {
     if (!previa?.ok || assando) return;
     vibrar(20);
-    tocar("forno");
+    tocar("pop");
     setAssando(true);
   }
 
@@ -428,7 +421,7 @@ export function Montador({
       </div>
 
       {/* Palco fixo: o cliente vê cada ingrediente cair enquanto rola a lista. */}
-      <div className="sticky top-16 z-20 -mx-4 bg-[#f6f3ee]/95 px-4 pt-3 pb-2 backdrop-blur-xl">
+      <div className="sticky top-16 z-20 -mx-4 bg-[#f6f3ee] px-4 pt-3 pb-2 [transform:translateZ(0)]">
         <div
           className="grid gap-1 rounded-2xl bg-white p-1 shadow-[0_1px_3px_rgb(0_0_0/0.06)]"
           style={{ gridTemplateColumns: `repeat(${Math.max(1, tamanhos.length)}, minmax(0, 1fr))` }}
@@ -454,7 +447,7 @@ export function Montador({
           })}
         </div>
 
-        <div className="relative mx-auto mt-4 mb-3 w-[min(70vw,34dvh,320px)]">
+        <div className="relative mx-auto mt-4 mb-3 w-[min(70vw,34svh,320px)]">
           <Palco
             escala={escalaDoTamanho(indiceTamanho, tamanhos.length)}
             fatias={fatiasVisuais}
@@ -466,11 +459,9 @@ export function Montador({
             ingredientes={ingredientesVisuais}
             borda={borda}
             bases={bases}
-            fatiasCorte={tamanhoAtual?.fatias ?? 8}
             assar={assando}
             alvoId={alvoCarrinho}
             aoTerminar={aoSairDoForno}
-            sobreposicao={<Flutuantes itens={flutuantes} />}
           />
           <AnimatePresence>
             {conquista && (
@@ -484,7 +475,7 @@ export function Montador({
                   role="status"
                 >
                   <Sparkles className="mx-auto size-6 text-amber-500" />
-                  <p className="text-lg font-extrabold tracking-tight">Saiu do forno!</p>
+                  <p className="text-lg font-extrabold tracking-tight">Pizza adicionada!</p>
                   <p className="text-sm text-stone-500">Pizza na sacola 🍕</p>
                 </motion.div>
               </motion.div>
@@ -591,7 +582,7 @@ export function Montador({
       </Secao>
 
       {/* Rodapé fixo: um polegar só */}
-      <div className="fixed inset-x-0 bottom-0 z-30 bg-white/95 shadow-[0_-10px_30px_-18px_rgb(0_0_0/0.35)] backdrop-blur-xl">
+      <div className="fixed inset-x-0 bottom-0 z-30 bg-white shadow-[0_-10px_30px_-18px_rgb(0_0_0/0.35)] [transform:translateZ(0)]">
         <div className="mx-auto flex max-w-lg items-center gap-3 px-4 pt-3 pb-[max(0.875rem,env(safe-area-inset-bottom))]">
           <div className="flex h-14 items-center rounded-2xl bg-stone-100">
             <button
@@ -618,12 +609,12 @@ export function Montador({
             whileTap={{ scale: 0.97 }}
             onClick={adicionar}
             disabled={!previa?.ok || assando}
-            className="relative flex h-14 flex-1 items-center justify-between gap-2 overflow-hidden rounded-2xl bg-marca-600 px-5 font-bold text-white shadow-[0_12px_24px_-12px_rgb(201_53_26/0.9)] transition disabled:bg-stone-300 disabled:shadow-none"
+            className="relative flex h-14 flex-1 items-center justify-between gap-2 overflow-hidden rounded-2xl bg-marca-600 px-4 font-bold sm:px-5 text-white shadow-[0_12px_24px_-12px_rgb(201_53_26/0.9)] transition disabled:bg-stone-300 disabled:shadow-none"
           >
             {mensagemBotao ? (
               <>
-                <span className="truncate text-sm">{mensagemBotao}</span>
-                {livreModo && !completo && <span className="text-sm opacity-90 tabular">{formatarReais(totalCentavos)}</span>}
+                <span className="line-clamp-2 min-w-0 text-left text-[13px] leading-tight sm:text-sm">{mensagemBotao}</span>
+                {livreModo && !completo && <span className="shrink-0 text-sm whitespace-nowrap opacity-90 tabular">{formatarReais(totalCentavos)}</span>}
               </>
             ) : (
               <>

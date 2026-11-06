@@ -1,18 +1,15 @@
 "use client";
 
-import { Bike, Check, Copy, PackageCheck, PartyPopper, Receipt, XCircle } from "lucide-react";
+import { Bike, Check, Copy, PackageCheck, PartyPopper, Pizza as PizzaIcone, Receipt, XCircle } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { formatarReais, paraCentavos } from "@pizzaria/shared";
-import { Pizza, VISUAIS, type Camada } from "../../../../components/pizza-builder";
 import { cn } from "../../../../components/ui";
 import { acompanharAction, type Acompanhamento as Dados } from "../../actions";
 
 const INTERVALO_MS = 5000;
 
-/** Pizza ilustrativa da cena "preparando": calabresa e orégano (molho e queijo vêm na base). */
-const PIZZA_DA_CENA: Camada[] = (["calabresa", "oregano"] as const).map((chave) => ({ chave, nome: chave, visuais: [VISUAIS[chave]!] }));
 const FINAIS = new Set(["concluido", "cancelado"]);
 
 type Etapa = { chave: string; rotulo: string };
@@ -43,23 +40,8 @@ function posicao(status: string): number {
   }
 }
 
-/**
- * Não existe status "no forno": durante em_preparo a cena alterna entre a
- * pizza sendo montada e a pizza no forno, só como animação.
- */
-function useFornoAlternado(ativo: boolean) {
-  const [forno, setForno] = useState(false);
-  useEffect(() => {
-    if (!ativo) return;
-    const id = setInterval(() => setForno((f) => !f), 4500);
-    return () => clearInterval(id);
-  }, [ativo]);
-  return ativo && forno;
-}
-
 function Cena({ status, tipo }: { status: string; tipo: Dados["tipo_entrega"] }) {
   const reduzido = useReducedMotion() ?? false;
-  const forno = useFornoAlternado(status === "em_preparo" && !reduzido);
   const loop = (duracao: number) => (reduzido ? { duration: 0 } : { duration: duracao, repeat: Infinity, ease: "easeInOut" as const });
 
   if (status === "aguardando_pagamento") return null;
@@ -91,20 +73,22 @@ function Cena({ status, tipo }: { status: string; tipo: Dados["tipo_entrega"] })
         <Receipt className="mx-auto size-24 text-stone-700" />
       </motion.div>
     );
-  // em_preparo: pizza sendo montada e depois "no forno" (brilho quente e massa assada).
+  // em_preparo: ícone de pizza com fumacinha subindo, em loop (mesmo estilo dos outros status).
   return (
-    <div className="relative mx-auto w-44">
-      {forno && (
-        <motion.div
-          className="absolute inset-[-12%] rounded-full bg-[radial-gradient(circle,rgb(255_140_40/0.55),transparent_70%)]"
-          animate={reduzido ? {} : { opacity: [0.5, 1, 0.5], scale: [0.95, 1.05, 0.95] }}
-          transition={loop(1.2)}
-        />
-      )}
-      <motion.div animate={reduzido || forno ? {} : { rotate: [0, 360] }} transition={reduzido ? { duration: 0 } : { duration: 12, repeat: Infinity, ease: "linear" }}>
-        <Pizza escala={1} fatias={[]} ingredientes={PIZZA_DA_CENA} borda={null} assada={forno} />
+    <div className="relative mx-auto w-fit pt-6">
+      <div className="absolute inset-x-0 top-0 flex justify-center gap-3" aria-hidden>
+        {[0, 1, 2].map((i) => (
+          <motion.span
+            key={i}
+            className="block h-6 w-1.5 rounded-full bg-stone-300"
+            animate={reduzido ? { opacity: 0.6 } : { y: [6, -10], opacity: [0, 0.9, 0] }}
+            transition={reduzido ? { duration: 0 } : { duration: 1.8, delay: i * 0.6, repeat: Infinity, ease: "easeOut" }}
+          />
+        ))}
+      </div>
+      <motion.div animate={reduzido ? {} : { scale: [1, 1.04, 1] }} transition={loop(1.8)}>
+        <PizzaIcone className="size-24 text-marca-600" />
       </motion.div>
-      <p className="mt-2 text-center text-xs text-stone-500">{forno ? "No forno 🔥" : tipo === "entrega" ? "Preparando para entregar..." : "Preparando sua pizza..."}</p>
     </div>
   );
 }

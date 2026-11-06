@@ -4,15 +4,18 @@ import {
   descreverErrosZod,
   finalizarPedidoArgsSchema,
   formatarReais,
+  ROTULO_PAGAMENTO,
   ROTULO_STATUS,
   type Canal,
   type CategoriaCardapio,
   type ClienteConhecido,
   type ConfiguracaoLoja,
+  type FormaPagamento,
   type ItemPedidoArgs,
   type MensagemConversa,
   type NovoPedido,
   type Repositorios,
+  type StatusPedido,
   type TipoEntrega,
 } from "@pizzaria/shared";
 import { momentoLocal, type SituacaoLoja } from "../horario";
@@ -22,6 +25,7 @@ import { descreverValores, montarNovoPedido } from "../pedido";
 import type { CobrancaCriada } from "../pagamentos/gateway";
 import type { ServicoPix } from "../pagamentos/pix";
 import { cotarPedido, idsDeVariacao, type Cotacao, type ResultadoCotacao } from "../precificacao";
+import { montarCodigos } from "./codigos";
 import { conferirDadosCliente, confirmaResumo, itensQueSairam, ultimaCotacao } from "./verificacao";
 
 export const TOOL = {
@@ -178,6 +182,14 @@ function errosCotacao(erros: string[]): ResultadoTool {
   });
 }
 
+/** Situação do pagamento para o cliente: Pix só sai de "aguardando pagamento" depois de pago. */
+function descreverPagamento(forma: FormaPagamento, status: StatusPedido, tipo: TipoEntrega): string {
+  if (forma !== "pix") return `${ROTULO_PAGAMENTO[forma]}, pago na ${tipo}`;
+  if (status === "aguardando_pagamento") return "Pix ainda não pago";
+  if (status === "cancelado") return "Pix (pedido cancelado; se pagou, o valor é devolvido)";
+  return "Pix pago e confirmado";
+}
+
 function lerArgumentos(bruto: string): unknown {
   try {
     return bruto ? JSON.parse(bruto) : {};
@@ -197,15 +209,17 @@ export async function executarTool(
   switch (nome) {
     case TOOL.consultarCardapio: {
       const categorias = await ctx.cardapio();
+      // IDs curtos: o modelo copia bem o começo e erra o resto de um UUID (ver codigos.ts).
+      const codigos = montarCodigos(categorias, ctx.config.bairros);
       return json({
         categorias: categorias.map((categoria) => ({
           categoria: categoria.nome,
           produtos: categoria.produtos.map((produto) => ({
-            produto_id: produto.id,
+            produto_id: codigos.produtos.get(produto.id) ?? produto.id,
             nome: produto.nome,
             descricao: produto.descricao,
             variacoes: produto.variacoes.map((v) => ({
-              variacao_id: v.id,
+              variacao_id: codigos.variacoes.get(v.id) ?? v.id,
               nome: v.nome,
               tipo: v.tipo,
               preco: formatarReais(v.precoCentavos),
@@ -240,7 +254,9 @@ export async function executarTool(
     case TOOL.finalizarPedido: {
       const fechada = lojaFechada(ctx);
       if (fechada) return fechada;
-      const args = finalizarPedidoArgsSchema.safeParse(argumentos);
+      // No WhatsApp o telefone é o número do próprio chat: o modelo não precisa repeti-lo.
+      const semTelefone = ctx.telefoneCanal && argumentos && typeof argumentos === "object" && !(argumentos as { cliente_telefone?: unknown }).cliente_telefone;
+      const args = finalizarPedidoArgsSchema.safeParse(semTelefone ? { ...argumentos, cliente_telefone: ctx.telefoneCanal } : argumentos);
       if (!args.success) return erro(`Dados inválidos: ${descreverErrosZod(args.error)}`);
       if (args.data.forma_pagamento === "pix" && !ctx.pix) {
         return erro("Pix online não está disponível no momento; ofereça dinheiro ou cartão na entrega.");
@@ -267,11 +283,15 @@ export async function executarTool(
       const semOrigem = conferirDadosCliente(pedidoArgs, { ...fontesCliente, mensagens: cotacaoMostrada.antes });
       if (semOrigem.length) {
         const ditoDepois = conferirDadosCliente(pedidoArgs, { ...fontesCliente, mensagens: ctx.mensagens() }).length === 0;
-        return erro(
-          ditoDepois
-            ? "Pedido NÃO registrado: o cliente passou dados (pagamento, troco, nome ou endereço) depois do resumo. Chame calcular_pedido agora, nesta mesma resposta (com o pedido inteiro), mostre o resumo final com todos os dados e peça confirmação."
-            : `Pedido NÃO registrado. ${semOrigem.join(" ")}`
-        );
+        if (!ditoDepois) return erro(`Pedido NÃO registrado. ${semOrigem.join(" ")}`);
+        // Caso comum: o resumo foi feito antes de o cliente dizer entrega/pagamento/nome.
+        // Não é falha técnica: basta refazer a cotação com os dados atuais.
+        const entrega = args.data.endereco ? "entrega" : tipo_entrega;
+        return json({
+          sucesso: false,
+          erro: "Pedido NÃO registrado: o cliente passou dados (entrega, pagamento, troco, nome ou endereço) depois do resumo, então o total mostrado pode estar errado. Isto não é falha técnica: não chame atendente. Chame calcular_pedido agora, nesta mesma resposta, com os argumentos de refazer_calculo, mostre o novo resumo com todos os dados e peça confirmação.",
+          refazer_calculo: { itens, tipo_entrega: entrega, bairro_id: entrega === "entrega" ? (args.data.endereco?.bairro_id ?? bairro_id ?? null) : null },
+        });
       }
       if (!confirmaResumo(cotacaoMostrada.respostas)) {
         return erro(
@@ -332,6 +352,7 @@ export async function executarTool(
           status: ROTULO_STATUS[p.status],
           tipo: p.tipoEntrega,
           total: formatarReais(p.totalCentavos),
+          ...(p.formaPagamento ? { pagamento: descreverPagamento(p.formaPagamento, p.status, p.tipoEntrega) } : {}),
           feito_em: momentoLocal(new Date(p.criadoEm), ctx.config.fusoHorario).texto,
         })),
       });
