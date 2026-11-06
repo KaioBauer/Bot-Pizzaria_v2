@@ -5,7 +5,7 @@ import { listarEntregadores, listarTamanhos, obterConfiguracaoAdmin } from "@piz
 import { Landmark } from "lucide-react";
 import { BotaoLink, CabecalhoPagina } from "../../../../components/ui";
 import { exigirAdmin } from "../../../../lib/auth";
-import { SecaoEntregadores } from "./entregadores";
+import { SecaoUsuarios } from "./usuarios";
 import { SecaoWhatsapp } from "./whatsapp";
 import { FormBairros, FormHorarios, FormLoja, FormPedidoLink, FormTamanhos } from "./formularios";
 
@@ -24,7 +24,7 @@ async function origemPublica(): Promise<string> {
 }
 
 export default async function ConfiguracoesPage() {
-  const { supabase } = await exigirAdmin();
+  const { supabase, usuarioId } = await exigirAdmin();
   const inicioDoDia = new Date();
   inicioDoDia.setHours(0, 0, 0, 0);
   const linkPedido = `${await origemPublica()}/pedir`;
@@ -39,7 +39,7 @@ export default async function ConfiguracoesPage() {
     <main className="mx-auto max-w-6xl space-y-8 p-4 sm:p-8">
       <CabecalhoPagina
         titulo="Configurações"
-        descricao="Como a pizzaria funciona: WhatsApp, dados, pedido pelo link, horários, tamanhos, entrega e motoboys."
+        descricao="Como a pizzaria funciona: WhatsApp, dados, pedido pelo link, horários, tamanhos, entrega e usuários."
         acoes={
           <BotaoLink href="/admin/pix" variante="secundario" tamanho="sm">
             <Landmark className="size-3.5" /> Banco simulado (Pix)
@@ -52,7 +52,7 @@ export default async function ConfiguracoesPage() {
       <FormHorarios inicial={horarios} />
       <FormTamanhos inicial={tamanhos} />
       <FormBairros inicial={bairros} />
-      <SecaoEntregadores entregadores={entregadores} />
+      <SecaoUsuarios meuId={usuarioId} entregadores={entregadores} />
     </main>
   );
 }

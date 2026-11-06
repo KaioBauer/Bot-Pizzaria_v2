@@ -213,7 +213,6 @@ export function Montador({
   editando,
   alvoCarrinho,
   aoAdicionar,
-  tocar,
 }: {
   /** Montar do zero ou sabores da casa (a página troca e remonta o componente). */
   modo: Modo;
@@ -223,7 +222,6 @@ export function Montador({
   /** id do ícone do carrinho (destino da pizza voando). */
   alvoCarrinho: string;
   aoAdicionar: (item: ItemPedidoLinkArgs) => void;
-  tocar: (som: "pop" | "sai" | "forno" | "sucesso") => void;
 }) {
   const produtos = useMemo(() => new Map(catalogo.pizzas.map((p) => [p.id, p])), [catalogo.pizzas]);
   const livre = catalogo.pizzas.find((p) => p.montagemLivre);
@@ -282,10 +280,7 @@ export function Montador({
   };
   const totalCentavos = unitario(estado) * estado.quantidade;
 
-  /** Aplica a mudança com o som de pôr ou tirar algo da pizza. */
   function alterar(novo: Estado) {
-    const delta = unitario(novo) - unitario(estado);
-    tocar(delta < 0 ? "sai" : "pop");
     setEstado(novo);
   }
 
@@ -384,13 +379,11 @@ export function Montador({
   function adicionar() {
     if (!previa?.ok || assando) return;
     vibrar(20);
-    tocar("pop");
     setAssando(true);
   }
 
   function aoSairDoForno() {
     aoAdicionar(item);
-    tocar("sucesso");
     vibrar(30);
     setAssando(false);
     setConquista(true);

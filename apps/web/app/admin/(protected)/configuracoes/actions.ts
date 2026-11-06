@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import {
   definirAceitandoPedidos,
-  definirEntregadorAtivo,
   salvarBairros,
   salvarConfiguracao,
   salvarConfiguracaoPedidoLink,
@@ -117,14 +116,6 @@ export async function salvarBairrosAction(entrada: z.input<typeof bairrosSchema>
 export async function salvarTamanhosAction(entrada: z.input<typeof tamanhosSchema>) {
   const { supabase } = await exigirAdmin();
   return executar(tamanhosSchema, entrada, (d) => salvarTamanhos(supabase, d));
-}
-
-export async function alternarEntregadorAction(formData: FormData) {
-  const { supabase } = await exigirAdmin();
-  const id = z.uuid().safeParse(formData.get("id"));
-  if (!id.success) return;
-  await definirEntregadorAtivo(supabase, id.data, formData.get("ativo") === "true");
-  revalidatePath("/admin/configuracoes");
 }
 
 /** "Pausar pedidos" / "Voltar a receber": chave rápida do topo do painel. */

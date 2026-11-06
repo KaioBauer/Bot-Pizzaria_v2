@@ -81,7 +81,7 @@ por injeção — por isso é testado com implementações em memória (`core/sr
   aviso (resposta vazia = bot não envia nem mostra "digitando"). Só volta pelo botão "Devolver
   para a IA". Respostas do painel vão para `mensagens_atendente` (outbox; o bot envia e grava no
   histórico com autor "atendente"); inserir ali já pausa a IA (trigger). Tela `/admin/conversas`;
-  aviso sonoro + selo no menu em todo o painel (`components/painel/atendimento.tsx`).
+  aviso visual (faixa) + selo no menu em todo o painel (`components/painel/atendimento.tsx`). Sem som em lugar nenhum (pedido do dono).
 - **Entregas (motoboy):** papel `entregador` + tabela `entregadores` (`pnpm usuario entregador
   email "Nome"`). Cupom de entrega sai com QR para `<PAINEL_URL>/entrega/<pedido>` (imagem
   raster, funciona em térmica genérica). O motoboy só usa RPCs (`entrega_detalhe`,
@@ -122,7 +122,10 @@ por injeção — por isso é testado com implementações em memória (`core/sr
 
 - **Papéis** em `auth.users.app_metadata.papel` (`admin`, `impressora`), checados no RLS por
   `eh_admin()`/`eh_impressora()` e no painel por `exigirAdmin()`. Logado sem papel = sem acesso.
-  Criar com `pnpm usuario admin <email>` / `pnpm usuario impressora`.
+  Criar com `pnpm usuario admin <email>` / `pnpm usuario impressora`, ou pelo painel: Configurações →
+  Usuários e acessos (admin e motoboy; `apps/bot/src/admin-usuarios.ts`, rotas `/admin/usuarios` com JWT admin —
+  o web não tem service_role). Desativar = ban no Auth (+ `entregadores.ativo=false`), nunca apaga; não deixa
+  desativar a si mesmo nem o último admin; o usuário `impressora` é do sistema.
 - **Painel** usa a sessão do usuário (RLS) — assim o histórico de status registra quem mudou.
   service_role no web só em `lib/db.ts` (telas antigas de cardápio). Mudança de status valida a
   máquina de status e faz update condicional (`.eq("status", de)`) contra edição concorrente.

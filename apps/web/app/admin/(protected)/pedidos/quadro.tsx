@@ -1,19 +1,18 @@
 "use client";
 
-import { Bell, BellRing, Bike, CircleAlert, Flame, History, Hourglass, Inbox, Wifi, WifiOff, X } from "lucide-react";
+import { Bell, Bike, CircleAlert, Flame, History, Hourglass, Inbox, Wifi, WifiOff, X } from "lucide-react";
 import { animate, AnimatePresence, LayoutGroup, motion, useReducedMotion } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { listarPedidosPainel, obterPedidoPainel, type PedidoPainel } from "@pizzaria/db";
 import { formatarReais, ROTULO_STATUS, type StatusPedido } from "@pizzaria/shared";
 import { useAvisos } from "../../../../components/painel/avisos";
 import { Botao, cn } from "../../../../components/ui";
-import { ativarSom, somAtivo, tocarAlerta } from "../../../../lib/alerta-sonoro";
 import { caminhoAteColuna, COLUNAS, colunaDoStatus, minutosDesde, type ColunaQuadro } from "../../../../lib/quadro";
 import { clienteNavegador } from "../../../../lib/supabase/navegador";
 import { alterarStatusAction, reimprimirAction, type ResultadoAcao } from "./actions";
 import { useArrastarPedidos } from "./arrastar";
 import { CartaoPedido } from "./cartao";
-import { JANELA_FINALIZADOS_MS, RECARGA_MS, REPETIR_ALERTA_MS } from "./constantes";
+import { JANELA_FINALIZADOS_MS, RECARGA_MS } from "./constantes";
 import { DetalhePedido } from "./detalhe";
 
 type Conexao = "conectando" | "conectado" | "instavel";
@@ -39,7 +38,6 @@ export function QuadroPedidos({ inicial }: { inicial: PedidoPainel[] }) {
   const [pedidos, setPedidos] = useState(() => new Map(inicial.map((p) => [p.id, p])));
   const [agora, setAgora] = useState(() => Date.now());
   const [conexao, setConexao] = useState<Conexao>("conectando");
-  const [somLiberado, setSomLiberado] = useState(false);
   const [vistos, setVistos] = useState<Set<string>>(() => new Set());
   const [selecionado, setSelecionado] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
@@ -156,20 +154,16 @@ export function QuadroPedidos({ inicial }: { inicial: PedidoPainel[] }) {
     [lista, vistos]
   );
 
-  // Alerta sonoro: ao chegar pedido novo e repetindo até alguém ver.
+  // Aviso visual ao chegar pedido novo (sem som) e contador no título da aba.
   const quantosNaoVistos = useRef(0);
   const { mostrar } = useAvisos();
   useEffect(() => {
     if (naoVistos.length > quantosNaoVistos.current) {
-      tocarAlerta();
       const ultimo = naoVistos[naoVistos.length - 1];
       if (ultimo) mostrar({ tom: "novo", titulo: `Novo pedido #${ultimo.numero}`, descricao: `${ultimo.clienteNome} · ${formatarReais(ultimo.totalCentavos)}` });
     }
     quantosNaoVistos.current = naoVistos.length;
     document.title = naoVistos.length ? `(${naoVistos.length}) Novo pedido!` : "Pedidos · Vianna Pizzaria";
-    if (!naoVistos.length) return;
-    const repetir = setInterval(tocarAlerta, REPETIR_ALERTA_MS);
-    return () => clearInterval(repetir);
   }, [naoVistos.length]);
 
   const marcarVisto = useCallback((id: string) => {
@@ -267,15 +261,6 @@ export function QuadroPedidos({ inicial }: { inicial: PedidoPainel[] }) {
           </p>
         </div>
         <StatusConexao conexao={conexao} />
-        {!somLiberado ? (
-          <Botao variante="secundario" tamanho="sm" onClick={async () => setSomLiberado((await ativarSom()) || somAtivo())}>
-            <BellRing className="size-3.5" /> Ativar som
-          </Botao>
-        ) : (
-          <span className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[13px] font-medium text-zinc-500">
-            <Bell className="size-3.5" /> Som ativo
-          </span>
-        )}
         <Botao variante={mostrarFinalizados ? "escuro" : "secundario"} tamanho="sm" onClick={() => setMostrarFinalizados((v) => !v)}>
           <History className="size-3.5" /> Finalizados <span className="opacity-60 tabular">{finalizados.length}</span>
         </Botao>

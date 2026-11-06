@@ -1,7 +1,7 @@
 "use client";
 
 import { animate, useReducedMotion } from "motion/react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { formatarReais } from "@pizzaria/shared";
 
 /** Pré-carrega imagens (camadas) para a queda não piscar ao tocar. */
@@ -51,62 +51,4 @@ export function TotalAnimado({ centavos, className }: { centavos: number; classN
       {formatarReais(centavos)}
     </span>
   );
-}
-
-/** Som curto sintetizado (sem arquivo). Só toca se o cliente ligou o som. */
-export function usarSom(ligado: boolean) {
-  const contexto = useRef<AudioContext | null>(null);
-  return useCallback(
-    (tipo: "pop" | "sai" | "forno" | "sucesso") => {
-      if (!ligado || typeof window === "undefined") return;
-      try {
-        contexto.current ??= new AudioContext();
-        const ctx = contexto.current;
-        const notas: Record<typeof tipo, [number, number, number][]> = {
-          pop: [[520, 880, 0.09]],
-          sai: [[700, 300, 0.12]],
-          forno: [[120, 90, 0.5]],
-          sucesso: [
-            [523, 523, 0.1],
-            [659, 659, 0.1],
-            [784, 784, 0.18],
-          ],
-        };
-        let inicio = ctx.currentTime;
-        for (const [de, para, duracao] of notas[tipo]) {
-          const osc = ctx.createOscillator();
-          const ganho = ctx.createGain();
-          osc.type = tipo === "forno" ? "sawtooth" : "sine";
-          osc.frequency.setValueAtTime(de, inicio);
-          osc.frequency.exponentialRampToValueAtTime(para, inicio + duracao);
-          ganho.gain.setValueAtTime(tipo === "forno" ? 0.03 : 0.12, inicio);
-          ganho.gain.exponentialRampToValueAtTime(0.0001, inicio + duracao);
-          osc.connect(ganho).connect(ctx.destination);
-          osc.start(inicio);
-          osc.stop(inicio + duracao);
-          inicio += duracao * 0.9;
-        }
-      } catch {
-        // Sem áudio no navegador: segue em silêncio.
-      }
-    },
-    [ligado]
-  );
-}
-
-/** Preferência de som (desligado por padrão), lembrada por aparelho. */
-export function usePreferenciaSom(): [boolean, (v: boolean) => void] {
-  const [ligado, setLigado] = useState(false);
-  useEffect(() => {
-    try {
-      setLigado(localStorage.getItem("vianna:som") === "1");
-    } catch {}
-  }, []);
-  const alterar = useCallback((v: boolean) => {
-    setLigado(v);
-    try {
-      localStorage.setItem("vianna:som", v ? "1" : "0");
-    } catch {}
-  }, []);
-  return [ligado, alterar];
 }

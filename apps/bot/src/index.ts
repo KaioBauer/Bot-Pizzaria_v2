@@ -12,6 +12,7 @@ import { randomBytes } from "node:crypto";
 import { criarClienteServico, criarCobrancasSimuladasRepo, criarRepositorios } from "@pizzaria/db";
 import type { ChannelAdapter } from "./canais/tipos";
 import { criarAdaptadorWhatsapp } from "./canais/whatsapp";
+import { contasSupabase, identificarAdminSupabase, registrarAdminUsuarios } from "./admin-usuarios";
 import { registrarAdminWhatsapp, validarAdminSupabase } from "./admin-whatsapp";
 import { criarPreparadorMensagens } from "./audio";
 import { carregarConfig } from "./config";
@@ -161,6 +162,13 @@ registrarAdminWhatsapp({
     : null,
   validarAdmin: validarAdminSupabase(db),
   logger: logger.child({ modulo: "whatsapp-admin" }),
+});
+
+registrarAdminUsuarios({
+  servidor,
+  contas: contasSupabase(db),
+  identificarAdmin: identificarAdminSupabase(db),
+  logger: logger.child({ modulo: "usuarios-admin" }),
 });
 
 registrarBancoPixSimulado({

@@ -1,11 +1,10 @@
 "use client";
 
-import { BellRing, MessageSquareWarning } from "lucide-react";
+import { MessageSquareWarning } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { createContext, use, useEffect, useRef, useState, type ReactNode } from "react";
+import { createContext, use, useEffect, useState, type ReactNode } from "react";
 import { contarPrecisaAtencao } from "@pizzaria/db";
-import { ativarSom, somAtivo, tocarAlerta } from "../../lib/alerta-sonoro";
 import { clienteNavegador } from "../../lib/supabase/navegador";
 
 /**
@@ -19,7 +18,6 @@ export const usePendentesAtendimento = () => use(Contexto).pendentes;
 
 export function ProvedorAtendimento({ inicial, children }: { inicial: number; children: ReactNode }) {
   const [pendentes, setPendentes] = useState(inicial);
-  const anterior = useRef(inicial);
 
   useEffect(() => {
     const supabase = clienteNavegador();
@@ -29,8 +27,6 @@ export function ProvedorAtendimento({ inicial, children }: { inicial: number; ch
     const recontar = async () => {
       const total = await contarPrecisaAtencao(supabase).catch(() => null);
       if (total === null || cancelado) return;
-      if (total > anterior.current) tocarAlerta();
-      anterior.current = total;
       setPendentes(total);
     };
 
@@ -58,10 +54,6 @@ export function ProvedorAtendimento({ inicial, children }: { inicial: number; ch
 export function AvisoAtendimento() {
   const pendentes = usePendentesAtendimento();
   const pathname = usePathname();
-  const [som, setSom] = useState(true);
-  useEffect(() => {
-    setSom(somAtivo());
-  }, [pendentes]);
   if (pendentes === 0 || pathname.startsWith("/admin/conversas")) return null;
 
   return (
@@ -71,11 +63,6 @@ export function AvisoAtendimento() {
         <p className="flex-1 text-sm font-semibold">
           {pendentes === 1 ? "1 cliente precisa de atendimento" : `${pendentes} clientes precisam de atendimento`}
         </p>
-        {!som && (
-          <button type="button" onClick={async () => setSom(await ativarSom())} className="rounded-lg p-2 hover:bg-amber-400" title="Ativar som do aviso" aria-label="Ativar som do aviso">
-            <BellRing className="size-4" />
-          </button>
-        )}
         <Link href="/admin/conversas" className="rounded-xl bg-amber-950 px-3 py-2 text-sm font-bold text-white hover:bg-amber-900">
           Ver
         </Link>

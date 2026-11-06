@@ -1,12 +1,11 @@
 "use client";
 
-import { Bike, ChefHat, ChevronRight, CupSoda, Minus, Plus, ShoppingBag, Store, Volume2, VolumeX, Wand2 } from "lucide-react";
+import { Bike, ChefHat, ChevronRight, CupSoda, Minus, Plus, ShoppingBag, Store, Wand2 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import type { CatalogoPedir } from "@pizzaria/db";
 import { formatarReais, type ItemPedidoLinkArgs } from "@pizzaria/shared";
-import { usarSom, usePreferenciaSom } from "../../components/pizza-builder";
 import { cn, Logo } from "../../components/ui";
 import { FormularioPedido, ListaCarrinho, type InfoLoja } from "./checkout";
 import { Folha } from "./folha";
@@ -34,8 +33,6 @@ export function Pedir({ catalogo, loja }: { catalogo: CatalogoPedir; loja: InfoL
   const [aba, setAba] = useState<Aba>(livreId ? "livre" : "sabores");
   const [folha, setFolha] = useState<"carrinho" | "dados" | null>(null);
   const [editando, setEditando] = useState<ItemCarrinho | null>(null);
-  const [somLigado, setSomLigado] = usePreferenciaSom();
-  const tocar = usarSom(somLigado);
   const [pulo, setPulo] = useState(0);
 
   // Carrinho salvo no aparelho (sobrevive a recarregar a página).
@@ -69,7 +66,6 @@ export function Pedir({ catalogo, loja }: { catalogo: CatalogoPedir; loja: InfoL
   }
 
   function quantidadeOutro(produtoId: string, variacaoId: string, delta: number) {
-    tocar(delta > 0 ? "pop" : "sai");
     setItens((l) => {
       const atual = l.find((i) => i.item.sabores[0]?.variacao_id === variacaoId && i.item.sabores.length === 1 && !i.item.adicionais.length);
       if (!atual) {
@@ -106,15 +102,6 @@ export function Pedir({ catalogo, loja }: { catalogo: CatalogoPedir; loja: InfoL
               {status.texto}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => setSomLigado(!somLigado)}
-            className="flex size-10 items-center justify-center rounded-full text-stone-500 transition hover:bg-stone-100"
-            aria-label={somLigado ? "Desligar sons" : "Ligar sons"}
-            aria-pressed={somLigado}
-          >
-            {somLigado ? <Volume2 className="size-5" /> : <VolumeX className="size-5" />}
-          </button>
           <motion.button
             id={ALVO_CARRINHO}
             key={pulo}
@@ -192,7 +179,6 @@ export function Pedir({ catalogo, loja }: { catalogo: CatalogoPedir; loja: InfoL
             {...(editando ? { editando: editando.item } : {})}
             alvoCarrinho={ALVO_CARRINHO}
             aoAdicionar={adicionarPizza}
-            tocar={tocar}
           />
         ) : (
           <div className="pt-5 pb-32">
